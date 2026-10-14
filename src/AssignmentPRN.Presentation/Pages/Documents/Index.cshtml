@@ -1,0 +1,103 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Documents.IndexModel
+@{
+    ViewData["Title"] = "Quản lý tài liệu";
+}
+
+<div class="page-header">
+    <h1>Quản lý tài liệu</h1>
+    <a asp-page="Upload" asp-route-courseId="@Model.CourseId" class="btn btn-primary">
+        <i class="bi bi-upload"></i> Tải lên tài liệu mới
+    </a>
+</div>
+
+@if (Model.Error != null)
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (Model.Success != null)
+{
+    <div class="alert alert-success">@Model.Success</div>
+}
+
+<div class="card">
+    <div class="card-header">
+        <h5>Danh sách tài liệu</h5>
+    </div>
+    <div class="card-body">
+        @if (Model.Documents.Count == 0)
+        {
+            <p class="text-muted">Chưa có tài liệu nào. Nhấn "Tải lên tài liệu mới" để bắt đầu.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Tên file</th>
+                            <th>Loại</th>
+                            <th>Kích thước</th>
+                            <th>Trạng thái</th>
+                            <th>Số chunks</th>
+                            <th>Số câu hỏi</th>
+                            <th>Người tải lên</th>
+                            <th>Ngày tạo</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in Model.Documents)
+                        {
+                            <tr>
+                                <td>@doc.FileName</td>
+                                <td><span class="badge bg-secondary">@doc.ContentType</span></td>
+                                <td>@Model.FormatFileSize(doc.FileSize)</td>
+                                <td>
+                                    <span class="badge @Model.GetStatusBadgeClass(doc.Status)">
+                                        @Model.GetStatusText(doc.Status)
+                                    </span>
+                                </td>
+                                <td>@doc.ChunkCount</td>
+                                <td>@doc.QuestionCount</td>
+                                <td>@doc.UploadedByName</td>
+                                <td>@doc.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a asp-page="Details" asp-route-id="@doc.DocumentId" class="btn btn-outline-primary" title="Xem chi tiết">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        @if (doc.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Completed)
+                                        {
+                                            <a asp-page="Questions/Index" asp-route-documentId="@doc.DocumentId" class="btn btn-outline-success" title="Quản lý câu hỏi">
+                                                <i class="bi bi-question-circle"></i>
+                                            </a>
+                                        }
+                                        <form method="post" asp-page-handler="Delete" asp-route-id="@doc.DocumentId" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xoá tài liệu này?');">
+                                            <button type="submit" class="btn btn-outline-danger" title="Xoá">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh for processing documents
+        document.addEventListener('DOMContentLoaded', function() {
+            const processingRows = document.querySelectorAll('tr[data-status="processing"]');
+            if (processingRows.length > 0) {
+                setTimeout(() => location.reload(), 5000);
+            }
+        });
+    </script>
+}

@@ -44,7 +44,7 @@ public class RazorModuleTwoHttpTests
         builder.Services.AddDbContext<AivesDbContext>(o => o.UseSqlite("Data Source=" + file));
         builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
         await using var app = builder.Build();
-        app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute(); app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
+        app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute(); app.MapHub<ExamUpdatesHub>("/hubs/exam-updates"); app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
         try {
             using (var scope = app.Services.CreateScope()) {
                 var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
@@ -70,6 +70,9 @@ public class RazorModuleTwoHttpTests
             Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/Courses")).StatusCode);
             var login = await client.GetStringAsync("/Account/Login");
             Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "/Account/Login", login, new() { ["Input.Email"] = "test1@example.test", ["Input.Password"] = "Test@123" })).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Rubrics")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Documents")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Documents/Questions/Review/999?documentId=1")).StatusCode);
             var index = await client.GetStringAsync("/ExamSessions");
             Assert.Contains("Own exam", index); Assert.DoesNotContain("Other exam", index);
             Assert.Contains("Own exam", await client.GetStringAsync("/ExamSessions?handler=Snapshot"));
@@ -99,6 +102,16 @@ public class RazorModuleTwoHttpTests
             var signal = await Receive(socket);
             Assert.Contains("ExamChanged", signal); Assert.Contains("settings", signal);
             Assert.DoesNotContain("StudentIds", signal);
+            using var docSocket = new ClientWebSocket();
+            docSocket.Options.Cookies = handler.CookieContainer;
+            using var docNegotiation = JsonDocument.Parse(await (await client.PostAsync("/hubs/document-processing/negotiate?negotiateVersion=1", null)).Content.ReadAsStringAsync());
+            await docSocket.ConnectAsync(new Uri(address.Replace("http:", "ws:") + "/hubs/document-processing?id=" + Uri.EscapeDataString(docNegotiation.RootElement.GetProperty("connectionToken").GetString()!)), CancellationToken.None);
+            await docSocket.SendAsync(Encoding.UTF8.GetBytes("{\"protocol\":\"json\",\"version\":1}\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
+            Assert.Contains("{}", await Receive(docSocket));
+            await docSocket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":1,\"invocationId\":\"1\",\"target\":\"JoinCourseGroup\",\"arguments\":[2]}\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
+            Assert.Contains("error", await Receive(docSocket));
+            await docSocket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":1,\"invocationId\":\"2\",\"target\":\"JoinCourseGroup\",\"arguments\":[1]}\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
+            Assert.DoesNotContain("error", await Receive(docSocket));
             var newExam = await client.GetStringAsync("/ExamSessions/Create");
             Assert.Contains("handler=ClassRoster", newExam);
             var roster = await client.GetStringAsync("/ExamSessions/Create?handler=ClassRoster&classId=1");

@@ -43,6 +43,7 @@ app.UseSession();
 
 app.MapRazorPages();
 app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
+app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
 app.MapDefaultControllerRoute();
 
 app.Run();
