@@ -1,5 +1,4 @@
-@{
-    var fullName = Context.Session.GetString(SessionKeys.FullName) ?? string.Empty;
+@{    var fullName = Context.Session.GetString(SessionKeys.FullName) ?? string.Empty;
     var role = Context.Session.GetString(SessionKeys.Role);
     var isSignedIn = Context.Session.GetInt32(SessionKeys.UserId).HasValue;
     var initial = string.IsNullOrEmpty(fullName) ? "?" : fullName[..1].ToUpperInvariant();
@@ -41,8 +40,7 @@
                 {
                     <div class="d-flex align-items-center gap-2 ms-auto">
                         <button class="navbar-toggler d-md-none" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#sidebarNav" aria-controls="sidebarNav"
-                                aria-expanded="false" aria-label="Mở menu">
+                            data-bs-target="#sidebarNav" aria-controls="sidebarNav" aria-expanded="false" aria-label="Mở menu">
                             <span class="navbar-toggler-icon"></span>
                         </button>
 
@@ -51,6 +49,9 @@
                             <span class="nav-user__meta d-none d-sm-flex">
                                 <span class="nav-user__name">@fullName</span>
                                 <span class="nav-user__role">@roleLabel</span>
+                                <span class="badge bg-danger ms-2 notif-badge" role="status">
+                                    @await Component.InvokeAsync("Notification")
+                                </span>
                             </span>
                             <a class="nav-logout" asp-controller="Account" asp-action="Logout">
                                 <partial name="_Icon" model="@("logout")" />
@@ -70,8 +71,7 @@
         }
 
         <main class="page-content">
-            @{
-                var trail = ViewData["Breadcrumb"] as IReadOnlyList<BreadcrumbItem> ?? [];
+            @{                var trail = ViewData["Breadcrumb"] as IReadOnlyList<BreadcrumbItem> ?? [];
             }
             <partial name="_Breadcrumb" model="trail" />
 

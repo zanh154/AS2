@@ -34,6 +34,8 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
 
     public DbSet<RubricCriteria> RubricCriteria => Set<RubricCriteria>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Role>(entity =>
@@ -91,6 +93,42 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
         ConfigureExamSchedule(modelBuilder);
         ConfigureQuestionBank(modelBuilder);
         ConfigureRubrics(modelBuilder);
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("notifications");
+
+            entity.HasKey(e => e.NotificationId);
+
+            entity.Property(e => e.NotificationId)
+                .HasColumnName("notification_id")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id");
+
+            entity.Property(e => e.CourseId)
+                .HasColumnName("course_id");
+
+            entity.Property(e => e.ExamId)
+                .HasColumnName("exam_id");
+
+            entity.Property(e => e.Type)
+                .HasColumnName("type")
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Message)
+                .HasColumnName("message")
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.IsRead)
+                .HasColumnName("is_read");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("created_at")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedNever();
+        });
     }
 
     private static void ConfigureExamSchedule(ModelBuilder modelBuilder)

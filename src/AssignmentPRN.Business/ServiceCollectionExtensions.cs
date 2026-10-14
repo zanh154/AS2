@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IExamResultService, ExamResultService>();
         services.AddScoped<IRubricService, RubricService>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         return services;
     }
