@@ -2,22 +2,33 @@ using AssignmentPRN.Business;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
 using AssignmentPRN.Presentation.Models;
+using AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.SignalR;
 
 namespace AssignmentPRN.Presentation.Controllers;
 
 [SessionAuthorize(RoleNames.Admin, RoleNames.Lecturer)]
-public class ExamSessionsController(IExamSessionService examSessionService) : Controller
+public class ExamSessionsController(
+    IExamSessionService examSessionService,
+    IHubContext<ExamUpdatesHub> updatesHub) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         var response = await examSessionService.ListAsync(cancellationToken);
 
+        var sessions = response.Data ?? Array.Empty<ExamSessionListItemResponse>();
+        if (CurrentRole == RoleNames.Lecturer)
+        {
+            sessions = sessions.Where(item => item.LecturerId == CurrentUserId).ToList();
+        }
+
         return View(new ExamSessionListViewModel
         {
-            Sessions = response.Data ?? Array.Empty<ExamSessionListItemResponse>(),
+            Sessions = sessions,
             LoadError = response.Success ? null : response.Error
         });
     }
@@ -30,6 +41,11 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
         {
             TempData["Error"] = response.Error;
             return RedirectToAction(nameof(Index));
+        }
+
+        if (!CanManage(response.Data.Lecturer.UserId))
+        {
+            return RedirectToPage("/Account/AccessDenied");
         }
 
         return View(new ExamSessionDetailViewModel { Session = response.Data });
@@ -89,6 +105,7 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
         }
 
         TempData["Success"] = "Đã tạo lịch thi và sinh khung giờ tự động.";
+        await BroadcastAsync("created", response.Data.ExamId, "Lịch thi mới vừa được tạo.", cancellationToken);
         return RedirectToAction(nameof(Details), new { id = response.Data.ExamId });
     }
 
@@ -104,6 +121,14 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
             return RedirectToAction(nameof(Details), new { id = model.ExamId });
         }
 
+        var existing = await examSessionService.GetAsync(model.ExamId, cancellationToken);
+        if (!existing.Success || existing.Data is null
+            || !CanManage(existing.Data.Lecturer.UserId)
+            || existing.Data.Candidates.All(item => item.CandidateId != model.CandidateId))
+        {
+            return RedirectToPage("/Account/AccessDenied");
+        }
+
         var response = await examSessionService.RescheduleAsync(
             new ExamSessionRescheduleRequest
             {
@@ -116,6 +141,11 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
             ? "Đã đổi khung giờ và kiểm tra không trùng lịch."
             : response.Error;
 
+        if (response.Success)
+        {
+            await BroadcastAsync("rescheduled", model.ExamId, "Một khung giờ thi vừa thay đổi.", cancellationToken);
+        }
+
         return RedirectToAction(nameof(Details), new { id = model.ExamId });
     }
 
@@ -123,10 +153,21 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
+        var existing = await examSessionService.GetAsync(id, cancellationToken);
+        if (!existing.Success || existing.Data is null || !CanManage(existing.Data.Lecturer.UserId))
+        {
+            return RedirectToPage("/Account/AccessDenied");
+        }
+
         var response = await examSessionService.DeleteAsync(id, cancellationToken);
         TempData[response.Success ? "Success" : "Error"] = response.Success
             ? "Đã xoá lịch thi."
             : response.Error;
+
+        if (response.Success)
+        {
+            await BroadcastAsync("deleted", id, "Một lịch thi vừa được xoá.", cancellationToken);
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -198,6 +239,9 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
         {
             var lecturerId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
             classOptions = classOptions.Where(item => item.LecturerId == lecturerId);
+            model.LecturerOptions = model.LecturerOptions
+                .Where(item => item.Value == lecturerId.ToString())
+                .ToList();
         }
         model.ClassOptions = classOptions
             .Select(item => new SelectListItem(item.Label, item.ClassId.ToString()))
@@ -223,4 +267,17 @@ public class ExamSessionsController(IExamSessionService examSessionService) : Co
             ModelState.AddModelError(string.Empty, value);
         }
     }
+
+    private int CurrentUserId => HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
+
+    private string? CurrentRole => HttpContext.Session.GetString(SessionKeys.Role);
+
+    private bool CanManage(int lecturerId) =>
+        RoleAccessRules.CanManageExam(CurrentRole, CurrentUserId, lecturerId);
+
+    private Task BroadcastAsync(string change, int examId, string message, CancellationToken cancellationToken) =>
+        updatesHub.Clients.All.SendAsync(
+            "ExamListChanged",
+            new { change, examId, message },
+            cancellationToken);
 }

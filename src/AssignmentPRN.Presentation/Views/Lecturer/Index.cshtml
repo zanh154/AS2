@@ -58,7 +58,7 @@
         <span class="icon-chip"><partial name="_Icon" model="@("calendar")" /></span>
         <div class="dashboard-tile__body">
             <h3>Lịch thi</h3>
-            <p>Xem toàn bộ ca thi, đổi khung giờ và xoá lịch.</p>
+            <p>Xem các ca thi do bạn phụ trách, đổi khung giờ và xoá lịch.</p>
         </div>
         <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
     </a>
@@ -68,6 +68,15 @@
         <div class="dashboard-tile__body">
             <h3>Tra cứu sinh viên</h3>
             <p>Xem lịch thi đã xếp cho một sinh viên bất kỳ.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+
+    <a class="dashboard-tile" asp-controller="Classes" asp-action="Index">
+        <span class="icon-chip"><partial name="_Icon" model="@("users")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Lớp của tôi</h3>
+            <p>Quản lý danh sách sinh viên trong các lớp bạn phụ trách.</p>
         </div>
         <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
     </a>

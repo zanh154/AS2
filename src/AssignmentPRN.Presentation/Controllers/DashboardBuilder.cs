@@ -10,7 +10,8 @@ internal static class DashboardBuilder
 
     public static async Task<StaffDashboardViewModel> BuildStaffAsync(
         IExamSessionService service,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? lecturerId = null)
     {
         var response = await service.ListAsync(cancellationToken);
         if (!response.Success || response.Data is null)
@@ -18,17 +19,21 @@ internal static class DashboardBuilder
             return new StaffDashboardViewModel { LoadError = response.Error };
         }
 
+        var visibleSessions = lecturerId.HasValue
+            ? response.Data.Where(item => item.LecturerId == lecturerId.Value).ToList()
+            : response.Data;
+
         var now = DateTime.Now;
         var horizon = now.AddDays(UpcomingWindowDays);
-        var upcoming = response.Data
+        var upcoming = visibleSessions
             .Where(session => session.StartTime >= now && session.StartTime <= horizon)
             .OrderBy(session => session.StartTime)
             .ToList();
 
         return new StaffDashboardViewModel
         {
-            SessionCount = response.Data.Count,
-            CandidateCount = response.Data.Sum(session => session.CandidateCount),
+            SessionCount = visibleSessions.Count,
+            CandidateCount = visibleSessions.Sum(session => session.CandidateCount),
             UpcomingCount = upcoming.Count,
             NextSession = upcoming.FirstOrDefault()
         };

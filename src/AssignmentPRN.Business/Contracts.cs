@@ -101,6 +101,8 @@ public sealed class ExamSessionListItemResponse
 
     public string LecturerName { get; init; } = string.Empty;
 
+    public int LecturerId { get; init; }
+
     public string CourseCode { get; init; } = string.Empty;
 
     public string CourseName { get; init; } = string.Empty;
@@ -211,6 +213,27 @@ public sealed class ClassRosterResponse
     public IReadOnlyList<PersonResponse> Students { get; init; } = Array.Empty<PersonResponse>();
 }
 
+public sealed class AcademicClassResponse
+{
+    public int ClassId { get; init; }
+
+    public string ClassCode { get; init; } = string.Empty;
+
+    public string ClassName { get; init; } = string.Empty;
+
+    public int CourseId { get; init; }
+
+    public string CourseCode { get; init; } = string.Empty;
+
+    public string CourseName { get; init; } = string.Empty;
+
+    public int LecturerId { get; init; }
+
+    public string LecturerName { get; init; } = string.Empty;
+
+    public int StudentCount { get; init; }
+}
+
 /// <summary>A single choice in a dropdown: the identifier plus the label shown to the user.</summary>
 public sealed record LookupOption(int Id, string Label);
 
@@ -237,6 +260,8 @@ public sealed class StudentScheduleItemResponse
     public string CourseName { get; init; } = string.Empty;
 
     public string LecturerName { get; init; } = string.Empty;
+
+    public int LecturerId { get; init; }
 
     public DateTime ScheduledTime { get; init; }
 

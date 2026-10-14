@@ -18,6 +18,8 @@ public sealed class ExamSessionListItem
 
     public string LecturerName { get; init; } = string.Empty;
 
+    public int LecturerId { get; init; }
+
     public string CourseCode { get; init; } = string.Empty;
 
     public string CourseName { get; init; } = string.Empty;
@@ -113,6 +115,8 @@ public sealed class StudentScheduleItem
     public string CourseName { get; init; } = string.Empty;
 
     public string LecturerName { get; init; } = string.Empty;
+
+    public int LecturerId { get; init; }
 
     public DateTime ScheduledTime { get; init; }
 
