@@ -1,6 +1,6 @@
 # Quy tắc phiên thi dùng chung
 
-`Business/BusinessRules/ExamSessionRules.cs` và `ExamLifecycleRules.cs` chứa quy tắc sửa, chuyển trạng thái, hủy, vào thi, thời gian nộp bù, hoàn thành phiên và chốt quá hạn.
+`Business/Policies/ExamSessionRules.cs` và `ExamLifecycleRules.cs` chứa quy tắc sửa, chuyển trạng thái, hủy, vào thi, thời gian nộp bù, hoàn thành phiên và chốt quá hạn.
 
 - Giữ ba tầng `Presentation → Business → DataAccess`, không cần project Domain.
 - DataAccess khai báo hợp đồng `Contracts/IExamStatePolicy`; không chứa implementation quy tắc này và không tham chiếu Business.

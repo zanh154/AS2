@@ -89,9 +89,9 @@ Không cần bảng mới: câu đào sâu vẫn là một dòng `exam_questions
 | | `Repositories/QuestionRepository.cs` | Lưu loại câu; `ListFollowUpPoolAsync`; `SubmitAnswersAsync` nhận thêm vòng 2 (1 transaction); đọc `ParentExamQuestionId`, `MaterialId`, `ExpectedAnswer` (chỉ khi giám khảo xem) |
 | | `Repositories/ExamResultRepository.cs` (mới) | Đọc bảng điểm, chấm ngay trong SQL, cập nhật trạng thái khi chốt ca |
 | | `Contracts/ExamResultContracts.cs` (mới) | Read model cho kết quả |
-| Business | `BusinessRules/FollowUpPlanner.cs` (mới) | Luật chọn câu đào sâu, logic thuần |
-| | `BusinessRules/ExamScoring.cs` (mới) | Tính điểm có trọng số |
-| | `BusinessRules/OverdueSlotRules.cs` (mới) | Luật chốt ca hết giờ |
+| Business | `Services/QuestionService.cs` → `PlanFollowUps` | Luật chọn câu đào sâu, logic thuần |
+| | `Interfaces/Contracts.cs` → `ExamScoring` | Tính điểm có trọng số |
+| | `Services/ExamResultService.cs` → `CloseOverdueSlots` | Luật chốt ca hết giờ |
 | | `Services/ExamResultService.cs` (mới) + `Interfaces/IExamResultService` | Bảng điểm, bài làm, chốt ca, phân quyền |
 | | `Services/QuestionService.cs` | `SubmitExamAsync` chia vòng: `CleanAnswers`, `PlanFollowUpsAsync`; kiểm tra loại câu khi lưu |
 | Presentation | `Controllers/ExamResultsController.cs` (mới) | `Index/{examId}`, `Candidate/{candidateId}`, `CloseOverdue` (POST, có anti-forgery) |

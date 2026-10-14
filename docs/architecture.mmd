@@ -22,17 +22,17 @@ flowchart TB
         Views --> PresentationOut
     end
 
-    subgraph Business["Business — Services and rules"]
+    subgraph Business["Business — Services"]
         direction TB
         ServicePorts["Service interfaces<br/>IAuthService · IExamSessionService · ..."]
-        Services["Services<br/>Auth · Course · Class · Exam · Question · Result"]
-        Rules["Business rules<br/>Scheduling · Picking · Scoring · Follow-up"]
+        Services["Services<br/>Auth · Course · Class · Exam · Question · Result<br/>Scheduling · Picking · Scoring · Follow-up"]
+        Policies["Policies<br/>ExamSessionRules · ExamLifecycleRules · ExamStatePolicy"]
         Contracts["Public contracts<br/>Request · Response · Enums"]
         BusinessOut[" "]
-        ServicePorts --> Services --> Rules
+        ServicePorts --> Services
         ServicePorts --- Contracts
+        Services -.-> Policies
         Services --> BusinessOut
-        Rules --> BusinessOut
     end
 
     subgraph DataAccess["DataAccess — Persistence and infrastructure"]
@@ -64,6 +64,7 @@ flowchart TB
     Browser -->|"HTTP request<br/>HTML response"| Pipeline
     PresentationOut -->|"calls service interface"| ServicePorts
     BusinessOut -->|"repository call"| Repositories
+    Policies -.->|"IExamStatePolicy<br/>evaluated inside transaction"| Repositories
     Services -->|"save · open · delete file"| FileStore
     Registration -.->|"configures DbContextOptions"| EF
     Registration -.->|"registers implementation"| FileStore
@@ -82,7 +83,7 @@ flowchart TB
     class Admin,Lecturer,Student actor
     class Browser client
     class Pipeline,Controllers,ViewModels,Views presentation
-    class ServicePorts,Services,Rules,Contracts business
+    class ServicePorts,Services,Policies,Contracts business
     class Repositories,DataModels,EF,DbContext,DbCheck,FileStore data
     class Settings,Program,Registration config
     class MySQL,MaterialFiles storage

@@ -1,6 +1,6 @@
 using Xunit;
 using Biz = AssignmentPRN.Business.Interfaces;
-using BRules = AssignmentPRN.Business.BusinessRules;
+using BRules = AssignmentPRN.Business.Policies;
 using Data = AssignmentPRN.DataAccess.Enums;
 
 namespace AssignmentPRN.Tests;

@@ -16,4 +16,3 @@ coverage/
 # Course materials are uploaded at runtime and must never enter the repository.
 # They are kept out of wwwroot on purpose: the static-file middleware would serve
 # anything under it without checking the session.
-src/AssignmentPRN.DataAccess/Storage/materials/

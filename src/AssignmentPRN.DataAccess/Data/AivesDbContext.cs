@@ -30,6 +30,12 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
 
     public DbSet<Answer> Answers => Set<Answer>();
 
+    public DbSet<Rubric> Rubrics => Set<Rubric>();
+
+    public DbSet<RubricCriteria> RubricCriteria => Set<RubricCriteria>();
+
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ExamVivaSettings>(entity => {
@@ -94,6 +100,43 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
 
         ConfigureExamSchedule(modelBuilder);
         ConfigureQuestionBank(modelBuilder);
+        ConfigureRubrics(modelBuilder);
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("notifications");
+
+            entity.HasKey(e => e.NotificationId);
+
+            entity.Property(e => e.NotificationId)
+                .HasColumnName("notification_id")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id");
+
+            entity.Property(e => e.CourseId)
+                .HasColumnName("course_id");
+
+            entity.Property(e => e.ExamId)
+                .HasColumnName("exam_id");
+
+            entity.Property(e => e.Type)
+                .HasColumnName("type")
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Message)
+                .HasColumnName("message")
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.IsRead)
+                .HasColumnName("is_read");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("created_at")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedNever();
+        });
     }
 
     private static void ConfigureExamSchedule(ModelBuilder modelBuilder)
@@ -365,6 +408,14 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
                 .HasColumnName("status")
                 .HasConversion<string>()
                 .IsRequired();
+            entity.Property(question => question.Source)
+                .HasColumnName("source")
+                .HasConversion<string>()
+                .IsRequired();
+            entity.Property(question => question.ReviewedBy)
+                .HasColumnName("reviewed_by");
+            entity.Property(question => question.ReviewedAt)
+                .HasColumnName("reviewed_at");
             entity.Property(question => question.CreatedAt)
                 .HasColumnName("created_at");
             entity.Property(question => question.UpdatedAt)
@@ -374,6 +425,8 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
             // inside one exam, so the two columns are indexed together.
             entity.HasIndex(question => new { question.CourseId, question.Status });
             entity.HasIndex(question => question.SourceMaterialId);
+            entity.HasIndex(question => question.Source);
+            entity.HasIndex(question => question.ReviewedBy);
             entity.HasOne(question => question.Course)
                 .WithMany()
                 .HasForeignKey(question => question.CourseId)
@@ -497,4 +550,80 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }
+
+    private static void ConfigureRubrics(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Rubric>(entity =>
+        {
+            entity.ToTable("rubrics");
+            entity.HasKey(rubric => rubric.RubricId);
+
+            entity.Property(rubric => rubric.RubricId)
+                .HasColumnName("rubric_id")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(rubric => rubric.QuestionId)
+                .HasColumnName("question_id")
+                .IsRequired();
+
+            entity.Property(rubric => rubric.TotalScore)
+                .HasColumnName("total_score")
+                .HasPrecision(5, 2)
+                .HasDefaultValue(0m);
+
+            entity.Property(rubric => rubric.CreatedAt)
+                .HasColumnName("created_at")
+                .HasDefaultValue(DateTime.Now);
+
+            entity.Property(rubric => rubric.UpdatedAt)
+                .HasColumnName("updated_at");
+
+            // One rubric per question (enforced by unique key in DB).
+            entity.HasIndex(rubric => rubric.QuestionId).IsUnique();
+
+            entity.HasOne(rubric => rubric.Question)
+                .WithOne(question => question.Rubric)
+                .HasForeignKey<Rubric>(rubric => rubric.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RubricCriteria>(entity =>
+        {
+            entity.ToTable("rubric_criteria");
+            entity.HasKey(criteria => criteria.CriteriaId);
+
+            entity.Property(criteria => criteria.CriteriaId)
+                .HasColumnName("criteria_id")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(criteria => criteria.RubricId)
+                .HasColumnName("rubric_id")
+                .IsRequired();
+
+            entity.Property(criteria => criteria.CriteriaName)
+                .HasColumnName("criteria_name")
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(criteria => criteria.Description)
+                .HasColumnName("description")
+                .HasMaxLength(1000);
+
+            entity.Property(criteria => criteria.MaxScore)
+                .HasColumnName("max_score")
+                .HasPrecision(5, 2);
+
+            entity.Property(criteria => criteria.DisplayOrder)
+                .HasColumnName("display_order")
+                .HasDefaultValue(1);
+
+            entity.HasIndex(criteria => criteria.RubricId);
+
+            entity.HasOne(criteria => criteria.Rubric)
+                .WithMany(rubric => rubric.Criteria)
+                .HasForeignKey(criteria => criteria.RubricId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
 }

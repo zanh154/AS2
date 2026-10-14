@@ -14,7 +14,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<AssignmentPRN.DataAccess.Contracts.IExamStatePolicy, AssignmentPRN.Business.BusinessRules.ExamStatePolicy>();
+        services.AddSingleton<AssignmentPRN.DataAccess.Contracts.IExamStatePolicy, AssignmentPRN.Business.Policies.ExamStatePolicy>();
         services.AddDataAccess(connectionString, storageRootPath);
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IExamSessionService, ExamSessionService>();
@@ -22,10 +22,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<IAcademicClassService, AcademicClassService>();
         services.AddScoped<IQuestionService, QuestionService>();
+        services.AddScoped<IQuestionReviewService, QuestionReviewService>();
         services.AddScoped<ICourseMaterialService, CourseMaterialService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IExamResultService, ExamResultService>();
         services.AddScoped<IClassManagementService, ClassManagementService>();
+        services.AddScoped<IRubricService, RubricService>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         return services;
     }

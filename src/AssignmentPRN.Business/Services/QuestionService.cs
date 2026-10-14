@@ -1,4 +1,5 @@
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Services;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Contracts;
 using AssignmentPRN.DataAccess.Entities;
@@ -28,7 +29,7 @@ public class QuestionService(
             // Freeze the request; validate against data read inside the save transaction.
             var snapshot = answers.ToDictionary(x => x.Key, x => x.Value);
             await questionRepository.SaveDraftAsync(candidateId,
-                state => ExamDraftValidation.Validate(state, studentId, snapshot, DateTime.Now), cancellationToken);
+                state => ValidateDraft(state, studentId, snapshot, DateTime.Now), cancellationToken);
         }, "Không thể lưu tạm đáp án. Hãy thử lại.");
     public Task<ServiceResponse<QuestionPickRequest>> GetExamConfigurationAsync(int examId, CancellationToken cancellationToken = default) =>
         ServiceExecutor.RunAsync(async () => {
@@ -224,6 +225,32 @@ public class QuestionService(
             "Không thể ẩn câu hỏi.");
     }
 
+    public async Task<ServiceResponse<QuestionImportResult>> ImportCsvAsync(
+        int courseId,
+        string csvContent,
+        IReadOnlyDictionary<string, int> materialIdsByFileName,
+        int lecturerId,
+        int? ownerLecturerId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(csvContent);
+        ArgumentNullException.ThrowIfNull(materialIdsByFileName);
+
+        var rows = ParseCsv(csvContent, materialIdsByFileName, out var parseErrors);
+        var result = await ImportAsync(courseId, rows, lecturerId, ownerLecturerId, cancellationToken);
+        if (!result.Success || result.Data is null || parseErrors.Count == 0)
+        {
+            return result;
+        }
+
+        // One list, so the lecturer sees every skipped line in one place.
+        return ServiceResponse<QuestionImportResult>.Ok(new QuestionImportResult
+        {
+            Imported = result.Data.Imported,
+            Errors = [.. result.Data.Errors, .. parseErrors]
+        });
+    }
+
     public Task<ServiceResponse<QuestionImportResult>> ImportAsync(
         int courseId,
         IReadOnlyList<QuestionImportRow> rows,
@@ -343,7 +370,7 @@ public class QuestionService(
                 return new QuestionAvailabilityResponse
                 {
                     Requested = count,
-                    Available = QuestionPicker.CountAvailable(pool, request.TakenQuestionIds)
+                    Available = CountAvailableQuestions(pool, request.TakenQuestionIds)
                 };
             },
             "Không thể kiểm tra số câu hỏi của ngân hàng.");
@@ -362,7 +389,7 @@ public class QuestionService(
                     BuildPoolRequest(courseId, count, request),
                     cancellationToken);
 
-                var picked = QuestionPicker.Pick(pool, count, request.TakenQuestionIds);
+                var picked = PickQuestions(pool, count, request.TakenQuestionIds);
                 if (picked.Count < count)
                 {
                     throw new BusinessValidationException(
@@ -423,7 +450,7 @@ public class QuestionService(
                         taken.UnionWith(dealt.TakenQuestionIds);
                         var needed = candidateIds.Count * countPerCandidate;
                         var wholePool = await questionRepository.ListPoolIdsAsync(filter, cancellationToken);
-                        if (QuestionPicker.CountAvailable(wholePool, taken) < needed)
+                        if (CountAvailableQuestions(wholePool, taken) < needed)
                         {
                             throw new BusinessValidationException(
                                 $"Ngân hàng câu hỏi của môn này không đủ {needed} câu khác nhau cho "
@@ -628,7 +655,7 @@ public class QuestionService(
     {
         if (candidate.MaxFollowUpCount <= 0
             || candidate.ScheduledTime is not DateTime scheduled
-            || !FollowUpPlanner.CanOpenRound(now, scheduled.AddMinutes(candidate.TimePerStudent)))
+            || !CanOpenFollowUpRound(now, scheduled.AddMinutes(candidate.TimePerStudent)))
         {
             return Array.Empty<ExamQuestionInput>();
         }
@@ -658,7 +685,7 @@ public class QuestionService(
 
         var usedInSession = await questionRepository.ListAssignedQuestionIdsAsync(candidate.ExamId, cancellationToken);
 
-        return FollowUpPlanner.Plan(answered, pool, candidate.MaxFollowUpCount, usedInSession)
+        return PlanFollowUps(answered, pool, candidate.MaxFollowUpCount, usedInSession)
             .Select((pick, index) => new ExamQuestionInput
             {
                 CandidateId = candidate.CandidateId,
@@ -824,7 +851,7 @@ public class QuestionService(
             },
             cancellationToken);
 
-        var picked = QuestionPicker.Pick(pool, filter.Count, taken);
+        var picked = PickQuestions(pool, filter.Count, taken);
         if (picked.Count < filter.Count)
         {
             return null;
@@ -1145,4 +1172,530 @@ public class QuestionService(
         if (exam is not null) await realtime.ChangedAsync(new(examId, exam.Lecturer.UserId,
             exam.Candidates.Select(x => x.StudentId).ToArray(), kind), ct);
     }
+
+    // ---------------------------------------------------------------------
+    // Decisions this service makes on its own: dealing a paper, planning the
+    // follow-up round, reading an import file and authorising a draft save.
+    // They take every input as an argument and touch no repository, so each one
+    // can be exercised directly.
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// The shuffling half of handing out questions, kept free of any database call so
+    /// the "no repeats inside one exam" rule can be tested on its own.
+    /// </summary>
+
+    /// <summary>
+    /// Takes <paramref name="count"/> questions from <paramref name="pool"/> at random.
+    /// Every identifier is returned at most once, so calling this for each student of
+    /// the same exam — passing the running total of <paramref name="taken"/> each time —
+    /// hands out a different paper to everybody.
+    /// </summary>
+    internal static IReadOnlyList<int> PickQuestions(
+        IReadOnlyList<int> pool,
+        int count,
+        IReadOnlyCollection<int>? taken = null,
+        Random? random = null)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+
+        if (count <= 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var used = taken is null ? new HashSet<int>() : new HashSet<int>(taken);
+        var source = random ?? Random.Shared;
+
+        // Copy before shuffling: the caller may hand us a cached list.
+        var candidates = pool.Where(id => !used.Contains(id)).ToList();
+        ShuffleInPlace(candidates, source);
+
+        return candidates.Take(count).ToList();
+    }
+
+    /// <summary>How many questions are still free for an exam that already handed out <paramref name="taken"/>.</summary>
+    internal static int CountAvailableQuestions(IReadOnlyList<int> pool, IReadOnlyCollection<int> taken)
+    {
+        ArgumentNullException.ThrowIfNull(pool);
+        ArgumentNullException.ThrowIfNull(taken);
+
+        var used = new HashSet<int>(taken);
+        return pool.Count(id => !used.Contains(id));
+    }
+
+    private static void ShuffleInPlace(List<int> values, Random source)
+    {
+        // Fisher-Yates: unbiased, and unlike OrderBy(_ => random.Next()) it cannot
+        // return a different order for the same input.
+        for (var i = values.Count - 1; i > 0; i--)
+        {
+            var j = source.Next(i + 1);
+            (values[i], values[j]) = (values[j], values[i]);
+        }
+    }
+    /// <summary>
+    /// Decides the second round of a paper from how the first one went, kept free of any
+    /// database call so the rules can be tested on their own:
+    /// <list type="bullet">
+    /// <item>a follow-up stays on the topic of the main question it digs into;</item>
+    /// <item>a wrong or blank answer gets an easier (or equal) question, to check the basics;</item>
+    /// <item>a right answer gets a harder (or equal) question, to see how deep it goes;</item>
+    /// <item>wrong answers are served first, and no more than the session's maximum overall;</item>
+    /// <item>each main question gets at most one follow-up, never the same question twice.</item>
+    /// </list>
+    /// </summary>
+
+    /// <summary>
+    /// Least time that must be left in the slot to open a second round. Less than this and
+    /// the student could not read the questions, so the paper simply closes.
+    /// </summary>
+    internal static readonly TimeSpan MinimumFollowUpTimeLeft = TimeSpan.FromMinutes(1);
+
+    internal static bool CanOpenFollowUpRound(DateTime now, DateTime slotEnd) => slotEnd - now >= MinimumFollowUpTimeLeft;
+
+    /// <param name="answered">The main questions of the paper with how they were answered.</param>
+    /// <param name="pool">Approved follow-up questions of the course.</param>
+    /// <param name="maxCount">The session's cap on follow-ups per student.</param>
+    /// <param name="usedInSession">
+    /// Follow-ups other students of the session already got. They are only avoided, not
+    /// banned, so a small bank still serves everybody.
+    /// </param>
+    internal static IReadOnlyList<FollowUpPick> PlanFollowUps(
+        IReadOnlyList<FollowUpSource> answered,
+        IReadOnlyList<FollowUpCandidate> pool,
+        int maxCount,
+        IReadOnlyCollection<int>? usedInSession = null,
+        Random? random = null)
+    {
+        ArgumentNullException.ThrowIfNull(answered);
+        ArgumentNullException.ThrowIfNull(pool);
+
+        if (maxCount <= 0 || answered.Count == 0 || pool.Count == 0)
+        {
+            return Array.Empty<FollowUpPick>();
+        }
+
+        var used = usedInSession is null ? new HashSet<int>() : new HashSet<int>(usedInSession);
+        var source = random ?? Random.Shared;
+        var picked = new HashSet<int>();
+        var picks = new List<FollowUpPick>(maxCount);
+
+        var queue = answered
+            .OrderBy(item => item.IsCorrect)
+            .ThenBy(item => item.OrderNo);
+
+        foreach (var main in queue)
+        {
+            if (picks.Count == maxCount)
+            {
+                break;
+            }
+
+            if (main.MaterialId is not int materialId)
+            {
+                continue;
+            }
+
+            var questionId = PickFollowUpFor(main, materialId, pool, picked, used, source);
+            if (questionId is int id)
+            {
+                picked.Add(id);
+                picks.Add(new FollowUpPick(main.ExamQuestionId, id));
+            }
+        }
+
+        return picks;
+    }
+
+    /// <summary>
+    /// The difficulties to try for one main question, nearest first. A wrong answer steps
+    /// down towards Easy, a right one steps up towards Hard; the same level comes last.
+    /// </summary>
+    internal static IReadOnlyList<QuestionDifficulty> FollowUpDifficultyOrder(QuestionDifficulty difficulty, bool isCorrect)
+    {
+        var level = (int)difficulty;
+        var order = new List<QuestionDifficulty>();
+
+        if (isCorrect)
+        {
+            for (var next = level + 1; next <= (int)QuestionDifficulty.Hard; next++)
+            {
+                order.Add((QuestionDifficulty)next);
+            }
+        }
+        else
+        {
+            for (var next = level - 1; next >= (int)QuestionDifficulty.Easy; next--)
+            {
+                order.Add((QuestionDifficulty)next);
+            }
+        }
+
+        order.Add(difficulty);
+        return order;
+    }
+
+    private static int? PickFollowUpFor(
+        FollowUpSource main,
+        int materialId,
+        IReadOnlyList<FollowUpCandidate> pool,
+        HashSet<int> picked,
+        HashSet<int> used,
+        Random source)
+    {
+        var onTopic = pool
+            .Where(item => item.MaterialId == materialId && !picked.Contains(item.QuestionId))
+            .ToList();
+
+        foreach (var difficulty in FollowUpDifficultyOrder(main.Difficulty, main.IsCorrect))
+        {
+            var level = onTopic.Where(item => item.Difficulty == difficulty).ToList();
+            if (level.Count == 0)
+            {
+                continue;
+            }
+
+            // Fresh questions first, so two students of one session rarely share a follow-up.
+            var fresh = level.Where(item => !used.Contains(item.QuestionId)).ToList();
+            var choices = fresh.Count > 0 ? fresh : level;
+            return choices[source.Next(choices.Count)].QuestionId;
+        }
+
+        return null;
+    }
+    /// <summary>
+    /// Reads the CSV the bank accepts for bulk import. Parsing lives here, apart from the
+    /// database, so the column mapping and the error messages can be checked on their own.
+    /// </summary>
+    /// <remarks>
+    /// Expected header row, one column each, separated by <c>;</c> or <c>,</c>:
+    /// <c>question_text;difficulty;bloom;material;expected_answer;option_a;option_b;option_c;option_d;correct</c>.
+    /// <c>material</c> matches the stored file name of a course material, <c>correct</c> is the
+    /// letter of the right choice (<c>A</c>..<c>D</c>, or <c>1</c>..<c>4</c>).
+    /// </remarks>
+
+    internal const string QuestionTextColumn = "question_text";
+
+    internal const string DifficultyColumn = "difficulty";
+
+    internal const string BloomColumn = "bloom";
+
+    internal const string MaterialColumn = "material";
+
+    internal const string ExpectedAnswerColumn = "expected_answer";
+
+    internal const string CorrectColumn = "correct";
+
+    private const int MaxOptionColumns = 8;
+
+    /// <summary>
+    /// Turns the file body into rows. A row that cannot be read is reported in
+    /// <paramref name="errors"/> and skipped, so one bad line does not void the file.
+    /// </summary>
+    internal static IReadOnlyList<QuestionImportRow> ParseCsv(
+        string content,
+        IReadOnlyDictionary<string, int> materialIdsByFileName,
+        out IReadOnlyList<string> errors)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        var messages = new List<string>();
+        var rows = new List<QuestionImportRow>();
+
+        var lines = content
+            .Replace("\r\n", "\n")
+            .Split('\n')
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            errors = ["File CSV rỗng."];
+            return rows;
+        }
+
+        var separator = DetectSeparator(lines[0]);
+        var header = SplitRow(lines[0], separator)
+            .Select(column => NormaliseHeader(column))
+            .ToList();
+
+        if (!header.Contains(QuestionTextColumn))
+        {
+            errors = [$"File CSV thiếu cột bắt buộc {QuestionTextColumn}."];
+            return rows;
+        }
+
+        var optionColumns = Enumerable.Range(0, MaxOptionColumns)
+            .Select(index => $"option_{(char)('a' + index)}")
+            .Where(header.Contains)
+            .ToList();
+
+        if (optionColumns.Count < 2)
+        {
+            errors = ["File CSV cần ít nhất 2 cột phương án (option_a, option_b)."];
+            return rows;
+        }
+
+        for (var index = 1; index < lines.Count; index++)
+        {
+            var lineNumber = index + 1;
+            var cells = SplitRow(lines[index], separator);
+
+            try
+            {
+                var row = BuildRow(header, cells, optionColumns, materialIdsByFileName, lineNumber);
+                if (row is not null)
+                {
+                    rows.Add(row);
+                }
+            }
+            catch (Exception exception) when (exception is BusinessValidationException or ArgumentException)
+            {
+                messages.Add($"Dòng {lineNumber}: {exception.Message}");
+            }
+        }
+
+        errors = messages;
+        return rows;
+    }
+
+    /// <summary>Finds a material by its stored file name, ignoring case.</summary>
+    internal static int? ResolveCsvMaterialId(
+        string? fileName,
+        IReadOnlyDictionary<string, int> materialIdsByFileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var key = fileName.Trim();
+
+        if (materialIdsByFileName.TryGetValue(key, out var materialId))
+        {
+            return materialId;
+        }
+
+        foreach (var pair in materialIdsByFileName)
+        {
+            if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                return pair.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static QuestionImportRow? BuildRow(
+        IReadOnlyList<string> header,
+        IReadOnlyList<string> cells,
+        IReadOnlyList<string> optionColumns,
+        IReadOnlyDictionary<string, int> materialIdsByFileName,
+        int lineNumber)
+    {
+        var text = Value(header, cells, QuestionTextColumn);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            // A trailing blank line that survived the filter: silently skip it.
+            return null;
+        }
+
+        var options = optionColumns
+            .Select(column => new QuestionOptionInput
+            {
+                Text = Value(header, cells, column) ?? string.Empty
+            })
+            .Where(option => !string.IsNullOrWhiteSpace(option.Text))
+            .ToList();
+
+        if (options.Count < 2)
+        {
+            throw new BusinessValidationException("Cần ít nhất 2 phương án trả lời.");
+        }
+
+        var correctIndex = ResolveCorrectIndex(Value(header, cells, CorrectColumn), options.Count);
+        var marked = new List<QuestionOptionInput>(options.Count);
+        for (var index = 0; index < options.Count; index++)
+        {
+            marked.Add(new QuestionOptionInput
+            {
+                Text = options[index].Text,
+                IsCorrect = index == correctIndex
+            });
+        }
+
+        var materialId = ResolveCsvMaterialId(Value(header, cells, MaterialColumn), materialIdsByFileName);
+
+        return new QuestionImportRow
+        {
+            SourceLine = lineNumber,
+            QuestionText = text,
+            ExpectedAnswer = Value(header, cells, ExpectedAnswerColumn),
+            MaterialId = materialId,
+            Difficulty = ParseDifficulty(Value(header, cells, DifficultyColumn)),
+            BloomLevel = ParseBloom(Value(header, cells, BloomColumn)),
+            Options = marked
+        };
+    }
+
+    private static int ResolveCorrectIndex(string? raw, int optionCount)
+    {
+        var value = raw?.Trim();
+        if (string.IsNullOrEmpty(value))
+        {
+            throw new BusinessValidationException(
+                "Thiếu cột correct, cần chỉ ra phương án đúng (A..D hoặc 1..4).");
+        }
+
+        if (value.Length == 1 && char.IsLetter(value[0]))
+        {
+            var byLetter = char.ToUpperInvariant(value[0]) - 'A';
+            if (byLetter >= 0 && byLetter < optionCount)
+            {
+                return byLetter;
+            }
+        }
+
+        if (int.TryParse(value, out var byPosition) && byPosition >= 1 && byPosition <= optionCount)
+        {
+            return byPosition - 1;
+        }
+
+        throw new BusinessValidationException($"Phương án đúng \"{value}\" không hợp lệ.");
+    }
+
+    private static QuestionDifficulty ParseDifficulty(string? raw)
+    {
+        var value = raw?.Trim();
+        if (string.IsNullOrEmpty(value))
+        {
+            return QuestionDifficulty.Medium;
+        }
+
+        return value.ToLowerInvariant() switch
+        {
+            "easy" or "de" or "dễ" or "de_easy" => QuestionDifficulty.Easy,
+            "hard" or "kho" or "khó" => QuestionDifficulty.Hard,
+            _ => QuestionDifficulty.Medium
+        };
+    }
+
+    private static BloomLevel ParseBloom(string? raw)
+    {
+        var value = raw?.Trim();
+        if (string.IsNullOrEmpty(value))
+        {
+            return BloomLevel.Understand;
+        }
+
+        return value.ToLowerInvariant() switch
+        {
+            "remember" or "nho" or "nhớ" => BloomLevel.Remember,
+            "apply" or "ap_dung" or "áp dụng" => BloomLevel.Apply,
+            "analyze" or "analyse" or "phan_tich" or "phân tích" => BloomLevel.Analyze,
+            _ => BloomLevel.Understand
+        };
+    }
+
+    private static string? Value(IReadOnlyList<string> header, IReadOnlyList<string> cells, string column)
+    {
+        var index = header.ToList().IndexOf(column);
+        if (index < 0 || index >= cells.Count)
+        {
+            return null;
+        }
+
+        var value = cells[index].Trim();
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    private static char DetectSeparator(string headerLine) =>
+        headerLine.Count(item => item == ';') >= headerLine.Count(item => item == ',') ? ';' : ',';
+
+    /// <summary>
+    /// Splits one line, honouring double quotes so a question containing a comma or a
+    /// semicolon still lands in a single cell.
+    /// </summary>
+    private static List<string> SplitRow(string line, char separator)
+    {
+        var cells = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        for (var index = 0; index < line.Length; index++)
+        {
+            var character = line[index];
+
+            if (character == '"')
+            {
+                // A doubled quote inside a quoted cell is one literal quote.
+                if (inQuotes && index + 1 < line.Length && line[index + 1] == '"')
+                {
+                    current.Append('"');
+                    index++;
+                    continue;
+                }
+
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (character == separator && !inQuotes)
+            {
+                cells.Add(current.ToString());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(character);
+        }
+
+        cells.Add(current.ToString());
+        return cells;
+    }
+
+    private static string NormaliseHeader(string column) => column
+        .Trim()
+        .Trim('﻿')
+        .ToLowerInvariant()
+        .Replace(' ', '_');
+    /// <summary>Draft authorization and round rules; runs on the transaction's current snapshot.</summary>
+
+    private static IReadOnlyDictionary<int, int?> ValidateDraft(
+        ExamDraftState? state, int studentId, IReadOnlyDictionary<int, int?> answers, DateTime now)
+    {
+        if (state is null) throw new BusinessValidationException("Không tìm thấy lượt thi.");
+        if (state.StudentId != studentId || state.CandidateStatus.ToBusiness() != CandidateStatus.InProgress
+            || !ExamSessionRules.CanSit(state.SessionStatus.ToBusiness()))
+            throw new BusinessValidationException("Bạn không được lưu đáp án cho lượt thi này.");
+        if (state.ScheduledTime is not DateTime start || !ExamSessionRules.IsSlotOpen(now, start, state.TimePerStudent))
+            throw new BusinessValidationException("Đã hết giờ làm bài, không thể lưu tạm.");
+
+        var followUp = state.Questions.Any(x => x.IsFollowUp);
+        var open = state.Questions.Where(x => x.IsFollowUp == followUp).ToDictionary(x => x.ExamQuestionId);
+        foreach (var (id, option) in answers)
+        {
+            if (!open.TryGetValue(id, out var question) || (option.HasValue && !question.OptionIds.Contains(option.Value)))
+                throw new BusinessValidationException("Câu hỏi hoặc đáp án không thuộc vòng thi hiện tại.");
+            if (question.IsSubmitted)
+                throw new BusinessValidationException("Vòng đã nộp không được sửa.");
+        }
+        return answers;
+    }
 }
+
+/// <summary>A main question the student has just answered, as the planner needs to see it.</summary>
+public sealed record FollowUpSource(
+    int ExamQuestionId,
+    int OrderNo,
+    int? MaterialId,
+    QuestionDifficulty Difficulty,
+    bool IsCorrect);
+
+/// <summary>A follow-up question in the bank that could be asked.</summary>
+public sealed record FollowUpCandidate(int QuestionId, int MaterialId, QuestionDifficulty Difficulty);
+
+/// <summary>One follow-up to deal: which bank question, digging into which main slot.</summary>
+public sealed record FollowUpPick(int ParentExamQuestionId, int QuestionId);

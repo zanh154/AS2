@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IQuestionRepository, QuestionRepository>();
         services.AddScoped<ICourseMaterialRepository, CourseMaterialRepository>();
         services.AddScoped<IExamResultRepository, ExamResultRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddSingleton<IMaterialFileStore>(new LocalMaterialFileStore(storageRootPath));
 
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();

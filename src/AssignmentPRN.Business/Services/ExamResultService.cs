@@ -1,4 +1,5 @@
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Services;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Contracts;
 using AssignmentPRN.DataAccess.Repositories;
@@ -24,7 +25,7 @@ public class ExamResultService(
             {
                 var session = await LoadOwnedSessionAsync(examId, lecturerId, cancellationToken);
                 var candidates = await resultRepository.ListCandidatesAsync(session.ExamId, cancellationToken);
-                var overdue = OverdueSlotRules.Close(ToSlotStates(candidates), session.TimePerStudent, DateTime.Now);
+                var overdue = CloseOverdueSlots(ToSlotStates(candidates), session.TimePerStudent, DateTime.Now);
 
                 return new SessionResultResponse
                 {
@@ -101,7 +102,7 @@ public class ExamResultService(
 
                 var now = DateTime.Now;
                 var candidates = await resultRepository.ListCandidatesAsync(session.ExamId, cancellationToken);
-                var changes = OverdueSlotRules.Close(ToSlotStates(candidates), session.TimePerStudent, now);
+                var changes = CloseOverdueSlots(ToSlotStates(candidates), session.TimePerStudent, now);
                 if (changes.Count == 0)
                 {
                     throw new BusinessValidationException("Không có ca thi nào đã hết giờ cần chốt.");
@@ -122,6 +123,37 @@ public class ExamResultService(
                 };
             },
             "Không thể chốt các ca thi đã hết giờ.");
+    }
+
+    /// <summary>
+    /// Which slots of a session may be closed now that their time is over:
+    /// <list type="bullet">
+    /// <item>a student still Waiting when their slot ended never showed up: Absent;</item>
+    /// <item>a student still In progress after the slot and its submit grace left without
+    /// handing in: Completed, marked on what was saved (nothing saved scores zero).</item>
+    /// </list>
+    /// Without this a session could never be completed, since completing requires that no
+    /// student is left Waiting or In progress. Takes <paramref name="now"/> as an argument
+    /// and touches no repository, so it can be exercised on its own.
+    /// </summary>
+    internal static IReadOnlyDictionary<int, CandidateStatus> CloseOverdueSlots(
+        IEnumerable<SlotState> slots,
+        int minutesPerStudent,
+        DateTime now)
+    {
+        ArgumentNullException.ThrowIfNull(slots);
+
+        var result = new Dictionary<int, CandidateStatus>();
+        foreach (var slot in slots)
+        {
+            var next = ExamLifecycleRules.CloseOverdue(slot.Status, slot.ScheduledTime, minutesPerStudent, now);
+            if (next.HasValue)
+            {
+                result[slot.CandidateId] = next.Value;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>A cancelled, drafted or finished session is left as it is.</summary>
@@ -166,3 +198,6 @@ public class ExamResultService(
             : null
     };
 }
+
+/// <summary>A slot as the overdue check needs to see it.</summary>
+public sealed record SlotState(int CandidateId, CandidateStatus Status, DateTime? ScheduledTime);

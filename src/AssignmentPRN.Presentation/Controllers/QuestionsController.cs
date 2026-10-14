@@ -1,6 +1,7 @@
+using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
 using AssignmentPRN.Presentation.ViewModels;
@@ -219,9 +220,8 @@ public class QuestionsController(
                 var materials = materialList.Data ?? [];
                 var materialIds = materials.ToDictionary(item => item.FileName, item => item.MaterialId);
 
-                var rows = QuestionCsvReader.Parse(content, materialIds, out var parseErrors);
-                var result = await questionService.ImportAsync(
-                    model.CourseId, rows, CurrentUserId, LecturerId, ct);
+                var result = await questionService.ImportCsvAsync(
+                    model.CourseId, content, materialIds, CurrentUserId, LecturerId, ct);
 
                 if (!result.Success)
                 {
@@ -229,27 +229,25 @@ public class QuestionsController(
                 }
                 else
                 {
-                    // One list, so the lecturer sees every skipped line in one place.
                     model.Result = result.Data is null
                         ? null
                         : new QuestionImportResult
                         {
                             Imported = result.Data.Imported,
-                            Errors = [.. result.Data.Errors, .. parseErrors]
+                            Errors = result.Data.Errors
                         };
-                }
 
-                foreach (var message in parseErrors)
-                {
-                    ModelState.AddModelError(string.Empty, message);
+                    foreach (var message in result.Data?.Errors ?? [])
+                    {
+                        ModelState.AddModelError(string.Empty, message);
+                    }
                 }
 
                 // Only a clean file leaves the screen; anything skipped comes back with
                 // the count so the lecturer can fix the source and retry.
                 if (result.Success
                     && result.Data is not null
-                    && result.Data.Errors.Count == 0
-                    && parseErrors.Count == 0)
+                    && result.Data.Errors.Count == 0)
                 {
                     TempData["Success"] = $"Đã nhập {result.Data.Imported} câu hỏi.";
                     return RedirectToAction(nameof(Index), new { courseId = model.CourseId });

@@ -1,4 +1,5 @@
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Services;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Contracts;
 using AssignmentPRN.DataAccess.Repositories;
@@ -128,7 +129,7 @@ public class ExamSessionService(
             var waitingForPaper = session.Candidates.Count(candidate =>
                 candidate.Status.ToBusiness() is not (CandidateStatus.Cancelled or CandidateStatus.Absent)
                 && !papers.Any(paper => paper.CandidateId == candidate.CandidateId && paper.Questions.Count > 0));
-            QuestionSupplyRules.EnsureEnough(waitingForPaper + 1, config.Count, available.Count);
+            EnsureQuestionSupply(waitingForPaper + 1, config.Count, available.Count);
 
             return MapDetail(await examSessionRepository.AddStudentAsync(
                 examId, student.UserId, scheduledTime, cancellationToken));
@@ -521,7 +522,81 @@ public class ExamSessionService(
         CancellationToken cancellationToken)
     {
         var available = await questionRepository.CountMainPoolAsync(courseId, cancellationToken);
-        QuestionSupplyRules.EnsureEnough(candidateCount, questionsPerCandidate, available);
+        EnsureQuestionSupply(candidateCount, questionsPerCandidate, available);
+    }
+
+    private const int MinTimePerStudent = 1;
+
+    private const int MaxTimePerStudent = 1440;
+
+    /// <summary>
+    /// How many distinct questions a session needs: every student gets their own main
+    /// questions and no question is dealt twice inside one session, so the bank must hold
+    /// students x main questions. Refuses a session it could not serve to the last student.
+    /// </summary>
+    internal static int RequiredQuestionCount(int candidateCount, int questionsPerCandidate) =>
+        Math.Max(candidateCount, 0) * Math.Max(questionsPerCandidate, 0);
+
+    /// <summary>Refuses a session the bank could not serve to the last student.</summary>
+    internal static void EnsureQuestionSupply(int candidateCount, int questionsPerCandidate, int available)
+    {
+        var required = RequiredQuestionCount(candidateCount, questionsPerCandidate);
+        if (available >= required)
+        {
+            return;
+        }
+
+        throw new BusinessValidationException(
+            $"Ngân hàng chỉ có {available} câu hỏi chính, không đủ {required} câu khác nhau "
+            + $"cho {candidateCount} sinh viên × {questionsPerCandidate} câu. "
+            + "Hãy bổ sung câu hỏi hoặc giảm số câu hỏi chính.");
+    }
+
+    /// <summary>
+    /// Turns "who sits the exam, from when, how long each" into back-to-back slots: each
+    /// student starts exactly when the previous one finishes.
+    /// </summary>
+    internal static IReadOnlyList<ScheduleSlot> GenerateSlots(
+        DateTime firstStartTime,
+        IEnumerable<int> studentIds,
+        int timePerStudentMinutes)
+    {
+        ArgumentNullException.ThrowIfNull(studentIds);
+
+        if (timePerStudentMinutes is < MinTimePerStudent or > MaxTimePerStudent)
+        {
+            throw new ArgumentException(
+                $"Thời lượng mỗi sinh viên phải từ {MinTimePerStudent} đến {MaxTimePerStudent} phút.");
+        }
+
+        var ids = studentIds.ToList();
+        if (ids.Count == 0)
+        {
+            throw new ArgumentException("Phải có ít nhất một sinh viên.");
+        }
+
+        var seen = new HashSet<int>();
+        var currentStart = firstStartTime;
+        var slots = new List<ScheduleSlot>(ids.Count);
+
+        foreach (var studentId in ids)
+        {
+            if (studentId <= 0)
+            {
+                throw new ArgumentException("Mã sinh viên không hợp lệ.");
+            }
+
+            if (!seen.Add(studentId))
+            {
+                throw new ArgumentException("Mỗi sinh viên chỉ được xuất hiện một lần.");
+            }
+
+            var endTime = currentStart.AddMinutes(timePerStudentMinutes);
+            slots.Add(new ScheduleSlot(studentId, currentStart, endTime));
+            currentStart = endTime;
+        }
+
+        return slots;
     }
 
     /// <summary>
@@ -597,7 +672,7 @@ public class ExamSessionService(
         IReadOnlyList<ScheduleSlot> slots;
         try
         {
-            slots = ExamSchedulePlanner.Generate(request.StartTime, studentIds, request.TimePerStudent);
+            slots = GenerateSlots(request.StartTime, studentIds, request.TimePerStudent);
         }
         catch (ArgumentException exception)
         {
@@ -716,3 +791,6 @@ public class ExamSessionService(
         }).ToList()
     };
 }
+
+/// <summary>One student's slot in a session: who sits, from when to when.</summary>
+public sealed record ScheduleSlot(int StudentId, DateTime StartTime, DateTime EndTime);

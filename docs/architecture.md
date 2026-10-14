@@ -67,6 +67,8 @@ Controller chỉ gọi service của Business. Business điều phối metadata 
 
 - Presentation chỉ tham chiếu Business; không truy cập DataAccess, Repository hay `AivesDbContext`.
 - Business chứa service interface, request/response DTO, enum công khai và các quy tắc nghiệp vụ; Business gọi DataAccess.
+- Quy tắc nghiệp vụ nằm **trong chính service sở hữu nó**, dưới dạng thành viên `internal static` nhận mọi đầu vào qua tham số: `QuestionService` giữ việc phát đề, vòng đào sâu, đọc file nhập và kiểm tra lưu tạm; `ExamSessionService` giữ việc sinh ca thi và kiểm tra ngân hàng đủ câu; `ExamResultService` giữ việc chốt ca quá giờ; cách chấm điểm nằm cạnh DTO công bố `Score` trong `Interfaces/Contracts.cs`.
+- `Policies/` chỉ chứa phần mà service **không** giữ được: `ExamSessionRules`, `ExamLifecycleRules` và `ExamStatePolicy`. Repository cần các quyết định này ngay bên trong transaction, mà DataAccess không gọi được service — tham chiếu project sẽ thành vòng tròn. DataAccess khai `IExamStatePolicy` trong `Contracts/`, Business cắm `ExamStatePolicy` vào qua DI.
 - DataAccess chứa EF Core, entity, read model nội bộ, repository, MySQL provider và local file-store implementation.
 - Chiều tham chiếu project là `Presentation → Business → DataAccess`; không có project `Domain` riêng.
 
@@ -80,7 +82,7 @@ Mỗi hộp trong sơ đồ tương ứng một thư mục thật; thêm file m�
 | Presentation | Razor Views | `Views/` | *(không tự khai báo — xem ghi chú dưới bảng)* |
 | Presentation | ViewModels | `ViewModels/` | `AssignmentPRN.Presentation.ViewModels` |
 | Business | Services | `Services/` | `AssignmentPRN.Business.Services` |
-| Business | Business rules | `BusinessRules/` | `AssignmentPRN.Business.BusinessRules` |
+| Business | Services (dòng "3 policy") | `Policies/` | `AssignmentPRN.Business.Policies` |
 | Business | Interfaces | `Interfaces/` | `AssignmentPRN.Business.Interfaces` |
 | DataAccess | Repositories | `Repositories/` | `AssignmentPRN.DataAccess.Repositories` |
 | DataAccess | AivesDbContext | `Data/` | `AssignmentPRN.DataAccess.Data` |
@@ -92,10 +94,22 @@ cho mỗi view và đặt tất cả vào namespace `AspNetCoreGeneratedDocument
 Có thể đổi bằng chỉ thị `@namespace`, nhưng dự án không dùng. Các `@using` dùng chung cho
 mọi view khai báo một lần ở `Views/_ViewImports.cshtml`.
 
-Ngoài ba hộp chính, mỗi tầng còn một ô nét đứt liệt kê phần không thuộc nghiệp vụ:
+Sơ đồ tổng quan chỉ vẽ phần nghiệp vụ, kèm số lượng từng hộp. Phần hạ tầng không vẽ vì
+nó giống nhau ở mọi project ASP.NET Core và không nói lên kiến trúc của dự án này; bảng
+dưới liệt kê đầy đủ để không thiếu thứ gì khi tìm file:
 
-- **Presentation — "Hạ tầng · khởi động"**: `Program.cs` (đăng ký DI, middleware) và `appsettings.json` (`ConnectionStrings:DefaultConnection`, `MaterialStorage:RootPath`) ở gốc project; các thư mục `Constants/`, `Filters/`, `Properties/`, `Styles/`, `wwwroot/`.
-- **Business — "Nối tầng"**: không có thư mục hạ tầng, nhưng có hai file ở gốc project là `ServiceCollectionExtensions.cs` (đăng ký DI) và `DataAccessMappings.cs` (chuyển DTO giữa hai tầng).
-- **DataAccess — "Hạ tầng"**: `Contracts/`, `Enums/`, `Extensions/`, `Services/`, `Common/`; riêng `Storage/materials` được vẽ thành hình trụ "File tài liệu" nằm trong tầng.
+| Tầng | Hạ tầng (không vẽ) | Vai trò |
+|---|---|---|
+| Presentation | `Program.cs` | Đăng ký DI, cấu hình middleware |
+| Presentation | `appsettings.json` | `ConnectionStrings:DefaultConnection`, `MaterialStorage:RootPath` |
+| Presentation | `Constants/`, `Filters/`, `Properties/`, `Styles/`, `wwwroot/` | Hằng số, `SessionAuthorizeAttribute`, cấu hình chạy, SCSS, tài nguyên tĩnh |
+| Business | `ServiceCollectionExtensions.cs` | `AddBusiness()` — đăng ký DI, gọi tiếp `AddDataAccess()` |
+| Business | `DataAccessMappings.cs` | Chuyển enum/DTO giữa Business và DataAccess |
+| DataAccess | `Contracts/` | Read model nội bộ, input ghi, `IExamStatePolicy` |
+| DataAccess | `Enums/`, `Extensions/` | Enum khớp cột MySQL; `AddDataAccess()` |
+| DataAccess | `Services/` | `LocalMaterialFileStore` (lưu file) và `DatabaseInitializer` (kiểm tra kết nối lúc khởi động) |
+| DataAccess | `Common/` | `ExamScheduleConflictException` |
 
-Sơ đồ tổng quan vẽ đủ các mục này và ghi số lượng từng hộp, nên đọc sơ đồ là thấy hết thư mục thật. Project `tests/AssignmentPRN.Tests` cố ý không vẽ vì không chạy lúc runtime.
+Riêng `Storage/materials` có vẽ, thành hình trụ "File tài liệu", vì nó là nơi dữ liệu nằm
+chứ không phải hạ tầng. Project `tests/AssignmentPRN.Tests` cố ý không vẽ vì không chạy
+lúc runtime.

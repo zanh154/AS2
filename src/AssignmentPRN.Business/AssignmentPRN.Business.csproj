@@ -10,4 +10,11 @@
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The rules that used to live in BusinessRules/ are now internal members of the
+         services that own them; the test project still reaches them directly. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>AssignmentPRN.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

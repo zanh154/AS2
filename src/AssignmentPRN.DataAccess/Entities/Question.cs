@@ -37,6 +37,15 @@ public class Question
 
     public QuestionStatus Status { get; set; } = QuestionStatus.Approved;
 
+    /// <summary>Whether a person or the AI wrote it; AI questions are held for review.</summary>
+    public QuestionSource Source { get; set; } = QuestionSource.Manual;
+
+    /// <summary>The reviewer who approved or rejected it; null while it is still pending.</summary>
+    public int? ReviewedBy { get; set; }
+
+    /// <summary>When the review decision was made; null while it is still pending.</summary>
+    public DateTime? ReviewedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
@@ -46,6 +55,8 @@ public class Question
     public User CreatedByUser { get; set; } = null!;
 
     public CourseMaterial? SourceMaterial { get; set; }
+
+    public Rubric? Rubric { get; set; }
 
     public ICollection<QuestionOption> Options { get; set; } = new List<QuestionOption>();
 }

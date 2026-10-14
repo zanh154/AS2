@@ -1,6 +1,7 @@
+using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Presentation.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
 builder.Services.AddControllersWithViews();
+
+// The question reviewer and rubric editors are Razor Pages; the rest of the app stays MVC.
+builder.Services.AddRazorPages();
 
 // Course materials live in the data access project, deliberately outside wwwroot so the
 // static-file middleware cannot serve them: every download goes through the controller,

@@ -20,13 +20,13 @@ public class IssuedPaperEditTests
     public async Task Issued_paper_blocks_changes_in_service_and_repository(bool course, bool count)
     {
         await using var db = await OpenAsync();
-        var service = new BSvc.ExamSessionService(new ExamSessionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()), new CatalogRepository(db), new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()));
+        var service = new BSvc.ExamSessionService(new ExamSessionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()));
         var result = await service.UpdateAsync(new B.ExamSessionUpdateInput {
             ExamId = 1, CourseId = course ? 2 : 1, MainQuestionCount = count ? 2 : 1,
             ExamName = "Changed", StartTime = Start, TimePerStudent = 10 }, 1);
         Assert.False(result.Success);
         Assert.Contains("huỷ đề", result.Error);
-        var error = await Assert.ThrowsAsync<ArgumentException>(() => new ExamSessionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()).UpdateAsync(Request(course, count)));
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => new ExamSessionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()).UpdateAsync(Request(course, count)));
         Assert.Contains("huỷ đề", error.Message);
         db.ChangeTracker.Clear();
         var saved = await db.ExamSessions.SingleAsync();
@@ -39,7 +39,7 @@ public class IssuedPaperEditTests
     public async Task Issued_paper_allows_other_details_to_change()
     {
         await using var db = await OpenAsync();
-        var saved = await new ExamSessionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()).UpdateAsync(Request(false, false));
+        var saved = await new ExamSessionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()).UpdateAsync(Request(false, false));
         Assert.Equal("Changed", saved.ExamName);
         Assert.Single(await db.ExamQuestions.ToListAsync());
     }
@@ -48,9 +48,9 @@ public class IssuedPaperEditTests
     public async Task Clearing_unstarted_paper_allows_configuration_change()
     {
         await using var db = await OpenAsync();
-        var questions = new BSvc.QuestionService(new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()), new CatalogRepository(db), null!);
+        var questions = new BSvc.QuestionService(new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), null!);
         Assert.True((await questions.ClearExamAssignmentAsync(1)).Success);
-        var saved = await new ExamSessionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()).UpdateAsync(Request(true, true));
+        var saved = await new ExamSessionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()).UpdateAsync(Request(true, true));
         Assert.Equal(2, saved.Course.CourseId);
         Assert.Equal(2, saved.MainQuestionCount);
     }
@@ -63,7 +63,7 @@ public class IssuedPaperEditTests
         candidate.Status = CandidateStatus.InProgress;
         candidate.StartedAt = DateTime.Now;
         await db.SaveChangesAsync();
-        var questions = new BSvc.QuestionService(new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()), new CatalogRepository(db), null!);
+        var questions = new BSvc.QuestionService(new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), null!);
         Assert.False((await questions.ClearExamAssignmentAsync(1)).Success);
         Assert.Single(await db.ExamQuestions.ToListAsync());
     }

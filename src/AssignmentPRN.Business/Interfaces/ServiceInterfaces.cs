@@ -154,6 +154,20 @@ public interface IQuestionService
     /// </summary>
     Task<ServiceResponse> ArchiveAsync(int questionId, int? lecturerId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Reads an import file and creates its questions. Reading the file and writing the rows
+    /// are one operation here, so a caller never has to know the CSV layout; a line that
+    /// cannot be read is reported alongside the rows that were rejected on save.
+    /// </summary>
+    /// <param name="materialIdsByFileName">Course materials the file may refer to, by stored file name.</param>
+    Task<ServiceResponse<QuestionImportResult>> ImportCsvAsync(
+        int courseId,
+        string csvContent,
+        IReadOnlyDictionary<string, int> materialIdsByFileName,
+        int lecturerId,
+        int? ownerLecturerId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Bulk-creates questions from rows produced by the CSV import.</summary>
     Task<ServiceResponse<QuestionImportResult>> ImportAsync(
         int courseId,
@@ -345,6 +359,71 @@ public sealed class CourseMaterialCreateRequest
     public MaterialFileType FileType { get; init; }
 
     public long? FileSize { get; init; }
+}
+
+/// <summary>
+/// The review desk for AI-generated questions. A lecturer only decides on the courses
+/// they teach; the check lives here rather than in the page, so hiding a button never
+/// grants access. A manual question is approved at creation and never reaches this desk.
+/// </summary>
+public interface IQuestionReviewService
+{
+    /// <summary>AI-written questions still waiting for a decision, newest first.</summary>
+    Task<ServiceResponse<IReadOnlyList<QuestionListItemResponse>>> ListPendingAsync(
+        int? lecturerId,
+        int? courseId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Approves an AI-written question, which lets the bank hand it out. Refused once the
+    /// question is already approved, rejected or archived, or when the caller may not see it.</summary>
+    Task<ServiceResponse> ApproveAsync(
+        int questionId,
+        int reviewerId,
+        int? lecturerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Rejects an AI-written question so it can never be dealt. Refused under the same
+    /// conditions as <see cref="ApproveAsync"/>.</summary>
+    Task<ServiceResponse> RejectAsync(
+        int questionId,
+        int reviewerId,
+        int? lecturerId,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Manages rubrics (grading criteria) for questions. A lecturer only manages rubrics
+/// for questions in courses they teach; pass a null lecturer id for an admin.
+/// </summary>
+public interface IRubricService
+{
+    /// <summary>Lists rubrics with optional course filter and search term.</summary>
+    Task<ServiceResponse<IReadOnlyList<RubricListItemResponse>>> ListAsync(
+        int? lecturerId,
+        int? courseId = null,
+        string? term = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Gets a rubric with its criteria for a question.</summary>
+    Task<ServiceResponse<RubricDetailResponse>> GetAsync(
+        int questionId,
+        int? lecturerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates or updates a rubric with its criteria. Validates that all criteria have
+    /// positive scores and that the total matches the sum of criteria scores.
+    /// </summary>
+    Task<ServiceResponse<RubricDetailResponse>> SaveAsync(
+        RubricSaveRequest request,
+        int? lecturerId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a rubric and its criteria.</summary>
+    Task<ServiceResponse> DeleteAsync(
+        int rubricId,
+        int? lecturerId,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IClassManagementService

@@ -12,7 +12,7 @@ namespace AssignmentPRN.Tests;
 public class SharedQuestionConfigurationTests
 {
     private static BSvc.QuestionService Service(AivesDbContext db) =>
-        new(new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()), new CatalogRepository(db), null!);
+        new(new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), null!);
     private static B.ExamQuestionAssignmentRequest Request(int count = 1, bool filtered = true) => new() {
         ExamId = 1, CourseId = 1, CountPerCandidate = count,
         MaterialIds = filtered ? [1] : [], Difficulties = filtered ? [B.QuestionDifficulty.Easy] : [] };
@@ -89,7 +89,7 @@ public class SharedQuestionConfigurationTests
             CourseId = 1, LecturerId = 1, IsActive = true,
             Students = [new ClassStudent { StudentId = 2 }, new ClassStudent { StudentId = 3 }] });
         await db.SaveChangesAsync();
-        var sessions = new BSvc.ExamSessionService(new ExamSessionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()), new CatalogRepository(db), new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()));
+        var sessions = new BSvc.ExamSessionService(new ExamSessionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()));
         var start = (await db.ExamSessions.SingleAsync()).StartTime;
         Assert.True((await sessions.AddStudentAsync(1, "s2@example.test", start.AddMinutes(10))).Success);
         // Only one unassigned Easy/topic-1 question remains: reserved for student 2.

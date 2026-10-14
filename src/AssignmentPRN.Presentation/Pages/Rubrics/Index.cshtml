@@ -1,0 +1,114 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Rubrics.IndexModel
+@{
+    ViewData["Title"] = "Quản lý bộ tiêu chí (Rubric)";
+}
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Module 5</span>
+        <h1>Quản lý bộ tiêu chí (Rubric)</h1>
+        <p>Mỗi câu hỏi có một bộ tiêu chí chấm điểm. Tổng điểm = tổng điểm các tiêu chí.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary" asp-page="Edit">Tạo bộ tiêu chí mới</a>
+        <a class="btn btn-outline-secondary" asp-controller="Questions" asp-action="Index">Ngân hàng câu hỏi</a>
+    </div>
+</div>
+
+<form method="get" class="content-card question-filters">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label" for="courseId">Môn học</label>
+            <select id="courseId" name="courseId" class="form-select">
+                <option value="">Tất cả môn đã phân công</option>
+                @foreach (var option in Model.CourseOptions)
+                {
+                    <option value="@option.Value" selected="@(Model.CourseId?.ToString() == option.Value)">@option.Text</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="term">Tìm kiếm</label>
+            <input id="term" name="term" value="@Model.Term" class="form-control" placeholder="Tìm trong nội dung câu hỏi, mã hoặc tên môn" />
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Lọc</button>
+            <a class="btn btn-outline-secondary" asp-page="Index">Xoá lọc</a>
+        </div>
+    </div>
+</form>
+
+@if (Model.LoadError is not null)
+{
+    <div class="alert alert-danger app-alert" role="alert">@Model.LoadError</div>
+}
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Danh sách bộ tiêu chí</h2>
+            <p class="text-muted">Có @Model.Rubrics.Count bộ tiêu chí.</p>
+        </div>
+    </div>
+
+    @if (Model.Rubrics.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>Chưa có bộ tiêu chí nào</h2>
+            <p>Tạo bộ tiêu chí đầu tiên cho một câu hỏi.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Câu hỏi</th>
+                        <th>Môn học</th>
+                        <th>Số tiêu chí</th>
+                        <th>Tổng điểm</th>
+                        <th>Ngày tạo</th>
+                        <th>Ngày cập nhật</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rubric in Model.Rubrics)
+                    {
+                        <tr>
+                            <td>
+                                <p class="question-cell">@rubric.QuestionText</p>
+                            </td>
+                            <td>
+                                <strong>@rubric.CourseCode</strong>
+                                <div class="text-muted">@rubric.CourseName</div>
+                            </td>
+                            <td>@rubric.CriteriaCount</td>
+                            <td><span class="fw-bold">@rubric.TotalScore.ToString("0.##")</span></td>
+                            <td>@rubric.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                @if (rubric.UpdatedAt.HasValue)
+                                {
+                                    <span>@rubric.UpdatedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-outline-secondary btn-sm" asp-page="Edit" asp-route-questionId="@rubric.QuestionId" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term">Sửa</a>
+                                    <form asp-page-handler="Delete" asp-route-id="@rubric.RubricId" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term" method="post" data-confirm="Xoá bộ tiêu chí này? Hành động này không thể hoàn tác.">
+                                        <button class="btn btn-outline-danger btn-sm">Xoá</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

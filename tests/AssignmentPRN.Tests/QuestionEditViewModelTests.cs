@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business.Interfaces;
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Presentation.ViewModels;
 
 namespace AssignmentPRN.Tests;

@@ -11,7 +11,7 @@ namespace AssignmentPRN.Tests;
 
 public class ExamDraftTests
 {
-    private static BSvc.QuestionService Service(AivesDbContext db) => new(new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()), new CatalogRepository(db), null!);
+    private static BSvc.QuestionService Service(AivesDbContext db) => new(new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), null!);
 
     [Fact]
     public async Task Draft_survives_reload_without_finishing_exam_and_can_be_changed()
@@ -99,7 +99,7 @@ public class ExamDraftTests
     {
         await using var db = await SeedAsync();
         var id = (await db.ExamQuestions.SingleAsync()).ExamQuestionId;
-        await new QuestionRepository(db, new AssignmentPRN.Business.BusinessRules.ExamStatePolicy()).SaveDraftAsync(1, state => {
+        await new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()).SaveDraftAsync(1, state => {
             Assert.NotNull(db.Database.CurrentTransaction);
             Assert.NotNull(state);
             Assert.Equal(1, state.StudentId);

@@ -12,6 +12,8 @@
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" asp-controller="CourseMaterials" asp-action="Index">Tài liệu môn</a>
+        <a class="btn btn-outline-warning" asp-page="/Questions/Review" asp-route-courseId="@Model.CourseId">Duyệt câu AI</a>
+        <a class="btn btn-outline-info" asp-page="/Rubrics/Index" asp-route-courseId="@Model.CourseId">Bộ tiêu chí</a>
         <a class="btn btn-outline-primary" asp-action="Import" asp-route-courseId="@Model.CourseId">Nhập từ CSV</a>
         <a class="btn btn-primary" asp-action="Create" asp-route-courseId="@Model.CourseId">Thêm câu hỏi</a>
     </div>

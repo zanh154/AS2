@@ -1,6 +1,7 @@
+using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Policies;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
 
@@ -243,6 +244,13 @@ public static class QuestionText
         QuestionType.Main => "Câu chính",
         QuestionType.FollowUp => "Đào sâu",
         _ => type.ToString()
+    };
+
+    public static string Source(QuestionSource source) => source switch
+    {
+        QuestionSource.AI => "AI",
+        QuestionSource.Manual => "Thủ công",
+        _ => source.ToString()
     };
 
     public static string DifficultyChip(QuestionDifficulty difficulty) => difficulty switch

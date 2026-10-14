@@ -2,7 +2,7 @@
 
 ## Phân tầng
 
-Quy tắc quyết định trạng thái nằm trong `Business/BusinessRules/ExamLifecycleRules.cs`, thuần logic và không có truy cập database. `Business/BusinessRules/OverdueSlotRules` dùng quy tắc chung để tính ca quá hạn. Các repository đọc dữ liệu mới nhất trong transaction, gọi implementation Business qua `IExamStatePolicy` và lưu kết quả; không tự định nghĩa lại điều kiện hoàn thành/vắng thi. Transaction bao quanh cập nhật lượt thi và đồng bộ trạng thái phiên được giữ nguyên.
+Quy tắc quyết định trạng thái nằm trong `Business/Policies/ExamLifecycleRules.cs`, thuần logic và không có truy cập database. `ExamResultService.CloseOverdueSlots` dùng quy tắc chung để tính ca quá hạn. Các repository đọc dữ liệu mới nhất trong transaction, gọi implementation Business qua `IExamStatePolicy` và lưu kết quả; không tự định nghĩa lại điều kiện hoàn thành/vắng thi. Transaction bao quanh cập nhật lượt thi và đồng bộ trạng thái phiên được giữ nguyên.
 
 ## Quy tắc
 

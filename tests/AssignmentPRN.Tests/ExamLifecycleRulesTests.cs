@@ -1,5 +1,6 @@
 using AssignmentPRN.Business.Interfaces;
-using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Business.Policies;
+using AssignmentPRN.Business.Services;
 using Xunit;
 
 namespace AssignmentPRN.Tests;
