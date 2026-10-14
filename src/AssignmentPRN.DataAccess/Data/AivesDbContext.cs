@@ -19,6 +19,12 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
 
     public DbSet<ExamCandidate> ExamCandidates => Set<ExamCandidate>();
 
+    public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
+
+    public DbSet<GeneratedQuestion> GeneratedQuestions => Set<GeneratedQuestion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Role>(entity =>
@@ -256,6 +262,153 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
                 .WithMany()
                 .HasForeignKey(candidate => candidate.StudentId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        ConfigureDocuments(modelBuilder);
+    }
+
+    private static void ConfigureDocuments(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Document>(entity =>
+        {
+            entity.ToTable("documents");
+            entity.HasKey(d => d.DocumentId);
+
+            entity.Property(d => d.DocumentId)
+                .HasColumnName("document_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(d => d.CourseId)
+                .HasColumnName("course_id");
+            entity.Property(d => d.UploadedById)
+                .HasColumnName("uploaded_by_id");
+            entity.Property(d => d.FileName)
+                .HasColumnName("file_name")
+                .HasMaxLength(255)
+                .IsRequired();
+            entity.Property(d => d.ContentType)
+                .HasColumnName("content_type")
+                .HasMaxLength(100)
+                .IsRequired();
+            entity.Property(d => d.FileSize)
+                .HasColumnName("file_size");
+            entity.Property(d => d.StoragePath)
+                .HasColumnName("storage_path")
+                .HasMaxLength(500)
+                .IsRequired();
+            entity.Property(d => d.Status)
+                .HasColumnName("status")
+                .HasConversion<string>()
+                .IsRequired();
+            entity.Property(d => d.ErrorMessage)
+                .HasColumnName("error_message")
+                .HasMaxLength(1000);
+            entity.Property(d => d.CreatedAt)
+                .HasColumnName("created_at");
+            entity.Property(d => d.ProcessedAt)
+                .HasColumnName("processed_at");
+
+            entity.HasOne(d => d.Course)
+                .WithMany()
+                .HasForeignKey(d => d.CourseId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(d => d.UploadedBy)
+                .WithMany()
+                .HasForeignKey(d => d.UploadedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(d => d.CourseId);
+            entity.HasIndex(d => d.UploadedById);
+            entity.HasIndex(d => d.Status);
+        });
+
+        modelBuilder.Entity<DocumentChunk>(entity =>
+        {
+            entity.ToTable("document_chunks");
+            entity.HasKey(c => c.ChunkId);
+
+            entity.Property(c => c.ChunkId)
+                .HasColumnName("chunk_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(c => c.DocumentId)
+                .HasColumnName("document_id");
+            entity.Property(c => c.ChunkIndex)
+                .HasColumnName("chunk_index");
+            entity.Property(c => c.Content)
+                .HasColumnName("content")
+                .IsRequired();
+            entity.Property(c => c.TokenCount)
+                .HasColumnName("token_count");
+            entity.Property(c => c.EmbeddingJson)
+                .HasColumnName("embedding_json")
+                .HasColumnType("json")
+                .IsRequired();
+
+            entity.HasOne(c => c.Document)
+                .WithMany(d => d.Chunks)
+                .HasForeignKey(c => c.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(c => c.DocumentId);
+        });
+
+        modelBuilder.Entity<GeneratedQuestion>(entity =>
+        {
+            entity.ToTable("generated_questions");
+            entity.HasKey(q => q.QuestionId);
+
+            entity.Property(q => q.QuestionId)
+                .HasColumnName("question_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(q => q.DocumentId)
+                .HasColumnName("document_id");
+            entity.Property(q => q.CourseId)
+                .HasColumnName("course_id");
+            entity.Property(q => q.QuestionText)
+                .HasColumnName("question_text")
+                .IsRequired();
+            entity.Property(q => q.AnswerKey)
+                .HasColumnName("answer_key")
+                .HasMaxLength(2000);
+            entity.Property(q => q.Explanation)
+                .HasColumnName("explanation")
+                .HasMaxLength(2000);
+            entity.Property(q => q.BloomLevel)
+                .HasColumnName("bloom_level")
+                .HasConversion<int>()
+                .IsRequired();
+            entity.Property(q => q.Topic)
+                .HasColumnName("topic")
+                .HasMaxLength(200);
+            entity.Property(q => q.Status)
+                .HasColumnName("status")
+                .HasConversion<string>()
+                .IsRequired();
+            entity.Property(q => q.ReviewedById)
+                .HasColumnName("reviewed_by_id");
+            entity.Property(q => q.ReviewedAt)
+                .HasColumnName("reviewed_at");
+            entity.Property(q => q.ReviewNotes)
+                .HasColumnName("review_notes")
+                .HasMaxLength(1000);
+            entity.Property(q => q.CreatedAt)
+                .HasColumnName("created_at");
+
+            entity.HasOne(q => q.Document)
+                .WithMany(d => d.GeneratedQuestions)
+                .HasForeignKey(q => q.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(q => q.Course)
+                .WithMany()
+                .HasForeignKey(q => q.CourseId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(q => q.ReviewedBy)
+                .WithMany()
+                .HasForeignKey(q => q.ReviewedById)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(q => q.DocumentId);
+            entity.HasIndex(q => q.Status);
+            entity.HasIndex(q => q.CourseId);
         });
     }
 }
