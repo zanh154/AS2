@@ -13,7 +13,7 @@ public class StudentController(IExamSessionService examSessionService) : Control
         var userId = HttpContext.Session.GetInt32(SessionKeys.UserId);
         if (!userId.HasValue)
         {
-            return RedirectToAction("Login", "Account");
+            return RedirectToPage("/Account/Login");
         }
 
         return View(await DashboardBuilder.BuildStudentAsync(examSessionService, userId.Value, cancellationToken));

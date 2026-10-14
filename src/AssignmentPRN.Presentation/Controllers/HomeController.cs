@@ -14,7 +14,7 @@ public class HomeController : Controller
     {
         if (!HttpContext.Session.GetInt32(SessionKeys.UserId).HasValue)
         {
-            return RedirectToAction("Login", "Account");
+            return RedirectToPage("/Account/Login");
         }
 
         return HttpContext.Session.GetString(SessionKeys.Role) switch
@@ -22,7 +22,7 @@ public class HomeController : Controller
             RoleNames.Admin => RedirectToAction("Index", "Admin"),
             RoleNames.Lecturer => RedirectToAction("Index", "Lecturer"),
             RoleNames.Student => RedirectToAction("Index", "Student"),
-            _ => RedirectToAction("AccessDenied", "Account")
+            _ => RedirectToPage("/Account/AccessDenied")
         };
     }
 }

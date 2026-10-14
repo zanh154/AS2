@@ -55,6 +55,9 @@
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="StudentSchedule" asp-action="Index">Tra cứu sinh viên</a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Classes" asp-action="Index">Lớp học</a>
+                                </li>
                             }
                             else if (role == RoleNames.Student)
                             {
@@ -70,10 +73,12 @@
                                 <span class="nav-user__name">@fullName</span>
                                 <span class="nav-user__role">@roleLabel</span>
                             </span>
-                            <a class="nav-logout" asp-controller="Account" asp-action="Logout">
-                                <partial name="_Icon" model="@("logout")" />
-                                <span class="d-none d-lg-inline">Đăng xuất</span>
-                            </a>
+                            <form method="post" asp-page="/Account/Logout">
+                                <button class="nav-logout" type="submit">
+                                    <partial name="_Icon" model="@("logout")" />
+                                    <span class="d-none d-lg-inline">Đăng xuất</span>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 }
@@ -108,8 +113,17 @@
         </div>
     </div>
 
+    <div class="realtime-notice" id="realtime-notice" role="status" aria-live="polite" hidden>
+        <span id="realtime-notice-message">Danh sách vừa thay đổi.</span>
+        <button type="button" id="realtime-notice-refresh">Cập nhật</button>
+    </div>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @if (isSignedIn)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    }
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -17,11 +17,9 @@ public sealed class SessionAuthorizeAttribute(params string[] allowedRoles) : At
             var request = context.HttpContext.Request;
             var returnUrl = $"{request.PathBase}{request.Path}{request.QueryString}";
 
-            context.Result = new RedirectToActionResult(
-                "Login",
-                "Account",
-                new { returnUrl },
-                null);
+            context.Result = new RedirectToPageResult(
+                "/Account/Login",
+                new { returnUrl });
             return;
         }
 
@@ -33,15 +31,11 @@ public sealed class SessionAuthorizeAttribute(params string[] allowedRoles) : At
         var sessionRole = session.GetString(SessionKeys.Role);
         var isAuthorized = Array.Exists(
             _allowedRoles,
-            role => string.Equals(role, sessionRole, StringComparison.Ordinal));
+            role => string.Equals(role, sessionRole, StringComparison.OrdinalIgnoreCase));
 
         if (!isAuthorized)
         {
-            context.Result = new RedirectToActionResult(
-                "AccessDenied",
-                "Account",
-                null,
-                null);
+            context.Result = new RedirectToPageResult("/Account/AccessDenied");
         }
     }
 }

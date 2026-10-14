@@ -1,4 +1,5 @@
 using AssignmentPRN.Business;
+using AssignmentPRN.Presentation.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +7,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
+builder.Services.AddSignalR();
 builder.Services.AddBusiness(connectionString);
 
 builder.Services.AddDistributedMemoryCache();
@@ -22,6 +25,8 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 
+app.MapRazorPages();
+app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
 app.MapDefaultControllerRoute();
 
 app.Run();

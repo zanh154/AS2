@@ -51,6 +51,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Shared helpers ───────────────────────────────────────────────────────
   const pad = (value) => String(value).padStart(2, "0");
 
+  // ── Realtime list changes ────────────────────────────────────────────────
+  const notice = document.getElementById("realtime-notice");
+  if (notice && window.signalR) {
+    const message = document.getElementById("realtime-notice-message");
+    const refresh = document.getElementById("realtime-notice-refresh");
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl("/hubs/exam-updates")
+      .withAutomaticReconnect()
+      .build();
+
+    connection.on("ExamListChanged", (event) => {
+      message.textContent = event?.message || "Dữ liệu vừa thay đổi.";
+      notice.hidden = false;
+    });
+    refresh.addEventListener("click", () => window.location.reload());
+    connection.start().catch(() => {
+      // The application remains usable if the realtime transport is unavailable.
+    });
+  }
+
   // ── Date-time picker ─────────────────────────────────────────────────────
   // Initialise a single date-time picker root element.
   // Self-contained: each picker reads/writes its own [data-date-time-value] input.
