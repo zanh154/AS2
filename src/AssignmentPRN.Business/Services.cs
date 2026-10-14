@@ -50,3 +50,23 @@ public interface IExamSessionService
         int studentUserId,
         CancellationToken cancellationToken = default);
 }
+
+public interface IClassManagementService
+{
+    Task<ServiceResponse<IReadOnlyList<AcademicClassResponse>>> ListAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResponse<ClassRosterResponse>> GetAsync(
+        int classId,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResponse> AddStudentAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResponse> RemoveStudentAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default);
+}

@@ -1,0 +1,49 @@
+@model ClassListViewModel
+@{
+    ViewData["Title"] = "Lớp học";
+}
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Quản lý lớp</span>
+        <h1>Lớp và danh sách sinh viên</h1>
+        <p>Giảng viên chỉ thấy lớp mình phụ trách; quản trị viên thấy toàn bộ lớp.</p>
+    </div>
+</div>
+
+<form method="get" class="content-card mb-3">
+    <div class="input-group">
+        <input class="form-control" type="search" name="q" value="@Model.Query"
+               placeholder="Tìm mã lớp, tên lớp hoặc mã môn..." />
+        <button class="btn btn-primary" type="submit">Tìm kiếm</button>
+    </div>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+else if (Model.Classes.Count == 0)
+{
+    <div class="content-card empty-state"><h2>Không tìm thấy lớp học</h2></div>
+}
+else
+{
+    <div class="content-card table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Lớp</th><th>Môn học</th><th>Giảng viên</th><th>Sinh viên</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Classes)
+            {
+                <tr>
+                    <td><strong>@item.ClassCode</strong><br /><small>@item.ClassName</small></td>
+                    <td>@item.CourseCode · @item.CourseName</td>
+                    <td>@item.LecturerName</td>
+                    <td>@item.StudentCount</td>
+                    <td><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@item.ClassId">Quản lý</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

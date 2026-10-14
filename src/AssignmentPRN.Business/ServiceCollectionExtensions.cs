@@ -14,6 +14,7 @@ public static class ServiceCollectionExtensions
         services.AddDataAccess(connectionString);
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IExamSessionService, ExamSessionService>();
+        services.AddScoped<IClassManagementService, ClassManagementService>();
 
         return services;
     }
