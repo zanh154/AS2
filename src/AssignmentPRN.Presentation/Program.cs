@@ -9,6 +9,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddControllersWithViews();
 
+// The question reviewer and rubric editors are Razor Pages; the rest of the app stays MVC.
+builder.Services.AddRazorPages();
+
 // Course materials live in the data access project, deliberately outside wwwroot so the
 // static-file middleware cannot serve them: every download goes through the controller,
 // which checks the session first. A relative value is resolved against the content root;
@@ -33,6 +36,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 
+app.MapRazorPages();
 app.MapDefaultControllerRoute();
 
 app.Run();

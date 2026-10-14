@@ -375,6 +375,7 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
     {
         var rubric = await context.Rubrics
             .AsNoTracking()
+            .Include(r => r.Question)
             .Include(r => r.Criteria)
             .FirstOrDefaultAsync(r => r.QuestionId == questionId, cancellationToken);
 

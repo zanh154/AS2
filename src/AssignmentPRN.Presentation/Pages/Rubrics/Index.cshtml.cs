@@ -37,6 +37,21 @@ public class IndexModel(
         await LoadAsync(ct);
     }
 
+    public async Task<IActionResult> OnPostDeleteAsync(int id, int? courseId, string? term, CancellationToken ct)
+    {
+        var result = await rubricService.DeleteAsync(id, LecturerId, ct);
+        if (result.Success)
+        {
+            TempData["Success"] = "Đã xoá bộ tiêu chí.";
+        }
+        else
+        {
+            TempData["Error"] = result.Error ?? "Không thể xoá bộ tiêu chí.";
+        }
+
+        return RedirectToPage("Index", new { courseId, term });
+    }
+
     private async Task LoadAsync(CancellationToken ct)
     {
         var courses = await catalog.ListActiveCoursesAsync(ct);

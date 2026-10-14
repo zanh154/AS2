@@ -362,6 +362,14 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
                 .HasColumnName("status")
                 .HasConversion<string>()
                 .IsRequired();
+            entity.Property(question => question.Source)
+                .HasColumnName("source")
+                .HasConversion<string>()
+                .IsRequired();
+            entity.Property(question => question.ReviewedBy)
+                .HasColumnName("reviewed_by");
+            entity.Property(question => question.ReviewedAt)
+                .HasColumnName("reviewed_at");
             entity.Property(question => question.CreatedAt)
                 .HasColumnName("created_at");
             entity.Property(question => question.UpdatedAt)
@@ -371,6 +379,8 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
             // inside one exam, so the two columns are indexed together.
             entity.HasIndex(question => new { question.CourseId, question.Status });
             entity.HasIndex(question => question.SourceMaterialId);
+            entity.HasIndex(question => question.Source);
+            entity.HasIndex(question => question.ReviewedBy);
             entity.HasOne(question => question.Course)
                 .WithMany()
                 .HasForeignKey(question => question.CourseId)
@@ -526,7 +536,7 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
             entity.HasIndex(rubric => rubric.QuestionId).IsUnique();
 
             entity.HasOne(rubric => rubric.Question)
-                .WithOne()
+                .WithOne(question => question.Rubric)
                 .HasForeignKey<Rubric>(rubric => rubric.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

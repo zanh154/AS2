@@ -11,51 +11,58 @@
         <p>Tổng điểm = tổng điểm các tiêu chí. Mỗi tiêu chí phải có điểm > 0.</p>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" asp-page="Index" asp-route-courseId="@ViewData["courseId"]" asp-route-term="@ViewData["term"]">Danh sách rubric</a>
+        <a class="btn btn-outline-secondary" asp-page="Index" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term">Danh sách rubric</a>
         <a class="btn btn-outline-secondary" asp-controller="Questions" asp-action="Index">Ngân hàng câu hỏi</a>
     </div>
 </div>
 
-<form method="post" class="content-card">
-    <input type="hidden" name="courseId" value="@ViewData["courseId"]" />
-    <input type="hidden" name="term" value="@ViewData["term"]" />
+<form method="post" asp-page="Edit" class="content-card">
+    <input type="hidden" name="CourseId" value="@Model.CourseId" />
+    <input type="hidden" name="Term" value="@Model.Term" />
     <input type="hidden" name="RubricId" value="@Model.RubricId" />
-    <input type="hidden" name="QuestionId" value="@Model.QuestionId" />
 
-    @if (Model.QuestionId > 0)
-    {
-        <div class="mb-3">
-            <label class="form-label">Câu hỏi</label>
-            <div class="form-control-plaintext question-cell">
-                @Model.QuestionText
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="mb-3">
-            <label class="form-label" for="QuestionId">Chọn câu hỏi <span class="text-danger">*</span></label>
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+
+    <div class="mb-3">
+        <label class="form-label" for="QuestionId">Câu hỏi <span class="text-danger">*</span></label>
+        @if (Model.QuestionId > 0)
+        {
+            <input type="hidden" name="QuestionId" value="@Model.QuestionId" />
+            <div class="form-control-plaintext question-cell">@Model.QuestionText</div>
+        }
+        else
+        {
             <select id="QuestionId" name="QuestionId" class="form-select" required>
                 <option value="">-- Chọn câu hỏi --</option>
                 @foreach (var option in Model.QuestionOptions)
                 {
-                    <option value="@option.Value" selected="@(Model.QuestionId.ToString() == option.Value)">@option.Text</option>
+                    <option value="@option.Value">@option.Text</option>
                 }
             </select>
-            <div class="form-text">Chỉ hiển thị câu hỏi đã duyệt (Approved).</div>
-        </div>
-    }
+            <div class="form-text">Chỉ hiển thị câu hỏi đã duyệt (Approved) và chưa có bộ tiêu chí.</div>
+            @if (Model.QuestionOptions.Count == 0)
+            {
+                <div class="alert alert-info app-alert mt-2 mb-0" role="alert">
+                    Mọi câu hỏi đã duyệt đều đã có bộ tiêu chí. Hãy sửa từ danh sách rubric.
+                </div>
+            }
+        }
+        @if (Model.LoadError is not null)
+        {
+            <div class="alert alert-danger app-alert mt-2 mb-0" role="alert">@Model.LoadError</div>
+        }
+    </div>
 
     <div class="mb-3">
         <label class="form-label fw-bold">Các tiêu chí chấm điểm</label>
         <div id="criteria-container">
-            @for (int i = 0; i < Model.Criteria.Count; i++)
+            @for (var i = 0; i < Model.Criteria.Count; i++)
             {
-                <partial name="_CriteriaRow" model="@(new { Index = i, Criteria = Model.Criteria[i] })" />
+                <partial name="_CriteriaRow" model="@((i, Model.Criteria[i]))" />
             }
         </div>
         <div class="d-flex gap-2 mt-2">
-            <button type="submit" name="handler" value="AddCriterion" class="btn btn-outline-secondary btn-sm" formaction="?handler=AddCriterion">
+            <button type="submit" asp-page="Edit" asp-page-handler="AddCriterion" class="btn btn-outline-secondary btn-sm">
                 + Thêm tiêu chí
             </button>
             <div class="form-text">Tổng điểm = tổng điểm các tiêu chí.</div>
@@ -64,42 +71,6 @@
 
     <div class="d-flex gap-2 mt-3">
         <button type="submit" class="btn btn-primary">@(isCreate ? "Tạo" : "Lưu")</button>
-        <a class="btn btn-outline-secondary" asp-page="Index" asp-route-courseId="@ViewData["courseId"]" asp-route-term="@ViewData["term"]">Huỷ</a>
+        <a class="btn btn-outline-secondary" asp-page="Index" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term">Huỷ</a>
     </div>
 </form>
-
-@section Scripts {
-    <script>
-        // Handle remove criterion button
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.btn-remove-criterion')) {
-                e.preventDefault();
-                const btn = e.target.closest('.btn-remove-criterion');
-                const form = document.createElement('form');
-                form.method = 'post';
-                form.innerHTML = `
-                    <input type="hidden" name="courseId" value="@ViewData["courseId"]" />
-                    <input type="hidden" name="term" value="@ViewData["term"]" />
-                    <input type="hidden" name="RubricId" value="@Model.RubricId" />
-                    <input type="hidden" name="QuestionId" value="@Model.QuestionId" />
-                `;
-                // Add current criteria as hidden inputs
-                document.querySelectorAll('#criteria-container .criteria-row').forEach((row, idx) => {
-                    const inputs = row.querySelectorAll('input, textarea, select');
-                    inputs.forEach(input => {
-                        const clone = input.cloneNode(true);
-                        clone.name = input.name.replace(/\[\d+\]/, '[' + idx + ']');
-                        form.appendChild(clone);
-                    });
-                });
-                const indexInput = document.createElement('input');
-                indexInput.type = 'hidden';
-                indexInput.name = 'index';
-                indexInput.value = btn.dataset.index;
-                form.appendChild(indexInput);
-                document.body.appendChild(form);
-                form.submit();
-            }
-        });
-    </script>
-}

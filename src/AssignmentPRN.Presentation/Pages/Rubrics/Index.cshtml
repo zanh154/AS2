@@ -99,7 +99,7 @@
                             </td>
                             <td>
                                 <div class="d-flex gap-2">
-                                    <a class="btn btn-outline-secondary btn-sm" asp-page="Edit" asp-route-id="@rubric.RubricId" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term">Sửa</a>
+                                    <a class="btn btn-outline-secondary btn-sm" asp-page="Edit" asp-route-questionId="@rubric.QuestionId" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term">Sửa</a>
                                     <form asp-page-handler="Delete" asp-route-id="@rubric.RubricId" asp-route-courseId="@Model.CourseId" asp-route-term="@Model.Term" method="post" data-confirm="Xoá bộ tiêu chí này? Hành động này không thể hoàn tác.">
                                         <button class="btn btn-outline-danger btn-sm">Xoá</button>
                                     </form>
