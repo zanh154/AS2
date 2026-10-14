@@ -64,3 +64,7 @@ dotnet test AssignmentPRN.slnx
 Đăng nhập, đăng ký, đăng xuất và trang từ chối truy cập nằm trong `Pages/Account`.
 Các thao tác thay đổi lịch thi hoặc sĩ số lớp được phát qua SignalR tại
 `/hubs/exam-updates` để các phiên đang mở nhận thông báo cập nhật.
+
+## ASM2 — Razor Pages và SignalR
+
+Phần môn học/phiên thi đã chuyển sang Razor Pages. Xem [phạm vi, migration và hợp đồng tích hợp](docs/asm2-thai-module.md). Trước khi dùng cấu hình vấn đáp, chạy `database/20261015_exam_viva_settings.sql` trên database ASM2.

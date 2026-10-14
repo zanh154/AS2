@@ -39,7 +39,7 @@
 
 <div class="page-header">
     <div>
-        <a class="back-link" asp-controller="ExamSessions" asp-action="Details" asp-route-id="@session.ExamId">
+        <a class="back-link"  asp-page="/ExamSessions/Details" asp-route-id="@session.ExamId">
             <partial name="_Icon" model="@("arrow-left")" /> Quay lại phiên thi
         </a>
         <span class="eyebrow">@session.CourseCode · @session.StartTime.ToString("dd/MM/yyyy")</span>

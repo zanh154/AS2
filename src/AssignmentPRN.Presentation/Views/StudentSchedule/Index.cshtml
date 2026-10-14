@@ -18,7 +18,7 @@
         <form method="get">
             <label asp-for="Query" class="form-label"></label>
             <div class="combobox" data-combobox
-                 data-combobox-url="@Url.Action("SearchStudents", "ExamSessions")">
+                 data-combobox-url="@Url.Page("/ExamSessions/Details", "SearchStudents")">
                 <div class="input-group">
                     <input asp-for="Query" name="q" class="form-control"
                            placeholder="Gõ email hoặc tên sinh viên"

@@ -41,7 +41,7 @@ else if (Model.Schedule is not null)
                     || (currentRole == RoleNames.Lecturer && currentUserId == item.LecturerId);
                 if (canOpenSession)
                 {
-                    <a class="student-schedule-item" asp-controller="ExamSessions" asp-action="Details"
+                    <a class="student-schedule-item"  asp-page="/ExamSessions/Details"
                        asp-route-id="@item.ExamId">
                         <partial name="_ScheduleItem" model="item" />
                     </a>

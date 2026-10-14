@@ -15,12 +15,13 @@ builder.Services.AddControllersWithViews();
 // which checks the session first. A relative value is resolved against the content root;
 // a deployment sets an absolute path, because the project folder only exists in a checkout.
 var storageRoot = builder.Configuration["MaterialStorage:RootPath"]
-    ?? throw new InvalidOperationException("Setting 'MaterialStorage:RootPath' is not configured.");
+    ?? "../AssignmentPRN.DataAccess/Storage";
 storageRoot = Path.GetFullPath(storageRoot, builder.Environment.ContentRootPath);
 
 builder.Services.AddBusiness(connectionString, storageRoot);
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
 
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>

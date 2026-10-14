@@ -1,0 +1,6 @@
+@page
+@model AssignmentPRN.Presentation.Pages.ExamSessions.IndexModel
+@{ ViewData["Title"] = "ExamSessions · Index"; }
+<div data-live-page="ExamSessions" data-exam-id="@(RouteData.Values["id"] ?? Request.Query["id"].ToString())" data-snapshot-url="@Url.Page("/ExamSessions/Index", "Snapshot")">
+<partial name="/Pages/Shared/ExamSessionsIndex.cshtml" model="Model.Data" />
+</div>

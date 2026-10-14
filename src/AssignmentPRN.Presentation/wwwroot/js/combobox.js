@@ -125,7 +125,7 @@
       panel.hidden = false;
       input.setAttribute("aria-expanded", "true");
       try {
-        const response = await fetch(`${url}?q=${encodeURIComponent(term)}`, {
+        const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}q=${encodeURIComponent(term)}`, {
           headers: { Accept: "application/json" }
         });
         if (!response.ok) {

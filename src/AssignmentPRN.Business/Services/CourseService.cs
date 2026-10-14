@@ -5,7 +5,7 @@ using AssignmentPRN.DataAccess.Repositories;
 
 namespace AssignmentPRN.Business.Services;
 
-public class CourseService(ICourseRepository repository, ICatalogRepository catalog) : ICourseService
+public class CourseService(ICourseRepository repository, ICatalogRepository catalog, IExamRealtimeNotifier? realtime = null) : ICourseService
 {
     public Task<ServiceResponse<IReadOnlyList<CourseResponse>>> ListAsync(int? lecturerId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync<IReadOnlyList<CourseResponse>>(async () => (await repository.ListAsync(ct))
@@ -34,14 +34,16 @@ public class CourseService(ICourseRepository repository, ICatalogRepository cata
             course.IsActive = request.IsActive;
             course.UpdatedAt = request.CourseId == 0 ? null : DateTime.Now;
             await repository.SaveAsync(course, ct);
+            if (realtime is not null) await realtime.ChangedAsync(new(0, owner, [], "courses"), ct);
             return ToResponse(course);
         }, "Không thể lưu môn học.");
 
     public Task<ServiceResponse> DeleteAsync(int id, int? lecturerId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>
         {
-            await OwnedAsync(id, lecturerId, ct);
+            var course = await OwnedAsync(id, lecturerId, ct);
             await repository.DeleteAsync(id, ct);
+            if (realtime is not null) await realtime.ChangedAsync(new(0, course.LecturerId, [], "courses"), ct);
         }, "Không thể xoá môn học.");
 
     private async Task<Course> OwnedAsync(int id, int? lecturerId, CancellationToken ct)

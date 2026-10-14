@@ -19,7 +19,7 @@ namespace AssignmentPRN.Business.Services;
 public class QuestionService(
     IQuestionRepository questionRepository,
     ICatalogRepository catalogRepository,
-    ICourseMaterialRepository courseMaterialRepository) : IQuestionService
+    ICourseMaterialRepository courseMaterialRepository, IExamRealtimeNotifier? realtime = null, IExamSessionRepository? sessionRepository = null) : IQuestionService
 {
     public Task<ServiceResponse> SaveDraftAsync(int candidateId, int studentId, IReadOnlyDictionary<int, int?> answers, CancellationToken cancellationToken = default) =>
         ServiceExecutor.RunAsync(async () => {
@@ -468,6 +468,7 @@ public class QuestionService(
                 await DealToCandidateAsync(candidate, cancellationToken);
 
                 await questionRepository.StartCandidateAsync(candidateId, DateTime.Now, cancellationToken);
+                await NotifyProgressAsync(candidate.ExamId, "entered", cancellationToken);
 
                 // Re-read: the slot now carries its paper and its start time.
                 var opened = await questionRepository.GetExamRoomCandidateAsync(candidateId, cancellationToken)
@@ -572,6 +573,7 @@ public class QuestionService(
 
                 await questionRepository.SubmitAnswersAsync(
                     candidateId, cleaned, now, followUps, cancellationToken);
+                await NotifyProgressAsync(candidate.ExamId, "submitted", cancellationToken);
 
                 var submitted = await questionRepository.GetExamRoomCandidateAsync(candidateId, cancellationToken)
                     ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
@@ -1136,4 +1138,11 @@ public class QuestionService(
             })
             .ToList()
     };
+    private async Task NotifyProgressAsync(int examId, string kind, CancellationToken ct)
+    {
+        if (realtime is null || sessionRepository is null) return;
+        var exam = await sessionRepository.GetDetailAsync(examId, ct);
+        if (exam is not null) await realtime.ChangedAsync(new(examId, exam.Lecturer.UserId,
+            exam.Candidates.Select(x => x.StudentId).ToArray(), kind), ct);
+    }
 }

@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddDataAccess(connectionString, storageRootPath);
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IExamSessionService, ExamSessionService>();
+        services.AddScoped<IExamVivaSettingsService, ExamVivaSettingsService>();
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<IAcademicClassService, AcademicClassService>();
         services.AddScoped<IQuestionService, QuestionService>();

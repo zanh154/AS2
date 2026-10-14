@@ -32,6 +32,14 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ExamVivaSettings>(entity => {
+            entity.ToTable("exam_viva_settings");
+            entity.HasKey(x => x.ExamId);
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").ValueGeneratedNever();
+            entity.Property(x => x.SecondsPerQuestion).HasColumnName("seconds_per_question");
+            entity.Property(x => x.MaxFollowUpsPerQuestion).HasColumnName("max_follow_ups_per_question");
+            entity.HasOne<ExamSession>().WithOne().HasForeignKey<ExamVivaSettings>(x => x.ExamId).OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<Role>(entity =>
         {
             entity.ToTable("roles");

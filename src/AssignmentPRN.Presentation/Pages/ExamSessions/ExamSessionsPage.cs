@@ -10,14 +10,20 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.SignalR;
 
-namespace AssignmentPRN.Presentation.Controllers;
+namespace AssignmentPRN.Presentation.Pages.ExamSessions;
 
-[SessionAuthorize(RoleNames.Admin, RoleNames.Lecturer)]
-public class ExamSessionsController(
+[StaffPage]
+public abstract class ExamSessionsPage(
     IExamSessionService examSessionService,
     IQuestionService questionService,
-    ICourseMaterialService materialService, IHubContext<ExamUpdatesHub> updatesHub) : Controller
+    ICourseMaterialService materialService, IExamRealtimeNotifier updates) : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
 {
+    public object Data { get; private set; } = null!;
+    protected IActionResult View(object model) { Data = model; return Page(); }
+    protected IActionResult View(string name, object model) => View(model);
+    protected IActionResult Go(string action, object? values = null) => RedirectToPage("/ExamSessions/" + action, values);
+    protected JsonResult Json(object value) => new(value);
+
     private int? CurrentLecturerId => HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Lecturer
         ? HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0 : null;
 
@@ -31,11 +37,10 @@ public class ExamSessionsController(
     private IActionResult DenySession()
     {
         TempData["Error"] = "Bạn không có quyền thao tác phiên thi này.";
-        return RedirectToAction(nameof(Index));
+        return Go(nameof(Index));
     }
 
-    [HttpGet]
-    public async Task<IActionResult> Edit(int id, CancellationToken cancellationToken)
+    protected async Task<IActionResult> Edit(int id, CancellationToken cancellationToken)
     {
         var result = await examSessionService.GetAsync(id, cancellationToken);
         if (result.Data is null) return NotFound();
@@ -44,7 +49,7 @@ public class ExamSessionsController(
         if (!ExamSessionRules.CanEdit(item.Status))
         {
             TempData["Error"] = "Phiên thi không còn được phép chỉnh sửa.";
-            return RedirectToAction(nameof(Details), new { id });
+            return Go(nameof(Details), new { id });
         }
         var model = new ExamSessionEditViewModel { ExamId = id, CourseId = item.Course.CourseId,
             ExamName = item.ExamName, Description = item.Description, StartTime = item.StartTime,
@@ -53,8 +58,7 @@ public class ExamSessionsController(
         return View(model);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, ExamSessionEditViewModel model, CancellationToken cancellationToken)
+    protected async Task<IActionResult> Edit(int id, ExamSessionEditViewModel model, CancellationToken cancellationToken)
     {
         if (id != model.ExamId) return BadRequest();
         var current = await examSessionService.GetAsync(id, cancellationToken);
@@ -70,7 +74,8 @@ public class ExamSessionsController(
             if (result.Success)
             {
                 TempData["Success"] = "Đã cập nhật phiên thi.";
-                return RedirectToAction(nameof(Details), new { id });
+                await BroadcastAsync("updated", id, "", cancellationToken);
+                return Go(nameof(Details), new { id });
             }
             ModelState.AddModelError(string.Empty, result.Error!);
         }
@@ -78,13 +83,13 @@ public class ExamSessionsController(
         return View(model);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangeStatus(int id, ExamSessionStatus status, CancellationToken cancellationToken)
+    protected async Task<IActionResult> ChangeStatus(int id, ExamSessionStatus status, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid) return BadRequest();
         var result = await examSessionService.ChangeStatusAsync(id, status, CurrentLecturerId, cancellationToken);
         TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã cập nhật trạng thái phiên thi." : result.Error;
-        return RedirectToAction(nameof(Details), new { id });
+        if (result.Success) await BroadcastAsync("status", id, "", cancellationToken);
+        return Go(nameof(Details), new { id });
     }
 
     private async Task EditOptions(ExamSessionEditViewModel model, CancellationToken cancellationToken)
@@ -97,9 +102,7 @@ public class ExamSessionsController(
         if (!options.Success) ModelState.AddModelError(string.Empty, options.Error!);
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RemoveStudent(int examId, int candidateId,
+    protected async Task<IActionResult> RemoveStudent(int examId, int candidateId,
         CancellationToken cancellationToken)
     {
         var session = await examSessionService.GetAsync(examId, cancellationToken);
@@ -109,12 +112,11 @@ public class ExamSessionsController(
         var response = await examSessionService.RemoveStudentAsync(examId, candidateId, cancellationToken);
         TempData[response.Success ? "Success" : "Error"] = response.Success
             ? "Đã xóa sinh viên khỏi phiên thi. Tài khoản sinh viên vẫn được giữ nguyên." : response.Error;
-        return RedirectToAction(nameof(Details), new { id = examId });
+        if (response.Success) await updates.ChangedAsync(new(examId, session.Data.Lecturer.UserId, session.Data.Candidates.Select(x => x.StudentId).ToArray(), "roster"), cancellationToken);
+        return Go(nameof(Details), new { id = examId });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddStudent(ExamSessionAddStudentViewModel model,
+    protected async Task<IActionResult> AddStudent(ExamSessionAddStudentViewModel model,
         CancellationToken cancellationToken)
     {
         var session = await examSessionService.GetAsync(model.ExamId, cancellationToken);
@@ -124,17 +126,17 @@ public class ExamSessionsController(
         if (!ModelState.IsValid)
         {
             TempData["Error"] = "Vui lòng nhập email sinh viên và khung giờ hợp lệ.";
-            return RedirectToAction(nameof(Details), new { id = model.ExamId });
+            return Go(nameof(Details), new { id = model.ExamId });
         }
         var response = await examSessionService.AddStudentAsync(model.ExamId,
             model.Email, model.ScheduledTime!.Value, cancellationToken);
         TempData[response.Success ? "Success" : "Error"] = response.Success
             ? "Đã thêm sinh viên vào phiên thi." : response.Error;
-        return RedirectToAction(nameof(Details), new { id = model.ExamId });
+        if (response.Success) await BroadcastAsync("updated", model.ExamId, "", cancellationToken);
+        return Go(nameof(Details), new { id = model.ExamId });
     }
 
-    [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    protected async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         var response = await examSessionService.ListAsync(cancellationToken);
 
@@ -152,22 +154,20 @@ public class ExamSessionsController(
         });
     }
 
-    [HttpGet]
-    public async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
+    protected async Task<IActionResult> Details(int id, CancellationToken cancellationToken)
     {
         var response = await examSessionService.GetAsync(id, cancellationToken);
         if (!response.Success || response.Data is null)
         {
             TempData["Error"] = response.Error;
-            return RedirectToAction(nameof(Index));
+            return Go(nameof(Index));
         }
 
         if (!CanManage(response.Data)) return StatusCode(403);
         return View(new ExamSessionDetailViewModel { Session = response.Data });
     }
 
-    [HttpGet]
-    public async Task<IActionResult> Create(CancellationToken cancellationToken)
+    protected async Task<IActionResult> Create(CancellationToken cancellationToken)
     {
         var model = new ExamSessionCreateViewModel();
 
@@ -182,9 +182,7 @@ public class ExamSessionsController(
         return View(model);
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(ExamSessionCreateViewModel model, CancellationToken cancellationToken)
+    protected async Task<IActionResult> Create(ExamSessionCreateViewModel model, CancellationToken cancellationToken)
     {
         if (HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Lecturer)
         {
@@ -224,12 +222,10 @@ public class ExamSessionsController(
         TempData["Success"] = "Đã tạo lịch thi và sinh khung giờ tự động. "
             + "Đề sẽ được rút ngẫu nhiên khi từng sinh viên vào thi.";
         await BroadcastAsync("created", response.Data.ExamId, "Lịch thi mới vừa được tạo.", cancellationToken);
-        return RedirectToAction(nameof(Details), new { id = response.Data.ExamId });
+        return Go(nameof(Details), new { id = response.Data.ExamId });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Reschedule(
+    protected async Task<IActionResult> Reschedule(
         ExamSessionRescheduleViewModel model,
         CancellationToken cancellationToken)
     {
@@ -240,7 +236,7 @@ public class ExamSessionsController(
         if (!ModelState.IsValid || !model.ScheduledTime.HasValue)
         {
             TempData["Error"] = "Khung giờ mới không hợp lệ.";
-            return RedirectToAction(nameof(Details), new { id = model.ExamId });
+            return Go(nameof(Details), new { id = model.ExamId });
         }
 
         var existing = await examSessionService.GetAsync(model.ExamId, cancellationToken);
@@ -268,12 +264,10 @@ public class ExamSessionsController(
             await BroadcastAsync("rescheduled", model.ExamId, "Một khung giờ thi vừa thay đổi.", cancellationToken);
         }
 
-        return RedirectToAction(nameof(Details), new { id = model.ExamId });
+        return Go(nameof(Details), new { id = model.ExamId });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    protected async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         var session = await examSessionService.GetAsync(id, cancellationToken);
         if (session.Data is null) return NotFound();
@@ -285,18 +279,17 @@ public class ExamSessionsController(
 
         if (response.Success)
         {
-            await BroadcastAsync("deleted", id, "Một lịch thi vừa được xoá.", cancellationToken);
+            await updates.ChangedAsync(new(id, session.Data.Lecturer.UserId, session.Data.Candidates.Select(x => x.StudentId).ToArray(), "deleted"), cancellationToken);
         }
 
-        return RedirectToAction(nameof(Index));
+        return Go(nameof(Index));
     }
 
     /// <summary>
     /// Feeds the student combobox. Returns at most a page of matches so the
     /// browser never has to hold the whole student list.
     /// </summary>
-    [HttpGet]
-    public async Task<IActionResult> SearchStudents(string? q, CancellationToken cancellationToken)
+    protected async Task<IActionResult> SearchStudents(string? q, CancellationToken cancellationToken)
     {
         var response = await examSessionService.SearchStudentsAsync(q ?? string.Empty, cancellationToken);
         if (!response.Success || response.Data is null)
@@ -311,8 +304,7 @@ public class ExamSessionsController(
         }));
     }
 
-    [HttpGet]
-    public async Task<IActionResult> ClassRoster(int classId, CancellationToken cancellationToken)
+    protected async Task<IActionResult> ClassRoster(int classId, CancellationToken cancellationToken)
     {
         var response = await examSessionService.GetClassRosterAsync(classId, cancellationToken);
         if (!response.Success || response.Data is null)
@@ -345,8 +337,7 @@ public class ExamSessionsController(
     /// The question-bank configuration of one exam: how many questions per student and
     /// which topics/difficulties they are drawn from, plus the papers already dealt.
     /// </summary>
-    [HttpGet]
-    public async Task<IActionResult> Questions(int id, CancellationToken cancellationToken,
+    protected async Task<IActionResult> Questions(int id, CancellationToken cancellationToken,
         List<int>? materialIds = null, List<QuestionDifficulty>? difficulties = null, bool preview = false)
     {
         var session = await examSessionService.GetAsync(id, cancellationToken);
@@ -362,7 +353,7 @@ public class ExamSessionsController(
         var config = await questionService.GetExamConfigurationAsync(id, cancellationToken);
         if (!config.Success || config.Data is null) {
             TempData["Error"] = config.Error;
-            return RedirectToAction(nameof(Details), new { id });
+            return Go(nameof(Details), new { id });
         }
         model.MaterialIds = config.Data.MaterialIds.ToList();
         model.Difficulties = config.Data.Difficulties.ToList();
@@ -376,8 +367,7 @@ public class ExamSessionsController(
         return View(model);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> AssignQuestions(
+    protected async Task<IActionResult> AssignQuestions(
         ExamQuestionAssignViewModel model,
         CancellationToken cancellationToken)
     {
@@ -387,7 +377,7 @@ public class ExamSessionsController(
         if (!ExamSessionRules.CanEdit(session.Data.Status))
         {
             TempData["Error"] = "Phiên thi không còn được phép phát đề.";
-            return RedirectToAction(nameof(Details), new { id = model.ExamId });
+            return Go(nameof(Details), new { id = model.ExamId });
         }
 
         if (ModelState.IsValid)
@@ -407,7 +397,7 @@ public class ExamSessionsController(
             {
                 TempData["Success"] = $"Đã phát {result.Data.AssignedCount} câu hỏi cho "
                     + $"{result.Data.CandidateCount} sinh viên, không sinh viên nào trùng câu.";
-                return RedirectToAction(nameof(Questions), new { id = model.ExamId });
+                return Go(nameof(Questions), new { id = model.ExamId });
             }
 
             ModelState.AddModelError(string.Empty, result.Error!);
@@ -417,8 +407,7 @@ public class ExamSessionsController(
         return View(nameof(Questions), model);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> ClearQuestions(int id, CancellationToken cancellationToken)
+    protected async Task<IActionResult> ClearQuestions(int id, CancellationToken cancellationToken)
     {
         var session = await examSessionService.GetAsync(id, cancellationToken);
         if (session.Data is null) return NotFound();
@@ -429,7 +418,7 @@ public class ExamSessionsController(
             ? "Đã huỷ đề đã phát. Có thể phát lại với phạm vi khác."
             : result.Error;
 
-        return RedirectToAction(nameof(Questions), new { id });
+        return Go(nameof(Questions), new { id });
     }
 
     /// <summary>
@@ -558,9 +547,10 @@ public class ExamSessionsController(
     private bool CanManage(int lecturerId) =>
         RoleAccessRules.CanManageExam(CurrentRole, CurrentUserId, lecturerId);
 
-    private Task BroadcastAsync(string change, int examId, string message, CancellationToken cancellationToken) =>
-        updatesHub.Clients.All.SendAsync(
-            "ExamListChanged",
-            new { change, examId, message },
-            cancellationToken);
+    private async Task BroadcastAsync(string change, int examId, string message, CancellationToken ct)
+    {
+        var response = await examSessionService.GetAsync(examId, ct);
+        if (response.Data is { } session)
+            await updates.ChangedAsync(new(examId, session.Lecturer.UserId, session.Candidates.Select(x => x.StudentId).ToArray(), change), ct);
+    }
 }

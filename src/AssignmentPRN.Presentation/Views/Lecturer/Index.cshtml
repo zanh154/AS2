@@ -38,14 +38,14 @@
                     </p>
                 </div>
             </div>
-            <a class="btn btn-outline-primary" asp-controller="ExamSessions" asp-action="Details"
+            <a class="btn btn-outline-primary"  asp-page="/ExamSessions/Details"
                asp-route-id="@next.ExamId">Xem chi tiết</a>
         </div>
     </div>
 }
 
 <div class="dashboard-grid">
-    <a class="dashboard-tile" asp-controller="Courses" asp-action="Index">
+    <a class="dashboard-tile"  asp-page="/Courses/Index">
         <span class="icon-chip"><partial name="_Icon" model="@("plus")" /></span>
         <div class="dashboard-tile__body"><h3>Môn học</h3><p>Quản lý các môn học do bạn phụ trách.</p></div>
         <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
@@ -55,7 +55,7 @@
         <div class="dashboard-tile__body"><h3>Lớp học</h3><p>Tạo lớp và thêm sinh viên trước khi xếp lịch thi.</p></div>
         <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
     </a>
-    <a class="dashboard-tile" asp-controller="ExamSessions" asp-action="Create">
+    <a class="dashboard-tile"  asp-page="/ExamSessions/Create">
         <span class="icon-chip"><partial name="_Icon" model="@("plus")" /></span>
         <div class="dashboard-tile__body">
             <h3>Tạo lịch thi</h3>
@@ -64,7 +64,7 @@
         <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
     </a>
 
-    <a class="dashboard-tile" asp-controller="ExamSessions" asp-action="Index">
+    <a class="dashboard-tile"  asp-page="/ExamSessions/Index">
         <span class="icon-chip"><partial name="_Icon" model="@("calendar")" /></span>
         <div class="dashboard-tile__body">
             <h3>Lịch thi</h3>

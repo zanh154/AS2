@@ -1,7 +1,8 @@
 @* Primary navigation. Collapses behind the header toggler below the md breakpoint. *@
 @{
     var role = Context.Session.GetString(SessionKeys.Role);
-    var current = ViewContext.RouteData.Values["controller"] as string;
+    var current = ViewContext.RouteData.Values["controller"] as string
+        ?? (ViewContext.RouteData.Values["page"] as string)?.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
     var isStaff = role is RoleNames.Admin or RoleNames.Lecturer;
     var homeController = role switch
     {
@@ -24,7 +25,7 @@
         {
             <span class="sidebar-nav__label">Quản lý đào tạo</span>
             <a class="sidebar-link @(current == "Courses" ? "is-active" : null)"
-               asp-controller="Courses" asp-action="Index">
+                asp-page="/Courses/Index">
                 <partial name="_Icon" model="@("book")" />
                 <span>Môn học</span>
             </a>
@@ -48,7 +49,7 @@
 
             <span class="sidebar-nav__label">Phiên thi</span>
             <a class="sidebar-link @(current == "ExamSessions" ? "is-active" : null)"
-               asp-controller="ExamSessions" asp-action="Index">
+                asp-page="/ExamSessions/Index">
                 <partial name="_Icon" model="@("calendar")" />
                 <span>Lịch thi</span>
             </a>

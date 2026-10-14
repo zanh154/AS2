@@ -13,8 +13,8 @@
 
 <div class="page-header">
     <div>
-        <a class="back-link" asp-action="Details" asp-route-id="@Model.ExamId">
-            <partial name="_Icon" model="@("arrow-left")" /> Quay lại phiên thi
+        <a class="back-link" asp-page="/ExamSessions/Details" asp-route-id="@Model.ExamId">
+            <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại phiên thi
         </a>
         <span class="eyebrow">@Model.CourseCode · Ngân hàng câu hỏi</span>
         <h1>Phát đề cho @Model.ExamName</h1>
@@ -67,7 +67,7 @@ else if (!Model.IsEnough)
     </div>
 }
 
-<form method="post" asp-action="AssignQuestions" class="content-card">
+<form method="post" asp-page="/ExamSessions/Questions" asp-page-handler="AssignQuestions" class="content-card">
     <input type="hidden" asp-for="ExamId" />
     <div asp-validation-summary="ModelOnly" class="alert alert-danger app-alert"></div>
 
@@ -131,7 +131,7 @@ else if (!Model.IsEnough)
     </div>
 
     <div class="d-flex gap-2 mt-3">
-        <button class="btn btn-outline-secondary" type="submit" name="preview" value="true" formmethod="get" formaction="@Url.Action("Questions", new { id = Model.ExamId })">
+        <button class="btn btn-outline-secondary" type="submit" name="preview" value="true" formmethod="get" formaction="@Url.Page("/ExamSessions/Questions", new { id = Model.ExamId })">
             Xem lại số câu khả dụng
         </button>
         @if (Model.CanAssign && !Model.IsFullyAssigned)
@@ -149,7 +149,7 @@ else if (!Model.IsEnough)
         </div>
         @if (Model.CanRedeal)
         {
-            <form method="post" asp-action="ClearQuestions" asp-route-id="@Model.ExamId"
+            <form method="post" asp-page="/ExamSessions/Questions" asp-page-handler="ClearQuestions" asp-route-id="@Model.ExamId"
                   data-confirm="Huỷ toàn bộ đề đã phát của phiên thi này?">
                 <button class="btn btn-outline-danger" type="submit">Huỷ đề đã phát</button>
             </form>

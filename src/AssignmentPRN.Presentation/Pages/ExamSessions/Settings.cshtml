@@ -1,0 +1,12 @@
+@page "{id:int?}"
+@model AssignmentPRN.Presentation.Pages.ExamSessions.SettingsModel
+@{ ViewData["Title"] = "Cấu hình vấn đáp"; }
+<div class="page-header"><h1>Cấu hình vấn đáp</h1><a asp-page="Details" asp-route-id="@Model.Id">Quay lại phiên thi</a></div>
+<form method="post" class="content-card">
+<input asp-for="Id" type="hidden" />
+<div asp-validation-summary="All" class="text-danger"></div>
+<label asp-for="SecondsPerQuestion" class="form-label">Thời gian tối đa mỗi câu (giây)</label><input asp-for="SecondsPerQuestion" class="form-control" min="15" max="1800" />
+<label asp-for="MaxFollowUpsPerQuestion" class="form-label">Số lượt hỏi xoáy tối đa mỗi câu chính</label><input asp-for="MaxFollowUpsPerQuestion" class="form-control" min="0" max="5" />
+<p class="text-muted">Tổng thời gian vẫn giới hạn bởi lượt thi. Tổng số câu đào sâu vẫn giới hạn bởi cấu hình phiên. Cấu hình này dùng cho luồng AI vấn đáp; phòng thi trắc nghiệm hiện tại chưa áp dụng thời gian riêng từng câu.</p>
+<button class="btn btn-primary">Lưu cấu hình</button>
+</form>

@@ -15,7 +15,7 @@
         <h1>Khung giờ thi vấn đáp</h1>
         <p>Theo dõi toàn bộ ca thi, thời lượng và người phụ trách trong một màn hình.</p>
     </div>
-    <a class="btn btn-primary" asp-action="Create"><partial name="_Icon" model="@("plus")" /> Tạo lịch thi</a>
+    <a class="btn btn-primary" asp-page="/ExamSessions/Create"><partial name="/Views/Shared/_Icon.cshtml" model="@("plus")" /> Tạo lịch thi</a>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.LoadError))
@@ -32,10 +32,10 @@
 @if (groupedSessions.Count == 0)
 {
     <div class="content-card empty-state">
-        <div class="empty-icon"><partial name="_Icon" model="@("calendar")" /></div>
+        <div class="empty-icon"><partial name="/Views/Shared/_Icon.cshtml" model="@("calendar")" /></div>
         <h2>Chưa có lịch thi</h2>
         <p>Tạo lịch đầu tiên — hệ thống sẽ tự sinh khung giờ cho từng sinh viên theo thời lượng bạn đặt.</p>
-        <a class="btn btn-primary" asp-action="Create">Tạo lịch thi</a>
+        <a class="btn btn-primary" asp-page="/ExamSessions/Create">Tạo lịch thi</a>
     </div>
 }
 else
@@ -52,7 +52,7 @@ else
                 <div class="day-sessions">
                     @foreach (var session in day)
                     {
-                        <a class="session-row" asp-action="Details" asp-route-id="@session.ExamId">
+                        <a class="session-row" asp-page="/ExamSessions/Details" asp-route-id="@session.ExamId">
                             <div class="session-time">
                                 <strong>@session.StartTime.ToString("HH:mm")</strong>
                                 <span>đến @session.EndTime.ToString("HH:mm")</span>
@@ -65,7 +65,7 @@ else
                                 <span>@session.CourseCode · @session.CourseName</span>
                                 <small>@session.LecturerName · @session.CandidateCount sinh viên · @session.TimePerStudent phút/SV</small>
                             </div>
-                            <span class="session-arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+                            <span class="session-arrow"><partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-right")" /></span>
                         </a>
                     }
                 </div>

@@ -12,7 +12,7 @@ namespace AssignmentPRN.Business.Services;
 /// </summary>
 public class ExamResultService(
     IExamResultRepository resultRepository,
-    IQuestionRepository questionRepository) : IExamResultService
+    IQuestionRepository questionRepository, IExamRealtimeNotifier? realtime = null, IExamSessionRepository? sessions = null) : IExamResultService
 {
     public Task<ServiceResponse<SessionResultResponse>> GetSessionResultsAsync(
         int examId,
@@ -111,7 +111,10 @@ public class ExamResultService(
                     changes.ToDictionary(item => item.Key, item => item.Value.ToDataAccess()),
                     now,
                     cancellationToken);
-
+                if (realtime is not null && sessions is not null) {
+                    var updated = await sessions.GetDetailAsync(examId, cancellationToken);
+                    if (updated is not null) await realtime.ChangedAsync(new(examId, updated.Lecturer.UserId, updated.Candidates.Select(x => x.StudentId).ToArray(), "closed-overdue"), cancellationToken);
+                }
                 return new OverdueSlotsResult
                 {
                     MarkedAbsent = changes.Values.Count(status => status == CandidateStatus.Absent),

@@ -37,7 +37,7 @@ public class AuthService(IUserRepository userRepository) : IAuthService
     public async Task<AuthenticatedUserResponse?> GetUserByIdAsync(int userId)
     {
         var user = await userRepository.GetByIdAsync(userId);
-        return user is null ? null : ToResponse(user);
+        return user is null || user.Status != "Active" ? null : ToResponse(user);
     }
 
     public async Task<(bool Success, string? Error, AuthenticatedUserResponse? User)> RegisterAsync(

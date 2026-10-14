@@ -7,14 +7,14 @@
         new((string)ViewData["Title"]!)
     };
 }
-<div class="page-header"><div><a class="back-link" asp-action="Index">← Môn học</a><h1>@ViewData["Title"]</h1></div></div>
-<form asp-action="Save" method="post" class="content-card">
+<div class="page-header"><div><a class="back-link" asp-page="/Courses/Index">← Môn học</a><h1>@ViewData["Title"]</h1></div></div>
+<form asp-page="/Courses/Create" method="post" class="content-card">
     <input asp-for="CourseId" type="hidden" />
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
     <div class="row g-3">
         <div class="col-md-4"><label asp-for="CourseCode" class="form-label"></label><input asp-for="CourseCode" class="form-control" /></div>
         <div class="col-md-8"><label asp-for="CourseName" class="form-label"></label><input asp-for="CourseName" class="form-control" /></div>
-        <div class="col-md-6"><label asp-for="LecturerId" class="form-label"></label><partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+        <div class="col-md-6"><label asp-for="LecturerId" class="form-label"></label><partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
             {
                 Name = nameof(CourseViewModel.LecturerId),
                 SelectedValue = Model.LecturerId,
@@ -27,9 +27,5 @@
         <div class="col-12"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
             <p class="text-muted">Môn ngừng hoạt động vẫn giữ dữ liệu cũ, nhưng không được chọn để tạo phiên thi mới.</p></div>
     </div>
-    <div class="d-flex gap-2 mt-4"><button class="btn btn-primary">Lưu môn học</button><a asp-action="Index" class="btn btn-outline-secondary">Huỷ</a></div>
+    <div class="d-flex gap-2 mt-4"><button class="btn btn-primary">Lưu môn học</button><a asp-page="/Courses/Index" class="btn btn-outline-secondary">Huỷ</a></div>
 </form>
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-    <script src="~/js/combobox.js" asp-append-version="true"></script>
-}

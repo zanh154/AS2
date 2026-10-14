@@ -104,7 +104,7 @@ public class ClassesController(
     {
         var result = await service.AddStudentAsync(id, studentId, LecturerId, ct);
         TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã thêm sinh viên vào lớp." : result.Error;
-        if (result.Success) await updatesHub.Clients.All.SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
+        if (result.Success) await updatesHub.Clients.Groups([AssignmentPRN.Presentation.Hubs.ExamGroups.Admins, AssignmentPRN.Presentation.Hubs.ExamGroups.User(HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0)]).SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
         return RedirectToAction(nameof(Roster), new { id });
     }
 
@@ -113,7 +113,7 @@ public class ClassesController(
     {
         var result = await service.RemoveStudentAsync(id, studentId, LecturerId, ct);
         TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã xoá sinh viên khỏi lớp." : result.Error;
-        if (result.Success) await updatesHub.Clients.All.SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
+        if (result.Success) await updatesHub.Clients.Groups([AssignmentPRN.Presentation.Hubs.ExamGroups.Admins, AssignmentPRN.Presentation.Hubs.ExamGroups.User(HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0)]).SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
         return RedirectToAction(nameof(Roster), new { id });
     }
 

@@ -1,0 +1,10 @@
+@page "{id:int?}"
+@model AssignmentPRN.Presentation.Pages.Courses.EditModel
+@{ ViewData["Title"] = "Courses · Edit"; }
+<div data-live-page="Courses" data-exam-id="@(RouteData.Values["id"] ?? Request.Query["id"].ToString())" data-snapshot-url="@Url.Page("/Courses/Index", "Snapshot")">
+<partial name="/Pages/Shared/CoursesEdit.cshtml" model="Model.Data" />
+</div>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/combobox.js" asp-append-version="true"></script>
+}

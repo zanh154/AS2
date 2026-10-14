@@ -7,34 +7,38 @@ using AssignmentPRN.Presentation.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace AssignmentPRN.Presentation.Controllers;
+namespace AssignmentPRN.Presentation.Pages.Courses;
 
-[SessionAuthorize(RoleNames.Admin, RoleNames.Lecturer)]
-public class CoursesController(ICourseService service, ICatalogService catalog) : Controller
+[StaffPage]
+public abstract class CoursesPage(ICourseService service, ICatalogService catalog) : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
 {
+    public object Data { get; private set; } = null!;
+    protected IActionResult View(object model) { Data = model; return Page(); }
+    protected IActionResult View(string name, object model) => View(model);
+    protected IActionResult Go(string action, object? values = null) => RedirectToPage("/Courses/" + action, values);
+    protected JsonResult Json(object value) => new(value);
+
     private int? LecturerId => HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Lecturer
         ? HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0 : null;
 
-    public async Task<IActionResult> Index(CancellationToken ct)
+    protected async Task<IActionResult> Index(CancellationToken ct)
     {
         var result = await service.ListAsync(LecturerId, ct);
         if (!result.Success) TempData["Error"] = result.Error;
         return View(result.Data ?? []);
     }
 
-    [HttpGet]
-    public async Task<IActionResult> Create(CancellationToken ct)
+    protected async Task<IActionResult> Create(CancellationToken ct)
     {
         var model = new CourseViewModel { LecturerId = LecturerId ?? 0 };
         await Options(model, ct);
         return View("Edit", model);
     }
 
-    [HttpGet]
-    public async Task<IActionResult> Edit(int id, CancellationToken ct)
+    protected async Task<IActionResult> Edit(int id, CancellationToken ct)
     {
         var result = await service.GetAsync(id, LecturerId, ct);
-        if (!result.Success || result.Data is null) { TempData["Error"] = result.Error; return RedirectToAction(nameof(Index)); }
+        if (!result.Success || result.Data is null) { TempData["Error"] = result.Error; return Go(nameof(Index)); }
         var course = result.Data;
         var model = new CourseViewModel { CourseId = course.CourseId, CourseCode = course.CourseCode,
             CourseName = course.CourseName, Description = course.Description, LecturerId = course.LecturerId, IsActive = course.IsActive };
@@ -42,27 +46,25 @@ public class CoursesController(ICourseService service, ICatalogService catalog) 
         return View(model);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Save(CourseViewModel model, CancellationToken ct)
+    protected async Task<IActionResult> Save(CourseViewModel model, CancellationToken ct)
     {
         if (LecturerId.HasValue) { model.LecturerId = LecturerId.Value; ModelState.Remove(nameof(model.LecturerId)); }
         if (ModelState.IsValid)
         {
             var result = await service.SaveAsync(new(model.CourseId, model.CourseCode, model.CourseName,
                 model.Description, model.LecturerId, model.IsActive), LecturerId, ct);
-            if (result.Success) { TempData["Success"] = "Đã lưu môn học."; return RedirectToAction(nameof(Index)); }
+            if (result.Success) { TempData["Success"] = "Đã lưu môn học."; return Go(nameof(Index)); }
             ModelState.AddModelError(string.Empty, result.Error!);
         }
         await Options(model, ct);
         return View("Edit", model);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    protected async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
         var result = await service.DeleteAsync(id, LecturerId, ct);
         TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã xoá môn học." : result.Error;
-        return RedirectToAction(nameof(Index));
+        return Go(nameof(Index));
     }
 
     private async Task Options(CourseViewModel model, CancellationToken ct)

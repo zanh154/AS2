@@ -3,9 +3,9 @@
   if (roster) {
     const query = roster.querySelector('[data-roster-query]');
     const status = roster.querySelector('[data-roster-status]');
-    const rows = [...roster.querySelectorAll('[data-roster-row]')];
     let timer;
     const filter = () => {
+      const rows = [...roster.querySelectorAll('[data-roster-row]')];
       const term = query.value.trim().toLocaleLowerCase('vi');
       let count = 0;
       rows.forEach(row => {
@@ -16,6 +16,7 @@
       roster.querySelector('[data-roster-count]').textContent = `${count}/${rows.length} sinh viên`;
       roster.querySelector('[data-roster-empty]').hidden = count > 0 || rows.length === 0;
     };
+    roster.addEventListener('live-content-updated', filter);
     query.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(filter, 300); });
     status.addEventListener('change', filter);
     roster.querySelector('[data-roster-reset]').addEventListener('click', () => {

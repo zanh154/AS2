@@ -16,7 +16,7 @@
 
 <div class="page-header">
     <div>
-        <a class="back-link" asp-action="Index"><partial name="_Icon" model="@("arrow-left")" /> Quay lại lịch thi</a>
+        <a class="back-link" asp-page="/ExamSessions/Index"><partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi</a>
         <span class="eyebrow">@session.Course.CourseCode · @session.StartTime.ToString("dd/MM/yyyy")</span>
         <h1>@session.ExamName</h1>
         <p>@session.Course.CourseName · @session.Lecturer.FullName</p>
@@ -24,8 +24,8 @@
     @if (ExamSessionRules.CanEdit(session.Status) && candidates.All(x => x.Status == CandidateStatus.Waiting))
     {
     <div class="d-flex gap-2">
-    <a class="btn btn-primary" asp-action="Edit" asp-route-id="@session.ExamId">Sửa phiên thi</a>
-    <form method="post" asp-action="Delete" asp-route-id="@session.ExamId"
+    <a class="btn btn-primary" asp-page="/ExamSessions/Edit" asp-route-id="@session.ExamId">Sửa phiên thi</a>
+    <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="Delete" asp-route-id="@session.ExamId"
           data-confirm="Xoá toàn bộ lịch thi này?">
         <button class="btn btn-outline-danger" type="submit">Xoá lịch</button>
     </form>
@@ -44,10 +44,10 @@
 <p class="text-muted">Phiên tự chuyển sang Đang diễn ra khi có sinh viên vào thi và Hoàn thành khi mọi lượt thi đã kết thúc. Nếu còn lượt quá hạn, giảng viên cần chốt ca tại trang kết quả. Bạn vẫn có thể bắt đầu phiên thủ công khi đến giờ.</p>
 @if (nextStatuses.Count > 0)
 {
-    <form asp-action="ChangeStatus" asp-route-id="@session.ExamId" method="post" class="content-card" data-confirm="Xác nhận chuyển trạng thái phiên thi? Không thể quay lại trạng thái trước.">
+    <form asp-page="/ExamSessions/Details" asp-page-handler="ChangeStatus" asp-route-id="@session.ExamId" method="post" class="content-card" data-confirm="Xác nhận chuyển trạng thái phiên thi? Không thể quay lại trạng thái trước.">
         <label for="session-status" class="form-label">Chuyển trạng thái</label>
         <div class="d-flex gap-2 align-items-start">
-            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
             {
                 Name = "status",
                 SelectedKey = nextStatuses[0].ToString(),
@@ -63,7 +63,8 @@
     </form>
 }
 
-<section class="metric-row">
+<p><a class="btn btn-outline-primary" asp-page="/ExamSessions/Settings" asp-route-id="@session.ExamId">Cấu hình vấn đáp</a></p>
+<section class="metric-row" data-live-region="metrics">
     <div class="metric-card"><span>Ngày thi</span><strong>@session.StartTime.ToString("dd/MM")</strong></div>
     <div class="metric-card">
         <span>Khung giờ</span>
@@ -88,11 +89,11 @@
         <span class="eyebrow">Quản lý sinh viên</span>
         <h2 id="add-student-heading">Thêm sinh viên vào phiên thi</h2>
         <p>Bấm vào ô Sinh viên để xem tài khoản hiện có, hoặc gõ tên/email để tìm nhanh.</p>
-        <form method="post" asp-action="AddStudent" class="student-add-form">
+        <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="AddStudent" class="student-add-form">
             <input type="hidden" name="ExamId" value="@session.ExamId" />
             <div>
                 <label for="student-email" class="form-label">Sinh viên</label>
-                <div class="combobox" data-combobox data-combobox-url="@Url.Action("SearchStudents", "ExamSessions")">
+                <div class="combobox" data-combobox data-combobox-url="@Url.Page("/ExamSessions/Details", "SearchStudents")">
                     <input id="student-email" type="text" class="form-control" required maxlength="420"
                            placeholder="Gõ tên hoặc email, ví dụ: stu" autocomplete="off"
                            aria-describedby="student-search-help" aria-controls="student-search-results" data-combobox-input />
@@ -105,7 +106,7 @@
                 @* Same window the reschedule picker below uses: inside the exam day,
                    and early enough that the slot still ends before midnight. *@
                 <span class="form-label">Giờ bắt đầu</span>
-                <partial name="_DateTimePicker" model="@(new DateTimePickerViewModel
+                <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
                 {
                     Name = "ScheduledTime",
                     Value = session.EndTime.ToString("yyyy-MM-ddTHH:mm"),
@@ -121,7 +122,7 @@
     </section>
 }
 
-<div class="content-card" data-roster-filter>
+<div class="content-card">
     <div class="section-heading">
         <div>
             <h2>Ngân hàng câu hỏi</h2>
@@ -131,7 +132,7 @@
                 Bạn có thể phát trước để xem đề, nhưng không bắt buộc.
             </p>
         </div>
-        <a class="btn btn-outline-primary" asp-action="Questions" asp-route-id="@session.ExamId">
+        <a class="btn btn-outline-primary" asp-page="/ExamSessions/Questions" asp-route-id="@session.ExamId">
             Xem và phát đề
         </a>
     </div>
@@ -164,7 +165,7 @@
         <div><label class="form-label" for="roster-query">Tên hoặc email</label><input id="roster-query" type="search" class="form-control" placeholder="Tìm trong phiên thi này" data-roster-query /></div>
         <div>
             <label class="form-label" for="roster-status">Trạng thái</label>
-            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
             {
                 Name = "roster-status",
                 Placeholder = "Tất cả trạng thái",
@@ -180,6 +181,7 @@
     </div>
     <p class="field-hint" data-roster-count aria-live="polite">@candidates.Count/@candidates.Count sinh viên</p>
     <div class="empty-state" data-roster-empty hidden>Không tìm thấy sinh viên phù hợp. Hãy thử đổi bộ lọc.</div>
+    <div data-live-region="roster">
     @if (candidates.Count == 0)
     {
         <div class="empty-state">
@@ -220,14 +222,14 @@
                             </span>
                             @if (canManageStudents && candidate.Status == CandidateStatus.Waiting)
                             {
-                                <form method="post" asp-action="RemoveStudent"
+                                <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="RemoveStudent"
                                       data-confirm="Xóa @candidate.StudentName (@candidate.StudentEmail) khỏi phiên thi này? Tài khoản sinh viên vẫn được giữ nguyên.">
                                     <input type="hidden" name="examId" value="@session.ExamId" />
                                     <input type="hidden" name="candidateId" value="@candidate.CandidateId" />
                                     <button type="submit" class="btn btn-outline-danger btn-sm btn-icon"
                                             title="Xóa khỏi phiên thi"
                                             aria-label="Xóa @candidate.StudentName khỏi phiên thi">
-                                        <partial name="_Icon" model="@("trash")" />
+                                        <partial name="/Views/Shared/_Icon.cshtml" model="@("trash")" />
                                     </button>
                                 </form>
                             }
@@ -237,12 +239,12 @@
                         {
                         <details class="reschedule-panel">
                             <summary>Đổi khung giờ</summary>
-                            <form method="post" asp-action="Reschedule" class="reschedule-form">
+                            <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="Reschedule" class="reschedule-form">
                                 <input type="hidden" name="CandidateId" value="@candidate.CandidateId" />
                                 <input type="hidden" name="ExamId" value="@session.ExamId" />
                                 <div>
                                     <label class="form-label">Bắt đầu mới</label>
-                                    <partial name="_DateTimePicker" model="@(new DateTimePickerViewModel
+                                    <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
                                     {
                                         Name = "ScheduledTime",
                                         Value = candidate.ScheduledTime?.ToString("yyyy-MM-ddTHH:mm"),
@@ -263,8 +265,4 @@
         </div>
     }
 </div>
-
-@section Scripts {
-    <script src="~/js/combobox.js" asp-append-version="true"></script>
-    <script src="~/js/exam-student-search.js" asp-append-version="true"></script>
-}
+</div>

@@ -10,7 +10,7 @@
 
 <div class="page-header">
     <div>
-        <a class="back-link" asp-action="Index"><partial name="_Icon" model="@("arrow-left")" /> Quay lại lịch thi</a>
+        <a class="back-link" asp-page="/ExamSessions/Index"><partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi</a>
         <h1>Tạo lịch thi</h1>
         <p>Chọn giờ bắt đầu và thời lượng mỗi sinh viên; các ca sẽ được xếp nối tiếp tự động.</p>
     </div>
@@ -43,7 +43,7 @@
                 </div>
                 <div class="col-lg-3">
                     <label asp-for="CourseId" class="form-label"></label>
-                    <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+                    <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
                     {
                         Name = nameof(ExamSessionCreateViewModel.CourseId),
                         SelectedValue = Model.CourseId,
@@ -66,7 +66,7 @@
                     else
                     {
                     <label asp-for="LecturerId" class="form-label"></label>
-                    <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+                    <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
                     {
                         Name = nameof(ExamSessionCreateViewModel.LecturerId),
                         SelectedValue = Model.LecturerId,
@@ -80,8 +80,8 @@
                 </div>
                 <div class="col-lg-4">
                     <label asp-for="ClassId" class="form-label"></label>
-                    <div data-class-picker data-roster-url="@Url.Action("ClassRoster", "ExamSessions")">
-                        <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+                    <div data-class-picker data-roster-url="@Url.Page("/ExamSessions/Create", "ClassRoster")">
+                        <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
                         {
                             Name = nameof(ExamSessionCreateViewModel.ClassId),
                             SelectedValue = Model.ClassId,
@@ -114,7 +114,7 @@
             <div class="row g-3">
                 <div class="col-sm-6 col-lg-3">
                     <label asp-for="StartTime" class="form-label"></label>
-                    <partial name="_DateTimePicker" model="@(new DateTimePickerViewModel
+                    <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
                     {
                         Name = nameof(ExamSessionCreateViewModel.StartTime),
                         Value = Model.StartTime?.ToString("yyyy-MM-ddTHH:mm"),
@@ -163,13 +163,9 @@
         </section>
 
         <div class="form-actions">
-            <a class="btn btn-outline-secondary" asp-action="Index">Huỷ</a>
+            <a class="btn btn-outline-secondary" asp-page="/ExamSessions/Index">Huỷ</a>
             <button class="btn btn-primary" type="submit">Tạo và sinh khung giờ</button>
         </div>
     </form>
 
-}
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
 }

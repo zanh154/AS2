@@ -27,7 +27,7 @@ public class ExamResultsController(IExamResultService resultService) : Controlle
         if (!result.Success || result.Data is null)
         {
             TempData["Error"] = result.Error;
-            return RedirectToAction("Index", "ExamSessions");
+            return RedirectToPage("/ExamSessions/Index");
         }
 
         return View(new SessionResultViewModel { Session = result.Data });
@@ -40,7 +40,7 @@ public class ExamResultsController(IExamResultService resultService) : Controlle
         if (!result.Success || result.Data is null)
         {
             TempData["Error"] = result.Error;
-            return RedirectToAction("Index", "ExamSessions");
+            return RedirectToPage("/ExamSessions/Index");
         }
 
         return View(new CandidateResultViewModel { Candidate = result.Data });

@@ -35,41 +35,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Any form marked data-confirm asks before submitting.
-  document.querySelectorAll("form[data-confirm]").forEach((form) => {
-    const handler = async (event) => {
-      event.preventDefault();
-      const confirmed = await showConfirm(form.dataset.confirm || "Bạn có chắc chắn?");
-      if (confirmed) {
-        form.removeEventListener("submit", handler);
-        form.submit();
-      }
-    };
-    form.addEventListener("submit", handler);
+  document.addEventListener("submit", async event => {
+    const form = event.target.closest("form[data-confirm]");
+    if (!form) return;
+    event.preventDefault();
+    if (await showConfirm(form.dataset.confirm || "Bạn có chắc chắn?")) form.submit();
   });
 
   // ── Shared helpers ───────────────────────────────────────────────────────
   const pad = (value) => String(value).padStart(2, "0");
 
-  // ── Realtime list changes ────────────────────────────────────────────────
-  const notice = document.getElementById("realtime-notice");
-  if (notice && window.signalR) {
-    const message = document.getElementById("realtime-notice-message");
-    const refresh = document.getElementById("realtime-notice-refresh");
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl("/hubs/exam-updates")
-      .withAutomaticReconnect()
-      .build();
-
-    connection.on("ExamListChanged", (event) => {
-      message.textContent = event?.message || "Dữ liệu vừa thay đổi.";
-      notice.hidden = false;
-    });
-    refresh.addEventListener("click", () => window.location.reload());
-    connection.start().catch(() => {
-      // The application remains usable if the realtime transport is unavailable.
-    });
-  }
+  document.getElementById("realtime-notice-refresh")?.addEventListener("click", () => window.location.reload());
 
   // ── Date-time picker ─────────────────────────────────────────────────────
   // Initialise a single date-time picker root element.
@@ -310,6 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Init all date-time pickers present on the page (any view).
   document.querySelectorAll("[data-date-time-picker]").forEach(initDateTimePicker);
+  window.initAivesDatePickers = container => container.querySelectorAll("[data-date-time-picker]").forEach(initDateTimePicker);
 
   // ── Create exam session form (ExamSessions/Create only) ──────────────────
   const scheduleForm = document.querySelector("[data-schedule-form]");
@@ -490,7 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let failure = "Không thể tải danh sách sinh viên của lớp.";
 
     try {
-      const response = await fetch(`${classPicker.dataset.rosterUrl}?classId=${classId}`, {
+      const response = await fetch(`${classPicker.dataset.rosterUrl}${classPicker.dataset.rosterUrl.includes("?") ? "&" : "?"}classId=${classId}`, {
         headers: { Accept: "application/json" }
       });
       if (!response.ok) {
