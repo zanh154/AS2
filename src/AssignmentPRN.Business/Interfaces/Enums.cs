@@ -48,6 +48,12 @@ public enum QuestionType
     FollowUp
 }
 
+public enum QuestionSource
+{
+    Manual,
+    AI
+}
+
 public enum MaterialFileType
 {
     PDF,

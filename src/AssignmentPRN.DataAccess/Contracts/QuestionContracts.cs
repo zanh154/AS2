@@ -17,6 +17,9 @@ public sealed class QuestionQuery
     /// <summary>Restrict to one Bloom level. Null includes every level.</summary>
     public BloomLevel? BloomLevel { get; init; }
 
+    /// <summary>Restrict to one status. Null includes every status.</summary>
+    public QuestionStatus? Status { get; init; }
+
     /// <summary>Free-text match against the question body and the expected answer.</summary>
     public string? Term { get; init; }
 
@@ -43,6 +46,9 @@ public sealed class QuestionUpsertInput
 
     /// <summary>Main questions go out in the first round; follow-ups only after it.</summary>
     public QuestionType QuestionType { get; init; } = QuestionType.Main;
+
+    /// <summary>Who wrote the question. AI-generated questions are held for review.</summary>
+    public QuestionSource Source { get; init; } = QuestionSource.Manual;
 
     public IReadOnlyList<QuestionOptionInput> Options { get; init; } = Array.Empty<QuestionOptionInput>();
 }
@@ -179,6 +185,9 @@ public sealed class QuestionListItem
 
     public QuestionStatus Status { get; init; }
 
+    /// <summary>Who wrote the question. AI-generated ones are held for review.</summary>
+    public QuestionSource Source { get; init; }
+
     public string AuthorName { get; init; } = string.Empty;
 
     public DateTime CreatedAt { get; init; }
@@ -204,6 +213,15 @@ public sealed class QuestionDetail
     public QuestionType QuestionType { get; init; }
 
     public QuestionStatus Status { get; init; }
+
+    /// <summary>Who wrote the question. AI-generated ones are held for review.</summary>
+    public QuestionSource Source { get; init; }
+
+    /// <summary>The reviewer who approved or rejected it; null while it is still pending.</summary>
+    public int? ReviewedBy { get; init; }
+
+    /// <summary>When the review decision was made; null while it is still pending.</summary>
+    public DateTime? ReviewedAt { get; init; }
 
     public IReadOnlyList<QuestionOptionDetail> Options { get; init; } = Array.Empty<QuestionOptionDetail>();
 }
@@ -425,4 +443,59 @@ public sealed class ExamPaperQuestion
 
     /// <summary>True once the student has answered it; such a paper may no longer be redealt.</summary>
     public bool IsCompleted { get; init; }
+}
+
+/// <summary>One row of the rubric list.</summary>
+public sealed class RubricListItem
+{
+    public int RubricId { get; init; }
+    public int QuestionId { get; init; }
+    public string QuestionText { get; init; } = string.Empty;
+    public int CourseId { get; init; }
+    public string CourseCode { get; init; } = string.Empty;
+    public string CourseName { get; init; } = string.Empty;
+    public decimal TotalScore { get; init; }
+    public int CriteriaCount { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+}
+
+/// <summary>A rubric with its criteria, used by the edit screen.</summary>
+public sealed class RubricDetail
+{
+    public int RubricId { get; init; }
+    public int QuestionId { get; init; }
+    public string QuestionText { get; init; } = string.Empty;
+    public decimal TotalScore { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+    public IReadOnlyList<RubricCriteriaDetail> Criteria { get; init; } = Array.Empty<RubricCriteriaDetail>();
+}
+
+/// <summary>One criterion in a rubric.</summary>
+public sealed class RubricCriteriaDetail
+{
+    public int CriteriaId { get; init; }
+    public string CriteriaName { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public decimal MaxScore { get; init; }
+    public int DisplayOrder { get; init; }
+}
+
+/// <summary>Input for creating or updating a rubric with its criteria.</summary>
+public sealed class RubricUpsertInput
+{
+    public int RubricId { get; init; }
+    public int QuestionId { get; init; }
+    public IReadOnlyList<RubricCriteriaInput> Criteria { get; init; } = Array.Empty<RubricCriteriaInput>();
+}
+
+/// <summary>One criterion input for creating or updating a rubric.</summary>
+public sealed class RubricCriteriaInput
+{
+    public int CriteriaId { get; init; }
+    public string CriteriaName { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public decimal MaxScore { get; init; }
+    public int DisplayOrder { get; init; }
 }

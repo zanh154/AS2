@@ -245,6 +245,13 @@ public static class QuestionText
         _ => type.ToString()
     };
 
+    public static string Source(QuestionSource source) => source switch
+    {
+        QuestionSource.AI => "AI",
+        QuestionSource.Manual => "Thủ công",
+        _ => source.ToString()
+    };
+
     public static string DifficultyChip(QuestionDifficulty difficulty) => difficulty switch
     {
         QuestionDifficulty.Easy => "status-chip--success",

@@ -347,6 +347,9 @@ public sealed class QuestionResponse
 
     public QuestionStatus Status { get; init; }
 
+    /// <summary>Who wrote the question. AI-generated ones are held for review.</summary>
+    public QuestionSource Source { get; init; }
+
     public IReadOnlyList<QuestionOptionResponse> Options { get; init; } = Array.Empty<QuestionOptionResponse>();
 }
 
@@ -404,6 +407,12 @@ public sealed class QuestionSaveRequest
 
     public QuestionType QuestionType { get; init; } = QuestionType.Main;
 
+    /// <summary>
+    /// Who wrote the question. A manual question is approved at once; an AI-generated one
+    /// is stored as pending review. Only honoured on create, never on edit.
+    /// </summary>
+    public QuestionSource Source { get; init; } = QuestionSource.Manual;
+
     public IReadOnlyList<QuestionOptionInput> Options { get; init; } = [];
 }
 
@@ -429,6 +438,9 @@ public sealed class QuestionListItemResponse
     public QuestionType QuestionType { get; init; }
 
     public QuestionStatus Status { get; init; }
+
+    /// <summary>Who wrote the question. AI-generated ones are held for review.</summary>
+    public QuestionSource Source { get; init; }
 
     public string AuthorName { get; init; } = string.Empty;
 
@@ -662,6 +674,60 @@ public sealed class OverdueSlotsResult
     public int MarkedAbsent { get; init; }
 
     public int Completed { get; init; }
+}
+
+/// <summary>One row of the rubric list.</summary>
+public sealed class RubricListItemResponse
+{
+    public int RubricId { get; init; }
+    public int QuestionId { get; init; }
+    public string QuestionText { get; init; } = string.Empty;
+    public string CourseCode { get; init; } = string.Empty;
+    public string CourseName { get; init; } = string.Empty;
+    public decimal TotalScore { get; init; }
+    public int CriteriaCount { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+}
+
+/// <summary>A rubric with its criteria, used by the edit screen.</summary>
+public sealed class RubricDetailResponse
+{
+    public int RubricId { get; init; }
+    public int QuestionId { get; init; }
+    public string QuestionText { get; init; } = string.Empty;
+    public decimal TotalScore { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+    public IReadOnlyList<RubricCriteriaResponse> Criteria { get; init; } = Array.Empty<RubricCriteriaResponse>();
+}
+
+/// <summary>One criterion in a rubric.</summary>
+public sealed class RubricCriteriaResponse
+{
+    public int CriteriaId { get; init; }
+    public string CriteriaName { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public decimal MaxScore { get; init; }
+    public int DisplayOrder { get; init; }
+}
+
+/// <summary>Input for creating or updating a rubric with its criteria.</summary>
+public sealed class RubricSaveRequest
+{
+    public int RubricId { get; init; }
+    public int QuestionId { get; init; }
+    public IReadOnlyList<RubricCriteriaInput> Criteria { get; init; } = Array.Empty<RubricCriteriaInput>();
+}
+
+/// <summary>One criterion input for creating or updating a rubric.</summary>
+public sealed class RubricCriteriaInput
+{
+    public int CriteriaId { get; init; }
+    public string CriteriaName { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public decimal MaxScore { get; init; }
+    public int DisplayOrder { get; init; }
 }
 
 /// <summary>

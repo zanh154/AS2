@@ -48,6 +48,12 @@ internal static class DataAccessMappings
     public static MaterialFileType ToBusiness(this DaEnums.MaterialFileType value) =>
         (MaterialFileType)(int)value;
 
+    public static DaEnums.QuestionSource ToDataAccess(this QuestionSource value) =>
+        (DaEnums.QuestionSource)(int)value;
+
+    public static QuestionSource ToBusiness(this DaEnums.QuestionSource value) =>
+        (QuestionSource)(int)value;
+
     public static DaContracts.ExamSessionUpdateInput ToDataAccess(this ExamSessionUpdateInput value) => new()
     {
         ExamId = value.ExamId,

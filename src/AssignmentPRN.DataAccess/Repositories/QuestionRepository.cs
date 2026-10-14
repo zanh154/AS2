@@ -28,6 +28,32 @@ public interface IQuestionRepository
     Task<bool> IsAssignedToExamAsync(int questionId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Updates the review status of an AI-generated question. Only callable on a question
+    /// that is still pending review.
+    /// </summary>
+    Task SetReviewStatusAsync(
+        int questionId,
+        QuestionStatus status,
+        int reviewerId,
+        DateTime reviewedAt,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Gets the rubric for a question, if it exists.</summary>
+    Task<RubricDetail?> GetRubricAsync(int questionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Creates or updates a rubric with its criteria for a question.</summary>
+    Task<RubricDetail> SaveRubricAsync(RubricUpsertInput input, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a rubric and its criteria.</summary>
+    Task DeleteRubricAsync(int rubricId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists rubrics for questions in a course, with optional search.</summary>
+    Task<IReadOnlyList<RubricListItem>> ListRubricsAsync(int? courseId, string? term, CancellationToken cancellationToken = default);
+
+    /// <summary>Gets the question ID and course ID for a rubric.</summary>
+    Task<(int QuestionId, int CourseId)?> GetRubricQuestionAndCourseAsync(int rubricId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Id, text and status of every live question in the course, so the service can turn
     /// away a question that repeats one already there. Archived rows are excluded.
     /// </summary>
@@ -200,6 +226,11 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
             questions = questions.Where(question => question.BloomLevel == bloomLevel);
         }
 
+        if (query.Status is QuestionStatus status)
+        {
+            questions = questions.Where(question => question.Status == status);
+        }
+
         if (!query.IncludeArchived)
         {
             questions = questions.Where(question => question.Status != QuestionStatus.Archived);
@@ -228,6 +259,7 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
                 BloomLevel = question.BloomLevel,
                 QuestionType = question.QuestionType,
                 Status = question.Status,
+                Source = question.Source,
                 AuthorName = question.CreatedByUser.FullName,
                 CreatedAt = question.CreatedAt
             })
@@ -265,6 +297,10 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
 
         if (input.QuestionId == 0)
         {
+            var initialStatus = input.Source == QuestionSource.AI
+                ? QuestionStatus.PendingReview
+                : QuestionStatus.Approved;
+
             var created = new Question
             {
                 CourseId = input.CourseId,
@@ -275,7 +311,8 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
                 BloomLevel = input.BloomLevel,
                 Difficulty = input.Difficulty,
                 QuestionType = input.QuestionType,
-                Status = QuestionStatus.Approved,
+                Status = initialStatus,
+                Source = input.Source,
                 CreatedAt = DateTime.Now,
                 Options = options
             };
@@ -315,6 +352,173 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         question.Status = QuestionStatus.Archived;
         question.UpdatedAt = DateTime.Now;
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task SetReviewStatusAsync(
+        int questionId,
+        QuestionStatus status,
+        int reviewerId,
+        DateTime reviewedAt,
+        CancellationToken cancellationToken = default)
+    {
+        var question = await context.Questions.FindAsync([questionId], cancellationToken)
+            ?? throw new KeyNotFoundException("Không tìm thấy câu hỏi.");
+
+        question.Status = status;
+        question.ReviewedBy = reviewerId;
+        question.ReviewedAt = reviewedAt;
+        question.UpdatedAt = DateTime.Now;
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<RubricDetail?> GetRubricAsync(int questionId, CancellationToken cancellationToken = default)
+    {
+        var rubric = await context.Rubrics
+            .AsNoTracking()
+            .Include(r => r.Criteria)
+            .FirstOrDefaultAsync(r => r.QuestionId == questionId, cancellationToken);
+
+        if (rubric is null)
+        {
+            return null;
+        }
+
+        return new RubricDetail
+        {
+            RubricId = rubric.RubricId,
+            QuestionId = rubric.QuestionId,
+            QuestionText = rubric.Question?.QuestionText ?? string.Empty,
+            TotalScore = rubric.TotalScore,
+            CreatedAt = rubric.CreatedAt,
+            UpdatedAt = rubric.UpdatedAt,
+            Criteria = rubric.Criteria
+                .OrderBy(c => c.DisplayOrder)
+                .Select(c => new RubricCriteriaDetail
+                {
+                    CriteriaId = c.CriteriaId,
+                    CriteriaName = c.CriteriaName,
+                    Description = c.Description,
+                    MaxScore = c.MaxScore,
+                    DisplayOrder = c.DisplayOrder
+                })
+                .ToList()
+        };
+    }
+
+    public async Task<RubricDetail> SaveRubricAsync(RubricUpsertInput input, CancellationToken cancellationToken = default)
+    {
+        var question = await context.Questions.FindAsync([input.QuestionId], cancellationToken)
+            ?? throw new KeyNotFoundException("Không tìm thấy câu hỏi.");
+
+        Rubric rubric;
+        if (input.RubricId == 0)
+        {
+            rubric = new Rubric
+            {
+                QuestionId = input.QuestionId,
+                CreatedAt = DateTime.Now,
+                Criteria = new List<RubricCriteria>()
+            };
+            context.Rubrics.Add(rubric);
+        }
+        else
+        {
+            rubric = await context.Rubrics
+                .Include(r => r.Criteria)
+                .FirstOrDefaultAsync(r => r.RubricId == input.RubricId, cancellationToken)
+                ?? throw new KeyNotFoundException("Không tìm thấy bộ tiêu chí.");
+
+            // Remove existing criteria
+            context.RubricCriteria.RemoveRange(rubric.Criteria);
+            rubric.Criteria = new List<RubricCriteria>();
+        }
+
+        // Add new criteria
+        decimal totalScore = 0;
+        foreach (var criterionInput in input.Criteria.OrderBy(c => c.DisplayOrder))
+        {
+            if (criterionInput.MaxScore <= 0)
+            {
+                throw new ArgumentException($"Tiêu chí '{criterionInput.CriteriaName}' phải có điểm lớn hơn 0.");
+            }
+
+            var criterion = new RubricCriteria
+            {
+                RubricId = rubric.RubricId,
+                CriteriaName = criterionInput.CriteriaName,
+                Description = criterionInput.Description,
+                MaxScore = criterionInput.MaxScore,
+                DisplayOrder = criterionInput.DisplayOrder
+            };
+            rubric.Criteria.Add(criterion);
+            totalScore += criterionInput.MaxScore;
+        }
+
+        rubric.TotalScore = totalScore;
+        rubric.UpdatedAt = DateTime.Now;
+
+        await context.SaveChangesAsync(cancellationToken);
+        return (await GetRubricAsync(input.QuestionId, cancellationToken))!;
+    }
+
+    public async Task DeleteRubricAsync(int rubricId, CancellationToken cancellationToken = default)
+    {
+        var rubric = await context.Rubrics.FindAsync([rubricId], cancellationToken)
+            ?? throw new KeyNotFoundException("Không tìm thấy bộ tiêu chí.");
+
+        context.Rubrics.Remove(rubric);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<RubricListItem>> ListRubricsAsync(int? courseId, string? term, CancellationToken cancellationToken = default)
+    {
+        var query = context.Rubrics
+            .AsNoTracking()
+            .Include(r => r.Question)
+                .ThenInclude(q => q.Course)
+            .Include(r => r.Criteria)
+            .AsQueryable();
+
+        if (courseId is int cId)
+        {
+            query = query.Where(r => r.Question.CourseId == cId);
+        }
+
+        var searchTerm = term?.Trim();
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            query = query.Where(r =>
+                r.Question.QuestionText.Contains(searchTerm) ||
+                r.Question.Course.CourseCode.Contains(searchTerm) ||
+                r.Question.Course.CourseName.Contains(searchTerm));
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new RubricListItem
+            {
+                RubricId = r.RubricId,
+                QuestionId = r.QuestionId,
+                QuestionText = r.Question.QuestionText,
+                CourseId = r.Question.CourseId,
+                CourseCode = r.Question.Course.CourseCode,
+                CourseName = r.Question.Course.CourseName,
+                TotalScore = r.TotalScore,
+                CriteriaCount = r.Criteria.Count,
+                CreatedAt = r.CreatedAt,
+                UpdatedAt = r.UpdatedAt
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<(int QuestionId, int CourseId)?> GetRubricQuestionAndCourseAsync(int rubricId, CancellationToken cancellationToken = default)
+    {
+        return await context.Rubrics
+            .AsNoTracking()
+            .Include(r => r.Question)
+            .Where(r => r.RubricId == rubricId)
+            .Select(r => new ValueTuple<int, int>(r.QuestionId, r.Question.CourseId))
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public Task<bool> IsAssignedToExamAsync(int questionId, CancellationToken cancellationToken = default) =>
@@ -802,7 +1006,8 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         await transaction.CommitAsync(cancellationToken);
     }
 
-    private static QuestionDetail MapDetail(Question question) => new()    {
+    private static QuestionDetail MapDetail(Question question) => new()
+    {
         QuestionId = question.QuestionId,
         CourseId = question.CourseId,
         MaterialId = question.SourceMaterialId,
@@ -812,6 +1017,9 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         Difficulty = question.Difficulty,
         QuestionType = question.QuestionType,
         Status = question.Status,
+        Source = question.Source,
+        ReviewedBy = question.ReviewedBy,
+        ReviewedAt = question.ReviewedAt,
         Options = question.Options
             .OrderBy(option => option.DisplayOrder)
             .Select(option => new QuestionOptionDetail
