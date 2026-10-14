@@ -2,6 +2,22 @@
   "ConnectionStrings": {
     "DefaultConnection": "Server=myteam-prn202.c.aivencloud.com;Port=15132;Database=defaultdb;User ID=avnadmin;Password=YOUR_PASSWORD;SslMode=Required;"
   },
+  "DocumentStorage": {
+    "BasePath": "wwwroot/uploads/documents",
+    "MaxFileSizeMB": 50,
+    "AllowedExtensions": [".pdf", ".docx", ".pptx"],
+    "ChunkSize": 800,
+    "ChunkOverlap": 100
+  },
+  "Ollama": {
+    "BaseUrl": "http://localhost:11434",
+    "EmbeddingModel": "nomic-embed-text",
+    "GenerationModel": "qwen3.5:latest"
+  },
+  "Rag": {
+    "TopK": 5,
+    "SimilarityThreshold": 0.7
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",
