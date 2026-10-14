@@ -19,5 +19,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AssignmentPRN.Business\AssignmentPRN.Business.csproj" />
+    <ProjectReference Include="..\..\src\AssignmentPRN.Presentation\AssignmentPRN.Presentation.csproj" />
   </ItemGroup>
 </Project>
