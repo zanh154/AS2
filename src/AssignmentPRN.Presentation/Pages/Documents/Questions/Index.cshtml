@@ -1,0 +1,116 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Documents.Questions.IndexModel
+@{
+    ViewData["Title"] = "Quản lý câu hỏi";
+}
+
+<div class="page-header">
+    <h1>Quản lý câu hỏi</h1>
+    <div class="d-flex gap-2">
+        <a asp-page="/Documents/Details" asp-route-id="@Model.DocumentId" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Quay lại tài liệu
+        </a>
+    </div>
+</div>
+
+@if (Model.Error != null)
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (Model.Success != null)
+{
+    <div class="alert alert-success">@Model.Success</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Bộ lọc</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <input type="hidden" name="documentId" value="@Model.DocumentId" />
+            <div class="col-md-3">
+                <label class="form-label">Trạng thái</label>
+                <select name="status" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="0" selected="@(Model.StatusFilter == 0)">Chờ duyệt</option>
+                    <option value="1" selected="@(Model.StatusFilter == 1)">Đã duyệt</option>
+                    <option value="2" selected="@(Model.StatusFilter == 2)">Đã từ chối</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Mức độ Bloom</label>
+                <select name="bloomLevel" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="1" selected="@(Model.BloomFilter == 1)">Remember</option>
+                    <option value="2" selected="@(Model.BloomFilter == 2)">Understand</option>
+                    <option value="3" selected="@(Model.BloomFilter == 3)">Apply</option>
+                    <option value="4" selected="@(Model.BloomFilter == 4)">Analyze</option>
+                    <option value="5" selected="@(Model.BloomFilter == 5)">Evaluate</option>
+                    <option value="6" selected="@(Model.BloomFilter == 6)">Create</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Lọc</button>
+                <a asp-page="" asp-route-documentId="@Model.DocumentId" class="btn btn-outline-secondary">Xoá lọc</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Danh sách câu hỏi (@Model.Questions.Count)</h5>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Questions.Count == 0)
+        {
+            <div class="p-4 text-center text-muted">Không có câu hỏi nào.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%">Nội dung câu hỏi</th>
+                            <th style="width: 15%">Mức độ Bloom</th>
+                            <th style="width: 15%">Chủ đề</th>
+                            <th style="width: 15%">Trạng thái</th>
+                            <th style="width: 15%">Người duyệt</th>
+                            <th style="width: 15%">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var q in Model.Questions)
+                        {
+                            <tr>
+                                <td>
+                                    <div>@q.QuestionText</div>
+                                    @if (!string.IsNullOrEmpty(q.Explanation))
+                                    {
+                                        <small class="text-muted">Giải thích: @q.Explanation[..Math.Min(80, q.Explanation.Length)]...</small>
+                                    }
+                                </td>
+                                <td><span class="badge bg-info">@q.BloomLevel</span></td>
+                                <td>@(q.Topic ?? "-")</td>
+                                <td>
+                                    <span class="badge @Model.GetQuestionStatusBadgeClass(q.Status)">
+                                        @Model.GetQuestionStatusText(q.Status)
+                                    </span>
+                                </td>
+                                <td>@(q.ReviewedByName ?? "-")</td>
+                                <td>
+                                    <a asp-page="Review" asp-route-id="@q.QuestionId" asp-route-documentId="@Model.DocumentId" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil-square"></i> @(q.Status == AssignmentPRN.DataAccess.Entities.QuestionStatus.PendingReview ? "Duyệt" : "Xem")
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
