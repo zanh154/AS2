@@ -43,11 +43,7 @@ public class DetailsModel : PageModel
             }
         }
 
-        // Simulate progress for processing state
-        if (Document.Status == DocumentStatus.Processing)
-        {
-            ProgressPercent = new Random().Next(10, 90);
-        }
+        ProgressPercent = Document.Status == DocumentStatus.Completed ? 100 : 0;
 
         return Page();
     }

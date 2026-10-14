@@ -55,9 +55,10 @@ public class ReviewModel : PageModel
 
         var reviewerId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
 
+        if (decision is not (1 or 2)) return BadRequest();
         var status = decision == 1 ? GeneratedQuestionStatus.Approved : GeneratedQuestionStatus.Rejected;
 
-        var request = new ReviewQuestionRequest(status, notes);
+        var request = new ReviewQuestionRequest(status, notes, questionText, answerKey, explanation, (DocumentBloomLevel)bloomLevel, topic);
         var response = await _documentService.ReviewQuestionAsync(questionId, reviewerId, request, cancellationToken);
 
         if (response.Success)

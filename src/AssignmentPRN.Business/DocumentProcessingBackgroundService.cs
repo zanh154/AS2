@@ -24,6 +24,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
     private readonly OllamaOptions _ollamaOptions;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<DocumentProcessingBackgroundService> _logger;
+    private readonly IDocumentProgressNotifier? _progress;
 
     public DocumentProcessingBackgroundService(
         DocumentProcessingQueue processingQueue,
@@ -31,20 +32,24 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         IOptions<DocumentStorageOptions> storageOptions,
         IOptions<OllamaOptions> ollamaOptions,
         IHttpClientFactory httpClientFactory,
-        ILogger<DocumentProcessingBackgroundService> logger)
+        ILogger<DocumentProcessingBackgroundService> logger, IDocumentProgressNotifier? progress = null)
     {
         _processingQueue = processingQueue;
         _scopeFactory = scopeFactory;
         _storageOptions = storageOptions.Value;
         _ollamaOptions = ollamaOptions.Value;
         _httpClientFactory = httpClientFactory;
-        _logger = logger;
+        _logger = logger; _progress = progress;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Document processing background service started.");
 
+        using (var recovery = _scopeFactory.CreateScope()) {
+            var repository = recovery.ServiceProvider.GetRequiredService<IDocumentRepository>();
+            foreach (var id in await repository.PendingIdsAsync(stoppingToken)) await _processingQueue.QueueDocumentAsync(id, stoppingToken);
+        }
         await foreach (var documentId in _processingQueue.DequeueAsync(stoppingToken))
         {
             if (stoppingToken.IsCancellationRequested) break;
@@ -78,6 +83,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
                 throw new FileNotFoundException($"File not found: {fullPath}");
             }
 
+            if (_progress is not null) await _progress.ChangedAsync(new(doc.DocumentId, doc.CourseId, "Processing"), cancellationToken);
             // Extract text based on file type
             var text = ExtractText(fullPath, doc.ContentType);
             if (string.IsNullOrWhiteSpace(text))
@@ -110,12 +116,15 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
             // Update document status
             await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Completed, null, cancellationToken);
 
+            if (_progress is not null) await _progress.ChangedAsync(new(doc.DocumentId, doc.CourseId, "Completed"), cancellationToken);
             _logger.LogInformation("Document {DocumentId} processed successfully with {ChunkCount} chunks", documentId, chunks.Count);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process document {DocumentId}", documentId);
             await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Failed, ex.Message, cancellationToken);
+            var failed = await documentRepository.GetByIdAsync(documentId, cancellationToken);
+            if (_progress is not null && failed is not null) await _progress.ChangedAsync(new(documentId, failed.CourseId, "Failed"), cancellationToken);
         }
     }
 
@@ -243,7 +252,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<OllamaEmbeddingResponse>(cancellationToken: cancellationToken);
-        return result?.Embedding ?? [];
+        return result?.Embedding is { Length: > 0 } vector ? vector : throw new InvalidOperationException("Embedding model returned no vector.");
     }
 
     private sealed record OllamaEmbeddingResponse(float[] Embedding);

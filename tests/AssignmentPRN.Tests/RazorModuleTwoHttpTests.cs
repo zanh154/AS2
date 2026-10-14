@@ -43,6 +43,9 @@ public class RazorModuleTwoHttpTests
         builder.Services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<AivesDbContext>>();
         builder.Services.AddDbContext<AivesDbContext>(o => o.UseSqlite("Data Source=" + file));
         builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
+        builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
         await using var app = builder.Build();
         app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute(); app.MapHub<ExamUpdatesHub>("/hubs/exam-updates"); app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
         try {
@@ -61,6 +64,7 @@ public class RazorModuleTwoHttpTests
                 db.ExamCandidates.Add(new ExamCandidate { CandidateId = 1, ExamId = 1, StudentId = 3, Status = CandidateStatus.Waiting, ScheduledTime = DateTime.Now.AddHours(1) });
                 db.Questions.Add(new Question { QuestionId = 1, CourseId = 1, CreatedBy = 1, QuestionText = "Test question", Status = AssignmentPRN.DataAccess.Enums.QuestionStatus.Approved,
                     QuestionType = AssignmentPRN.DataAccess.Enums.QuestionType.Main, Options = [new QuestionOption { OptionText = "Yes", IsCorrect = true }, new QuestionOption { OptionText = "No", IsCorrect = false }] });
+                db.Documents.AddRange(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "own.docx", StoragePath = "own.docx", ContentType = "application/docx", Status = DocumentStatus.Completed }, new Document { DocumentId = 2, CourseId = 2, UploadedById = 2, FileName = "other.docx", StoragePath = "other.docx", ContentType = "application/docx", Status = DocumentStatus.Completed });
                 await db.SaveChangesAsync();
             }
             await app.StartAsync();
@@ -112,6 +116,12 @@ public class RazorModuleTwoHttpTests
             Assert.Contains("error", await Receive(docSocket));
             await docSocket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":1,\"invocationId\":\"2\",\"target\":\"JoinCourseGroup\",\"arguments\":[1]}\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
             Assert.DoesNotContain("error", await Receive(docSocket));
+            await docSocket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":1,\"invocationId\":\"3\",\"target\":\"JoinDocumentGroup\",\"arguments\":[2]}\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
+            Assert.Contains("error", await Receive(docSocket));
+            await docSocket.SendAsync(Encoding.UTF8.GetBytes("{\"type\":1,\"invocationId\":\"4\",\"target\":\"JoinDocumentGroup\",\"arguments\":[1]}\u001e"), WebSocketMessageType.Text, true, CancellationToken.None);
+            Assert.DoesNotContain("error", await Receive(docSocket));
+            await app.Services.GetRequiredService<IDocumentProgressNotifier>().ChangedAsync(new(1, 1, "Completed"));
+            Assert.Contains("DocumentProgress", await Receive(docSocket));
             var newExam = await client.GetStringAsync("/ExamSessions/Create");
             Assert.Contains("handler=ClassRoster", newExam);
             var roster = await client.GetStringAsync("/ExamSessions/Create?handler=ClassRoster&classId=1");

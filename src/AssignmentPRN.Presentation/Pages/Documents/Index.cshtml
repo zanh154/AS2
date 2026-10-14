@@ -11,6 +11,9 @@
     </a>
 </div>
 
+<form method="get" class="content-card"><label for="document-course" class="form-label">Môn học</label><select id="document-course" name="courseId" class="form-select">
+@foreach (var course in Model.Courses) { <option value="@course.CourseId" selected="@(course.CourseId == Model.CourseId)">@course.CourseCode · @course.CourseName</option> }
+</select><button class="btn btn-outline-primary mt-2">Xem tài liệu</button></form>
 @if (Model.Error != null)
 {
     <div class="alert alert-danger">@Model.Error</div>

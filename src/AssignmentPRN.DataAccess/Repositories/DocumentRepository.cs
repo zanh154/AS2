@@ -7,6 +7,16 @@ namespace AssignmentPRN.DataAccess.Repositories;
 
 public sealed class DocumentRepository(AivesDbContext context) : IDocumentRepository
 {
+    public async Task<IReadOnlyList<int>> PendingIdsAsync(CancellationToken ct) =>
+        await context.Documents.AsNoTracking().Where(x => x.Status == DocumentStatus.Pending || x.Status == DocumentStatus.Processing).Select(x => x.DocumentId).ToListAsync(ct);
+    public async Task ReviewAsync(int questionId, Action<GeneratedQuestion> update, CancellationToken ct = default) {
+        await using var tx = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+        var question = await context.GeneratedQuestions.Include(x => x.Course).Include(x => x.Document).SingleOrDefaultAsync(x => x.QuestionId == questionId, ct)
+            ?? throw new KeyNotFoundException("Không tìm thấy câu hỏi.");
+        update(question);
+        await context.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
     public async Task<Document> CreateAsync(Document document, CancellationToken cancellationToken = default)
     {
         context.Documents.Add(document);
@@ -55,8 +65,15 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
 
     public async Task AddChunksAsync(IEnumerable<DocumentChunk> chunks, CancellationToken cancellationToken = default)
     {
-        context.DocumentChunks.AddRange(chunks);
+        var values = chunks.ToList();
+        if (values.Count == 0) return;
+        await using var tx = await context.Database.BeginTransactionAsync(cancellationToken);
+        var ids = values.Select(x => x.DocumentId).Distinct().ToList();
+        var old = await context.DocumentChunks.Where(x => ids.Contains(x.DocumentId)).ToListAsync(cancellationToken);
+        context.DocumentChunks.RemoveRange(old);
+        context.DocumentChunks.AddRange(values);
         await context.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<DocumentChunk>> GetChunksByDocumentAsync(int documentId, CancellationToken cancellationToken = default)
@@ -67,12 +84,12 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<DocumentChunk>> SearchSimilarChunksAsync(float[] embedding, int courseId, int topK, float threshold, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DocumentChunk>> SearchSimilarChunksAsync(float[] embedding, int courseId, int topK, float threshold, CancellationToken cancellationToken = default, int? documentId = null)
     {
         // For MySQL without native VECTOR support, we do cosine similarity in memory
         // For production with MySQL 8.4+, use native VECTOR index and SQL
         var query = context.DocumentChunks
-            .Where(c => c.Document!.CourseId == courseId)
+            .Where(c => c.Document!.CourseId == courseId && (!documentId.HasValue || c.DocumentId == documentId.Value))
             .Select(c => new { c.ChunkId, c.DocumentId, c.ChunkIndex, c.Content, c.TokenCount, c.EmbeddingJson });
 
         var allChunks = await query.ToListAsync(cancellationToken);

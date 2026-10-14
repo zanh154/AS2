@@ -4,7 +4,7 @@ public sealed class DocumentStorageOptions
 {
     public const string SectionName = "DocumentStorage";
 
-    public string BasePath { get; set; } = "wwwroot/uploads/documents";
+    public string BasePath { get; set; } = "../AssignmentPRN.DataAccess/Storage/rag";
     public int MaxFileSizeMB { get; set; } = 50;
     public string[] AllowedExtensions { get; set; } = [".pdf", ".docx", ".pptx"];
     public int ChunkSize { get; set; } = 800;
@@ -17,7 +17,7 @@ public sealed class OllamaOptions
 
     public string BaseUrl { get; set; } = "http://localhost:11434";
     public string EmbeddingModel { get; set; } = "nomic-embed-text";
-    public string GenerationModel { get; set; } = "qwen3.5:latest";
+    public string GenerationModel { get; set; } = "qwen2.5:3b";
 }
 
 public sealed class RagOptions

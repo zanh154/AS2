@@ -29,7 +29,12 @@ public sealed record GenerateQuestionsRequest(
 
 public sealed record ReviewQuestionRequest(
     GeneratedQuestionStatus Status,
-    string? Notes
+    string? Notes,
+    string? QuestionText = null,
+    string? AnswerKey = null,
+    string? Explanation = null,
+    DocumentBloomLevel? BloomLevel = null,
+    string? Topic = null
 );
 
 public sealed record GeneratedQuestionResponse(

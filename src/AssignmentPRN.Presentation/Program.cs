@@ -26,6 +26,15 @@ builder.Services.AddBusiness(connectionString, storageRoot);
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
+builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
+builder.Services.PostConfigure<DocumentStorageOptions>(options => {
+    options.BasePath = Path.GetFullPath(options.BasePath, builder.Environment.ContentRootPath);
+    var publicRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot")).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+    if (options.BasePath.StartsWith(publicRoot, StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("DocumentStorage:BasePath must be outside wwwroot.");
+});
 
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>

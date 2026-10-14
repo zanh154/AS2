@@ -1,6 +1,5 @@
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business;
-using AssignmentPRN.DataAccess.Repositories;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
 using Microsoft.AspNetCore.Mvc;
@@ -12,9 +11,9 @@ namespace AssignmentPRN.Presentation.Pages.Documents;
 public class UploadModel : PageModel
 {
     private readonly IDocumentService _documentService;
-    private readonly ICatalogRepository _catalogRepository;
+    private readonly ICatalogService _catalogRepository;
 
-    public UploadModel(IDocumentService documentService, ICatalogRepository catalogRepository)
+    public UploadModel(IDocumentService documentService, ICatalogService catalogRepository)
     {
         _documentService = documentService;
         _catalogRepository = catalogRepository;
@@ -35,7 +34,7 @@ public class UploadModel : PageModel
 
         // Verify course exists
         var course = await _catalogRepository.ListActiveCoursesAsync(cancellationToken);
-        var found = course.FirstOrDefault(c => c.CourseId == courseId);
+        var found = course.Data?.FirstOrDefault(c => c.CourseId == courseId && (HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Admin || c.LecturerId == HttpContext.Session.GetInt32(SessionKeys.UserId)));
         if (found is null)
         {
             return NotFound();

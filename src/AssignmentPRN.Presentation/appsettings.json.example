@@ -13,7 +13,7 @@
   },
   "AllowedHosts": "*",
   "DocumentStorage": {
-    "BasePath": "wwwroot/uploads/documents",
+    "BasePath": "../AssignmentPRN.DataAccess/Storage/rag",
     "MaxFileSizeMB": 50,
     "AllowedExtensions": [
       ".pdf",
@@ -26,7 +26,7 @@
   "Ollama": {
     "BaseUrl": "http://localhost:11434",
     "EmbeddingModel": "nomic-embed-text",
-    "GenerationModel": "qwen3.5:latest"
+    "GenerationModel": "qwen2.5:3b"
   },
   "Rag": {
     "TopK": 5,

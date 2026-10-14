@@ -20,8 +20,7 @@ mysql -u <user> -p aives < database/dump/aives_20261002.sql
 
 Dump xuất ngày 02/10/2026 từ database chung của nhóm, nên **đã có sẵn mọi thay đổi schema
 từ trước tới nay**: bảng lớp học, bảng phương án trả lời, cột đáp án sinh viên chọn, cột
-cấu hình chủ đề/độ khó của đề, cột câu hỏi đào sâu. Import xong là chạy được ngay, không
-cần chạy thêm script nào.
+cấu hình chủ đề/độ khó của đề, cột câu hỏi đào sâu. Đây là schema nền của ASM1. Khi chạy ASM2, áp dụng thêm các migration bên dưới.
 
 Dump không chứa lệnh `USE` hay `CREATE DATABASE` nên import vào database đặt tên gì cũng được.
 
@@ -87,3 +86,16 @@ git show <commit>^:database/20260929_add_question_options.sql  # xem nội dung 
   `appsettings.json.example`.
 - Dump chứa cả bảng `users`. Mật khẩu trong đó là chuỗi băm BCrypt, không phải mật khẩu
   gốc — nhưng email và họ tên thì là dữ liệu thật, cân nhắc trước khi chia sẻ ra ngoài nhóm.
+
+## Migration ASM2 trên database đã có dữ liệu
+
+Chạy lần lượt bằng SQL Editor trong DBeaver (Execute SQL Script):
+
+1. `20261014_add_question_review_and_notifications.sql`
+2. `20261015_exam_viva_settings.sql`
+3. `20261015_documents_rag.sql`
+4. `20261015_rubrics.sql`
+
+Các script bổ sung schema và có kiểm tra phần đã tồn tại. Không import lại dump hoặc chạy seed để cập nhật database chung đang sử dụng. Hai script có stored procedure dùng `DELIMITER`; cần chạy toàn bộ script, không tách tại từng dấu chấm phẩy.
+
+Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu hình tại máy này. Không cần chạy lại để dùng web. Xem `docs/local-runtime.md` để khởi động AI và ứng dụng.

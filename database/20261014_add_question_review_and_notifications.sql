@@ -36,7 +36,7 @@ END //
 DELIMITER ;
 
 CALL aives_add_column_if_missing('questions', 'source',
-    "`source` enum('Manual','AI') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Manual' AFTER `status`");
+    '`source` enum(''Manual'',''AI'') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT ''Manual'' AFTER `status`');
 CALL aives_add_column_if_missing('questions', 'reviewed_by',
     '`reviewed_by` int DEFAULT NULL AFTER `source`');
 CALL aives_add_column_if_missing('questions', 'reviewed_at',
@@ -57,6 +57,12 @@ BEGIN
         WHERE table_schema = DATABASE()
           AND table_name = p_table
           AND index_name = p_index)
+    AND NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_schema = DATABASE()
+          AND table_name = p_table
+          AND constraint_name = p_index
+          AND constraint_type = 'FOREIGN KEY')
     THEN
         SET @ddl = CONCAT('ALTER TABLE `', p_table, '` ADD ', p_definition);
         PREPARE stmt FROM @ddl;

@@ -13,11 +13,13 @@ public class IndexModel : PageModel
 {
     private readonly IDocumentService _documentService;
 
-    public IndexModel(IDocumentService documentService)
+    public IndexModel(IDocumentService documentService, ICatalogService catalog)
     {
-        _documentService = documentService;
+        _documentService = documentService; _catalog = catalog;
     }
 
+    private readonly ICatalogService _catalog;
+    public IReadOnlyList<CourseResponse> Courses { get; set; } = [];
     public int CourseId { get; set; }
     public IReadOnlyList<DocumentResponse> Documents { get; set; } = [];
     public string? Error { get; set; }
@@ -25,8 +27,11 @@ public class IndexModel : PageModel
 
     public async Task OnGetAsync(int courseId, CancellationToken cancellationToken)
     {
-        CourseId = courseId;
-
+        var result = await _catalog.ListActiveCoursesAsync(cancellationToken);
+        Courses = (result.Data ?? []).Where(x => HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Admin || x.LecturerId == HttpContext.Session.GetInt32(SessionKeys.UserId)).ToList();
+        CourseId = courseId > 0 ? courseId : Courses.FirstOrDefault()?.CourseId ?? 0;
+        if (!Courses.Any(x => x.CourseId == CourseId)) { Error = "Chưa có môn học phù hợp hoặc bạn không có quyền truy cập."; return; }
+        courseId = CourseId;
         var response = await _documentService.ListByCourseAsync(courseId, cancellationToken);
         if (response.Success && response.Data is not null)
         {
