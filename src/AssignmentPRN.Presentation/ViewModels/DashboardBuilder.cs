@@ -21,6 +21,10 @@ internal static class DashboardBuilder
             return new StaffDashboardViewModel { LoadError = response.Error };
         }
 
+        var visibleSessions = lecturerId.HasValue
+            ? response.Data.Where(item => item.LecturerId == lecturerId.Value).ToList()
+            : response.Data;
+
         var now = DateTime.Now;
         var horizon = now.AddDays(UpcomingWindowDays);
         var sessions = response.Data.Where(x => !lecturerId.HasValue || x.LecturerId == lecturerId).ToList();

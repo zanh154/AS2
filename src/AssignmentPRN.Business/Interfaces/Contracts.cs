@@ -22,7 +22,7 @@ public sealed class ServiceResponse
         return new ServiceResponse
         {
             Success = false,
-            Error = values.FirstOrDefault() ?? "Không thể hoàn tất thao tác.",
+            Error = values.FirstOrDefault() ?? "KhÃ´ng thá»ƒ hoÃ n táº¥t thao tÃ¡c.",
             Errors = values
         };
     }
@@ -49,7 +49,7 @@ public sealed class ServiceResponse<T>
         return new ServiceResponse<T>
         {
             Success = false,
-            Error = values.FirstOrDefault() ?? "Không thể hoàn tất thao tác.",
+            Error = values.FirstOrDefault() ?? "KhÃ´ng thá»ƒ hoÃ n táº¥t thao tÃ¡c.",
             Errors = values
         };
     }
@@ -287,6 +287,7 @@ public sealed class StudentScheduleResponse
 
 public sealed class StudentScheduleItemResponse
 {
+    public int LecturerId { get; init; }
     public int ExamId { get; init; }
 
     /// <summary>The student's own slot; what the exam room is opened by.</summary>
@@ -319,7 +320,7 @@ public sealed class BusinessValidationException : Exception
     }
 
     public BusinessValidationException(IEnumerable<string> errors)
-        : base(errors.FirstOrDefault() ?? "Dữ liệu không hợp lệ.")
+        : base(errors.FirstOrDefault() ?? "Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.")
     {
         Errors = errors.ToArray();
     }

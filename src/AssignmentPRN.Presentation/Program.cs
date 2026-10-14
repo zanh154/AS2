@@ -1,6 +1,7 @@
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.BusinessRules;
+using AssignmentPRN.Presentation.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,8 @@ var storageRoot = builder.Configuration["MaterialStorage:RootPath"]
 storageRoot = Path.GetFullPath(storageRoot, builder.Environment.ContentRootPath);
 
 builder.Services.AddBusiness(connectionString, storageRoot);
+builder.Services.AddRazorPages();
+builder.Services.AddSignalR();
 
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
@@ -33,6 +36,8 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 
+app.MapRazorPages();
+app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
 app.MapDefaultControllerRoute();
 
 app.Run();

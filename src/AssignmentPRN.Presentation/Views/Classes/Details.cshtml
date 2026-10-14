@@ -1,0 +1,74 @@
+@model ClassDetailViewModel
+@{
+    ViewData["Title"] = Model.Class.ClassCode;
+}
+
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-action="Index">← Quay lại danh sách lớp</a>
+        <span class="eyebrow">@Model.Class.CourseCode · @Model.Class.CourseName</span>
+        <h1>@Model.Class.ClassCode · @Model.Class.ClassName</h1>
+        <p>Phụ trách: @Model.Class.LecturerName</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="content-card">
+            <div class="section-heading"><div><h2>Danh sách sinh viên</h2><p>@Model.Roster.Students.Count sinh viên đang hoạt động</p></div></div>
+            @if (Model.Roster.Students.Count == 0)
+            {
+                <div class="empty-state"><p>Lớp chưa có sinh viên.</p></div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>Họ tên</th><th>Email</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var student in Model.Roster.Students)
+                        {
+                            <tr>
+                                <td><strong>@student.FullName</strong></td>
+                                <td>@student.Email</td>
+                                <td class="text-end">
+                                    <form method="post" asp-action="RemoveStudent" asp-route-id="@Model.Class.ClassId"
+                                          data-confirm="Xoá sinh viên này khỏi lớp?">
+                                        <input type="hidden" name="studentId" value="@student.UserId" />
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Xoá</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="content-card">
+            <div class="section-heading"><div><h2>Thêm sinh viên</h2><p>Tìm theo họ tên hoặc email</p></div></div>
+            <form method="get" asp-action="Details" asp-route-id="@Model.Class.ClassId" class="mb-3">
+                <div class="input-group">
+                    <input class="form-control" type="search" name="q" value="@Model.Query" placeholder="Nhập tên hoặc email..." />
+                    <button class="btn btn-primary" type="submit">Tìm</button>
+                </div>
+            </form>
+            @if (!string.IsNullOrWhiteSpace(Model.Query) && Model.Matches.Count == 0)
+            {
+                <p class="text-muted">Không có sinh viên phù hợp chưa thuộc lớp.</p>
+            }
+            @foreach (var student in Model.Matches)
+            {
+                <div class="d-flex justify-content-between align-items-center border-top py-3 gap-2">
+                    <div><strong>@student.FullName</strong><br /><small>@student.Email</small></div>
+                    <form method="post" asp-action="AddStudent" asp-route-id="@Model.Class.ClassId">
+                        <input type="hidden" name="studentId" value="@student.UserId" />
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Thêm</button>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+</div>

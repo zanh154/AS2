@@ -1,0 +1,34 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Account.RegisterModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Đăng ký";
+}
+
+<h1 class="auth-card__heading">Đăng ký</h1>
+<p class="auth-card__subtitle">Tài khoản tự đăng ký luôn được gán quyền Sinh viên.</p>
+<form method="post">
+    <div asp-validation-summary="ModelOnly" class="validation-summary-errors" role="alert"></div>
+    <div class="mb-3">
+        <label asp-for="Input.FullName" class="form-label">Họ và tên</label>
+        <input asp-for="Input.FullName" class="form-control" autocomplete="name" />
+        <span asp-validation-for="Input.FullName" class="field-validation-error"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.Email" class="form-label">Email</label>
+        <input asp-for="Input.Email" class="form-control" autocomplete="email" />
+        <span asp-validation-for="Input.Email" class="field-validation-error"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.Password" class="form-label">Mật khẩu</label>
+        <input asp-for="Input.Password" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="Input.Password" class="field-validation-error"></span>
+    </div>
+    <div class="mb-4">
+        <label asp-for="Input.ConfirmPassword" class="form-label">Xác nhận mật khẩu</label>
+        <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="Input.ConfirmPassword" class="field-validation-error"></span>
+    </div>
+    <button class="btn btn-primary w-100" type="submit">Đăng ký</button>
+</form>
+<p class="auth-card__footer">Đã có tài khoản? <a asp-page="/Account/Login">Đăng nhập</a></p>

@@ -682,3 +682,29 @@ textarea.form-control {
     gap: $space-2;
   }
 }
+
+.realtime-notice {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: min(26rem, calc(100vw - 2rem));
+  padding: .9rem 1rem;
+  color: #fff;
+  background: #172554;
+  border-radius: .75rem;
+  box-shadow: 0 .75rem 2rem rgba(15, 23, 42, .24);
+
+  &[hidden] { display: none; }
+
+  button {
+    border: 0;
+    color: #bfdbfe;
+    background: transparent;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}

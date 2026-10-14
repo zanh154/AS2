@@ -12,7 +12,7 @@ namespace AssignmentPRN.Presentation.Controllers;
 [SessionAuthorize(RoleNames.Admin, RoleNames.Lecturer)]
 public class ClassesController(
     IAcademicClassService service,
-    ICatalogService catalog) : Controller
+    ICatalogService catalog, Microsoft.AspNetCore.SignalR.IHubContext<AssignmentPRN.Presentation.Hubs.ExamUpdatesHub> updatesHub) : Controller
 {
     private int? LecturerId => HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Lecturer
         ? HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0 : null;
@@ -104,6 +104,7 @@ public class ClassesController(
     {
         var result = await service.AddStudentAsync(id, studentId, LecturerId, ct);
         TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã thêm sinh viên vào lớp." : result.Error;
+        if (result.Success) await updatesHub.Clients.All.SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
         return RedirectToAction(nameof(Roster), new { id });
     }
 
@@ -112,8 +113,12 @@ public class ClassesController(
     {
         var result = await service.RemoveStudentAsync(id, studentId, LecturerId, ct);
         TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã xoá sinh viên khỏi lớp." : result.Error;
+        if (result.Success) await updatesHub.Clients.All.SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
         return RedirectToAction(nameof(Roster), new { id });
     }
+
+    [HttpGet]
+    public Task<IActionResult> Details(int id, CancellationToken ct) => Roster(id, ct);
 
     private async Task Options(AcademicClassViewModel model, CancellationToken ct)
     {

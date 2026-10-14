@@ -707,6 +707,7 @@ public class ExamSessionService(
             ExamName = item.ExamName,
             CourseCode = item.CourseCode,
             CourseName = item.CourseName,
+            LecturerId = item.LecturerId,
             LecturerName = item.LecturerName,
             ScheduledTime = item.ScheduledTime,
             EndTime = item.ScheduledTime.AddMinutes(item.TimePerStudent),

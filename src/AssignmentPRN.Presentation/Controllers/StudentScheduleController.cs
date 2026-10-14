@@ -18,7 +18,7 @@ public class StudentScheduleController(IExamSessionService examSessionService) :
         var userId = HttpContext.Session.GetInt32(SessionKeys.UserId);
         if (!userId.HasValue)
         {
-            return RedirectToAction("Login", "Account");
+            return RedirectToPage("/Account/Login");
         }
 
         var response = await examSessionService.GetStudentScheduleAsync(userId.Value, cancellationToken);

@@ -268,7 +268,9 @@
   align-items: center;
   gap: $space-2;
   padding: $space-2 $space-3;
+  border: 0;
   border-radius: $radius-md;
+  background: transparent;
   color: rgba(255, 255, 255, 0.7);
   font-size: $font-size-sm;
   font-weight: $font-weight-semibold;

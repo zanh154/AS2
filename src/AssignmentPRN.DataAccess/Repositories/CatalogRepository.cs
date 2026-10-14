@@ -125,4 +125,42 @@ public class CatalogRepository(AivesDbContext context) : ICatalogRepository
             user => user.UserId == userId && user.Role.RoleName == roleName && user.Status == ActiveStatus,
             cancellationToken);
     }
+
+    public Task<bool> ClassStudentExistsAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default) =>
+        context.ClassStudents.AnyAsync(
+            item => item.ClassId == classId && item.StudentId == studentId,
+            cancellationToken);
+
+    public async Task AddClassStudentAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default)
+    {
+        context.ClassStudents.Add(new ClassStudent
+        {
+            ClassId = classId,
+            StudentId = studentId,
+            JoinedAt = DateTime.Now
+        });
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> RemoveClassStudentAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default)
+    {
+        var item = await context.ClassStudents.FindAsync([classId, studentId], cancellationToken);
+        if (item is null)
+        {
+            return false;
+        }
+
+        context.ClassStudents.Remove(item);
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }

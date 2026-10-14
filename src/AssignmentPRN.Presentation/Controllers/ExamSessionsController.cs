@@ -4,8 +4,11 @@ using AssignmentPRN.Business.BusinessRules;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
 using AssignmentPRN.Presentation.ViewModels;
+using AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.SignalR;
 
 namespace AssignmentPRN.Presentation.Controllers;
 
@@ -13,7 +16,7 @@ namespace AssignmentPRN.Presentation.Controllers;
 public class ExamSessionsController(
     IExamSessionService examSessionService,
     IQuestionService questionService,
-    ICourseMaterialService materialService) : Controller
+    ICourseMaterialService materialService, IHubContext<ExamUpdatesHub> updatesHub) : Controller
 {
     private int? CurrentLecturerId => HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Lecturer
         ? HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0 : null;
@@ -135,6 +138,12 @@ public class ExamSessionsController(
     {
         var response = await examSessionService.ListAsync(cancellationToken);
 
+        var sessions = response.Data ?? Array.Empty<ExamSessionListItemResponse>();
+        if (CurrentRole == RoleNames.Lecturer)
+        {
+            sessions = sessions.Where(item => item.LecturerId == CurrentUserId).ToList();
+        }
+
         return View(new ExamSessionListViewModel
         {
             Sessions = response.Data?.Where(x => !CurrentLecturerId.HasValue || x.LecturerId == CurrentLecturerId).ToList()
@@ -214,6 +223,7 @@ public class ExamSessionsController(
         // so a session is never blocked on the lecturer remembering to hand questions out.
         TempData["Success"] = "Đã tạo lịch thi và sinh khung giờ tự động. "
             + "Đề sẽ được rút ngẫu nhiên khi từng sinh viên vào thi.";
+        await BroadcastAsync("created", response.Data.ExamId, "Lịch thi mới vừa được tạo.", cancellationToken);
         return RedirectToAction(nameof(Details), new { id = response.Data.ExamId });
     }
 
@@ -233,6 +243,14 @@ public class ExamSessionsController(
             return RedirectToAction(nameof(Details), new { id = model.ExamId });
         }
 
+        var existing = await examSessionService.GetAsync(model.ExamId, cancellationToken);
+        if (!existing.Success || existing.Data is null
+            || !CanManage(existing.Data.Lecturer.UserId)
+            || existing.Data.Candidates.All(item => item.CandidateId != model.CandidateId))
+        {
+            return RedirectToPage("/Account/AccessDenied");
+        }
+
         var response = await examSessionService.RescheduleAsync(
             new ExamSessionRescheduleRequest
             {
@@ -244,6 +262,11 @@ public class ExamSessionsController(
         TempData[response.Success ? "Success" : "Error"] = response.Success
             ? "Đã đổi khung giờ và kiểm tra không trùng lịch."
             : response.Error;
+
+        if (response.Success)
+        {
+            await BroadcastAsync("rescheduled", model.ExamId, "Một khung giờ thi vừa thay đổi.", cancellationToken);
+        }
 
         return RedirectToAction(nameof(Details), new { id = model.ExamId });
     }
@@ -259,6 +282,11 @@ public class ExamSessionsController(
         TempData[response.Success ? "Success" : "Error"] = response.Success
             ? "Đã xoá lịch thi."
             : response.Error;
+
+        if (response.Success)
+        {
+            await BroadcastAsync("deleted", id, "Một lịch thi vừa được xoá.", cancellationToken);
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -489,6 +517,9 @@ public class ExamSessionsController(
         {
             var lecturerId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
             classOptions = classOptions.Where(item => item.LecturerId == lecturerId);
+            model.LecturerOptions = model.LecturerOptions
+                .Where(item => item.Value == lecturerId.ToString())
+                .ToList();
         }
         // The course each class belongs to rides along in Group, so the class
         // picker can hide the classes of every other course.
@@ -519,4 +550,17 @@ public class ExamSessionsController(
             ModelState.AddModelError(string.Empty, value);
         }
     }
+
+    private int CurrentUserId => HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
+
+    private string? CurrentRole => HttpContext.Session.GetString(SessionKeys.Role);
+
+    private bool CanManage(int lecturerId) =>
+        RoleAccessRules.CanManageExam(CurrentRole, CurrentUserId, lecturerId);
+
+    private Task BroadcastAsync(string change, int examId, string message, CancellationToken cancellationToken) =>
+        updatesHub.Clients.All.SendAsync(
+            "ExamListChanged",
+            new { change, examId, message },
+            cancellationToken);
 }

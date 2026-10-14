@@ -1,8 +1,9 @@
 @model StudentScheduleViewModel
 @{
     // Only staff may follow a slot through to the full session detail page.
-    var canOpenSession = Context.Session.GetString(SessionKeys.Role) is RoleNames.Admin or RoleNames.Lecturer;
     var now = DateTime.Now;
+    var currentRole = Context.Session.GetString(SessionKeys.Role);
+    var currentUserId = Context.Session.GetInt32(SessionKeys.UserId);
 }
 
 @if (!string.IsNullOrWhiteSpace(Model.Error))
@@ -36,6 +37,8 @@ else if (Model.Schedule is not null)
         <div class="student-schedule-list">
             @foreach (var item in schedule.Items)
             {
+                var canOpenSession = currentRole == RoleNames.Admin
+                    || (currentRole == RoleNames.Lecturer && currentUserId == item.LecturerId);
                 if (canOpenSession)
                 {
                     <a class="student-schedule-item" asp-controller="ExamSessions" asp-action="Details"

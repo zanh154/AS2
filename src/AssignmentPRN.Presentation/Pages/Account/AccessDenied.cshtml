@@ -1,0 +1,12 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Account.AccessDeniedModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Không có quyền truy cập";
+}
+<div class="empty-state">
+    <div class="empty-icon"><partial name="_Icon" model="@("lock")" /></div>
+    <h2>Không có quyền truy cập</h2>
+    <p>Vai trò hiện tại không được phép thực hiện thao tác này.</p>
+    <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Về trang của tôi</a>
+</div>

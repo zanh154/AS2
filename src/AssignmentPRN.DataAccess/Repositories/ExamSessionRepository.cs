@@ -255,6 +255,7 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
                 ExamName = candidate.Session.ExamName,
                 CourseCode = candidate.Session.Course.CourseCode,
                 CourseName = candidate.Session.Course.CourseName,
+                LecturerId = candidate.Session.LecturerId,
                 LecturerName = candidate.Session.Lecturer.FullName,
                 ScheduledTime = candidate.ScheduledTime!.Value,
                 TimePerStudent = candidate.Session.TimePerStudent,

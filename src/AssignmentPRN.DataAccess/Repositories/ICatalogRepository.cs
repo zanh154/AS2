@@ -33,4 +33,19 @@ public interface ICatalogRepository
     Task<bool> CourseExistsAsync(int courseId, CancellationToken cancellationToken = default);
 
     Task<bool> UserIsInRoleAsync(int userId, string roleName, CancellationToken cancellationToken = default);
+
+    Task<bool> ClassStudentExistsAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default);
+
+    Task AddClassStudentAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> RemoveClassStudentAsync(
+        int classId,
+        int studentId,
+        CancellationToken cancellationToken = default);
 }
