@@ -48,6 +48,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<GradingQueue>();
         services.AddHostedService<GradingBackgroundService>();
 
+        // Nạp sẵn model lúc khởi động: lần gọi đầu tiên mất hơn 30 giây vì phải nạp
+        // model, và không được để sinh viên đầu tiên trong ngày trả giá đó.
+        services.AddHostedService<OllamaWarmUpService>();
+
         // Document processing
         services.AddSingleton<DocumentProcessingQueue>();
         services.AddHostedService<DocumentProcessingBackgroundService>();
