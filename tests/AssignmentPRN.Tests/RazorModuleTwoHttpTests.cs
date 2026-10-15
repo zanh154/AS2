@@ -132,10 +132,28 @@ public class RazorModuleTwoHttpTests
                 var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
                 Assert.True(await db.ExamSessions.AnyAsync(x => x.ExamName == "Created via page"));
             }
+            // The results screens moved off MVC; the old URLs are now Razor Pages and
+            // still have to render, still have to check ownership, and still have to
+            // keep students out.
+            var scoreSheet = await client.GetStringAsync("/ExamResults/Index/1");
+            Assert.Contains("Bảng điểm", scoreSheet);
+            Assert.Contains("Own exam", scoreSheet);
+            Assert.Contains("/ExamResults/Candidate/1", scoreSheet);
+            var paper = await client.GetStringAsync("/ExamResults/Candidate/1");
+            Assert.Contains("Test 3", paper);
+            // Razor Pages drops the Index segment, so the way back is /ExamResults/1;
+            // both spellings have to reach the same screen.
+            Assert.Contains("href=\"/ExamResults/1\"", paper);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/ExamResults/1")).StatusCode);
+            // Someone else's session is turned away rather than rendered.
+            Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/ExamResults/Index/2")).StatusCode);
+
             using var student = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, CookieContainer = new CookieContainer() }) { BaseAddress = new Uri(address) };
             var studentLogin = await student.GetStringAsync("/Account/Login");
             await Post(student, "/Account/Login", studentLogin, new() { ["Input.Email"] = "test3@example.test", ["Input.Password"] = "Test@123" });
             Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamSessions")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamResults/Index/1")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamResults/Candidate/1")).StatusCode);
         } finally {
             await app.StopAsync();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

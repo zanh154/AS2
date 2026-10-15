@@ -16,7 +16,7 @@
                     }
                     else
                     {
-                        <a asp-controller="@(item.Controller is "Courses" or "ExamSessions" ? null : item.Controller)" asp-action="@(item.Controller is "Courses" or "ExamSessions" ? null : item.Action)" asp-page="@(item.Controller is "Courses" or "ExamSessions" ? "/" + item.Controller + "/" + item.Action : null)"
+                        <a asp-controller="@(item.Controller is "Courses" or "ExamSessions" or "ExamResults" ? null : item.Controller)" asp-action="@(item.Controller is "Courses" or "ExamSessions" or "ExamResults" ? null : item.Action)" asp-page="@(item.Controller is "Courses" or "ExamSessions" or "ExamResults" ? "/" + item.Controller + "/" + item.Action : null)"
                            asp-all-route-data="@RouteDataFor(item)">@item.Text</a>
                     }
                     @if (!isLast)
