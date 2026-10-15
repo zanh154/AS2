@@ -392,6 +392,53 @@ thêm mốc đó.
 
 ---
 
+### 9.3 Chạy thử lần 2, sau khi sửa (15/10/2026, 23:00–23:16)
+
+Cùng máy, MySQL 8.4.9 cục bộ mới dựng (dump + 5 migration + seed + rubric 3 tiêu chí cho 12
+câu Chính), app chạy thật, trình duyệt thật. **Vẫn dùng `qwen2.5:3b`** (đặt qua biến môi
+trường `Ollama__VivaModel`) vì máy chưa tải bản 7b — nên phần chất lượng dưới đây là của
+model nhỏ, với prompt mới.
+
+**Chấm điểm trong ca thi — đã chạy:**
+
+| Lượt thi | Nộp câu cuối | Có điểm AI | Ghi chú |
+|---|---|---|---|
+| SV1 (slot 75) | 23:01:51 | 23:02:33 (**42 s**) | Phải đợi 7 lượt cũ trong hàng đợi — xem lỗi A |
+| SV2 (slot 76) | 23:13:20 | 23:13:45 (**25 s**) | Nộp 4 s sau một nhịp quét, nhịp kế tiếp ở 23:14:16 → chắc chắn do hàng đợi lúc nộp, không phải vòng quét |
+
+Không khởi động lại app lần nào. Mỗi câu có đủ 3 dòng `ai_evaluation_criteria`,
+`final_results` có điểm. Giảng viên chốt 4 điểm (AI đề xuất 1) → `final_results` giữ cả hai,
+`exam_logs` có dòng "Điểm chốt: 1 → 4. Nhận xét: …", trang sinh viên hiện 4,0 kèm nhận xét
+giảng viên. Không thấy mã tiêu chí nào trong nhận xét.
+
+**Hỏi xoáy với prompt mới (vẫn 3b):** 4/6 câu có câu hỏi xoáy, cả 4 đều ở ngôi thứ hai
+("Em có thể…"), không câu nào viết cho giảng viên. "Em không biết ạ." lần này được hỏi thêm
+với lý do *thiếu ý* (trước đây 3b trả `Sufficient`). Ca thi cho tối đa 2 câu hỏi xoáy mỗi
+lượt, nên 2 câu còn lại không được hỏi là đúng luật. Hai điểm còn kém:
+
+- **2/4 câu hỏi xoáy lộ đáp án**, ví dụ *"Em có thể giải thích rõ hơn về khái niệm
+  Dictionary<TKey, TValue> không?"* cho câu hỏi "Collection nào lưu cặp khoá - giá trị?", và
+  *"…kiểu dữ liệu int lưu số nguyên 32 bit…"* cho câu hỏi "kiểu nào lưu số nguyên 32 bit?".
+  Prompt đã cấm, model nhỏ vẫn làm. Chưa có luật nào trong code chặn được việc này.
+- Câu trả lời tự mâu thuẫn ("int 32 bit… à không, int là 64 bit") được gắn nhãn *thiếu ý*
+  thay vì *mâu thuẫn*. Không ảnh hưởng tới luồng thi, chỉ là nhãn hiển thị.
+
+**Chấm điểm:** câu lạc đề 0/10, câu sai 1/10 — hợp lý. Nhưng một câu sinh viên **tự sửa đúng
+ở phần hỏi thêm** vẫn bị 0/5 "Đúng khái niệm", và ô *Điểm mạnh* ("đã nêu đúng định nghĩa")
+mâu thuẫn với ô *Điểm yếu* ("không nêu đúng định nghĩa"). Đây chính là trường hợp bước giảng
+viên duyệt lại được thiết kế để bắt — và trong lần chạy này giảng viên đã sửa đúng nó.
+
+**Lỗi tìm thấy trong lần chạy này:**
+
+| # | Lỗi | Xử lý |
+|---|---|---|
+| A | **Vòng quét 1 phút (vừa thêm ở 9.1) đưa lại mãi các lượt không chấm được**: lượt có câu không rubric hoặc model không trả lời thì vẫn "chưa chấm" trong database, nên mỗi phút bị chấm lại — 7 lượt cũ lặp 3 lần trong 3 phút, chen trước lượt thi thật, và sẽ gọi model mỗi phút nếu model hỏng | **Đã sửa**: vòng quét nhớ những lượt đã thử trong lần chạy này. Mỗi lần khởi động app vẫn thử lại tất cả một lần như cũ. Test `GradingSweepTests` (đỏ trên code cũ) |
+| B | **Trang kết quả sinh viên ghi "điểm giảng viên đã chốt" khi giảng viên chưa chốt gì** — điểm đó là điểm AI đề xuất | **Đã sửa**: chưa chốt thì ghi "Điểm tạm", "giảng viên chưa xác nhận nên có thể còn thay đổi" |
+| C | **Hai trang kết quả của giảng viên mất tiêu đề tab (" · AIVES") và mất breadcrumb** — lỗi do việc chuyển sang Razor Pages: tiêu đề đặt trong partial, mà `<partial>` nhận bản sao `ViewData` | **Đã sửa**: đặt ở trang. Test HTTP kiểm tra cả hai (đỏ trên code cũ) |
+| D | **`_Breadcrumb` ném lỗi 500 với mọi liên kết tới trang Courses / ExamSessions / ExamResults** — `asp-page` và `asp-controller` đặt cùng lúc bằng ternary; tag helper coi chúng loại trừ nhau kể cả khi giá trị null. Lỗi bị che vì chưa trang nào truyền breadcrumb tới được layout (lỗi C) | **Đã sửa**: tách hai nhánh markup, như đã làm với `_DataTable` |
+| E | Trang bài làm của giảng viên có ô **"ĐIỂM 0,0"** (điểm trắc nghiệm cũ của ASM1, luôn 0 với bài thi giọng nói) nằm cạnh **"AI ĐỀ XUẤT 1,0"** — hai con số "điểm" mâu thuẫn trên cùng màn hình | **Chưa sửa** — cần nhóm thống nhất: ẩn ô cũ với bài giọng nói, hay đổi tên |
+| F | **Các trang Courses / ExamSessions (phần của thành viên khác) cũng đặt breadcrumb trong partial**, nên cũng không có breadcrumb; tiêu đề tab là chuỗi tạm như "ExamSessions · Details" | **Không sửa** — ngoài phần 6, báo nhóm. Sửa giống lỗi C; lỗi D đã sửa nên chuyển lên sẽ không còn 500 |
+
 ## 10. Giới hạn — cần biết trước khi demo
 
 - **Chất lượng câu hỏi xoáy phụ thuộc model**: với `qwen2.5:3b`, 0/10 lần sinh ra câu hỏi
@@ -404,6 +451,9 @@ thêm mốc đó.
 - **Model chấm điểm vẫn có thể nhận xét sai** (mục 9c, lỗi 1 và 2): nói sinh viên đã nêu một
   từ khoá họ không nói, hoặc cho điểm trình bày lệch với nhận xét ngay bên cạnh. Điểm AI là
   **đề xuất**; giảng viên phải đọc lại trước khi chốt. Đây là lý do module có bước duyệt tay.
+- **Câu hỏi xoáy có thể lộ đáp án** (mục 9.3) với model nhỏ. Prompt cấm nhưng code chưa chặn.
+- **Model chấm có thể bỏ qua phần sinh viên tự sửa ở câu hỏi xoáy** (mục 9.3) — giảng viên
+  cần đọc phần "Câu hỏi thêm" trước khi chốt.
 - **Kết quả AI chạy trong ca thi**: lượt thi được đẩy vào hàng đợi ngay khi đóng, và có
   vòng quét mỗi phút làm lưới an toàn (mục 9.1). Chấm một lượt 3 câu mất khoảng 11 giây, nên
   giảng viên thấy điểm đề xuất trong vòng dưới một phút rưỡi sau khi sinh viên nộp.
