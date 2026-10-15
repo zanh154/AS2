@@ -36,6 +36,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IDocumentService, DocumentService>();
 
+        // The AI examiner. Both adapters swallow model failures, so a viva still runs
+        // end to end with nothing listening on the Ollama port.
+        services.AddSingleton<OllamaJsonClient>();
+        services.AddScoped<IFollowUpAnalyzer, OllamaFollowUpAnalyzer>();
+
         // Document processing
         services.AddSingleton<DocumentProcessingQueue>();
         services.AddHostedService<DocumentProcessingBackgroundService>();
