@@ -267,8 +267,9 @@ dọn dẹp, làm kèm hoặc bỏ nếu nhóm chưa muốn đụng file chung.
 
 - **Chưa chạy với Ollama thật.** Toàn bộ test dùng model giả lập. Chất lượng câu hỏi xoáy và
   điểm số của `qwen2.5:3b` trên tiếng Việt chuyên ngành **chưa được đo**.
-- **Chưa chạy script `20261016_ai_evaluation_criteria.sql` trên database chung.** Chạy nó
-  trước khi demo, nếu không phần chấm điểm sẽ lỗi khi ghi.
+- ~~Chưa chạy script `20261016_ai_evaluation_criteria.sql` trên database chung.~~ **Đã chạy
+  ngày 15/10/2026** trên Aiven (`defaultdb`) và trên MySQL local; cấu trúc bảng đã đối chiếu
+  khớp với mapping EF. Dùng `scripts/apply-migration.ps1 -WhatIf` để kiểm tra lại bất cứ lúc nào.
 - **Chưa thử trên trình duyệt thật** với microphone và ca thi còn hiệu lực.
 - Thêm một lượt gọi model giữa hai câu hỏi làm tăng độ trễ. Ngân sách đang đặt 20 giây; cần
   đo thực tế và có thể phải hạ `num_predict` hoặc dùng model nhỏ hơn.

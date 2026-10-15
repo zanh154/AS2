@@ -100,4 +100,4 @@ Chạy lần lượt bằng SQL Editor trong DBeaver (Execute SQL Script):
 
 Các script bổ sung schema và có kiểm tra phần đã tồn tại. Không import lại dump hoặc chạy seed để cập nhật database chung đang sử dụng. Hai script có stored procedure dùng `DELIMITER`; cần chạy toàn bộ script, không tách tại từng dấu chấm phẩy.
 
-Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu hình tại máy này. Không cần chạy lại để dùng web. Xem `docs/local-runtime.md` để khởi động AI và ứng dụng.
+Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu hình tại máy này. Script số 5 (`ai_evaluation_criteria`) cũng đã được áp dụng trên Aiven và trên MySQL local cùng ngày. Không cần chạy lại để dùng web. Xem `docs/local-runtime.md` để khởi động AI và ứng dụng.
