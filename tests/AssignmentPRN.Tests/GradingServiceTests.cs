@@ -36,8 +36,28 @@ public sealed class GradingServiceTests
             Task.FromException<AnswerGrade>(new HttpRequestException("model is down"));
     }
 
-    private static GradingService Service(AivesDbContext db, IAnswerGrader grader) =>
-        new(new GradingRepository(db), grader, TimeProvider.System);
+    /// <summary>Records what the examiner's screen would have been told.</summary>
+    private sealed class RecordingNotifier : IGradingNotifier
+    {
+        public List<(int ExamId, int CandidateId, int Done, int Total)> Progress { get; } = [];
+        public List<GradingOutcome> Finished { get; } = [];
+
+        void IGradingNotifier.Progress(GradingSlotRow slot, int answersDone) =>
+            Progress.Add((slot.ExamId, slot.CandidateId, answersDone, slot.Answers.Count));
+
+        void IGradingNotifier.Finished(GradingSlotRow slot, GradingOutcome outcome) => Finished.Add(outcome);
+    }
+
+    /// <summary>A notifier whose transport is broken.</summary>
+    private sealed class ThrowingNotifier : IGradingNotifier
+    {
+        public void Progress(GradingSlotRow slot, int answersDone) => throw new InvalidOperationException("hub is gone");
+
+        public void Finished(GradingSlotRow slot, GradingOutcome outcome) => throw new InvalidOperationException("hub is gone");
+    }
+
+    private static GradingService Service(AivesDbContext db, IAnswerGrader grader, IGradingNotifier? notifier = null) =>
+        new(new GradingRepository(db), grader, TimeProvider.System, notifier);
 
     /// <summary>A finished slot: one question with a 6 + 4 rubric and a spoken answer.</summary>
     private static async Task<AivesDbContext> SeedAsync(bool withRubric = true, bool completed = true, string? transcript = "Em trả lời.")
@@ -250,6 +270,48 @@ public sealed class GradingServiceTests
         Assert.Equal("Đáp án mong đợi.", grader.Seen[0].ExpectedAnswer);
         Assert.Equal([1, 2], grader.Seen[0].Criteria.Select(x => x.CriteriaId));
         Assert.Equal(6m, grader.Seen[0].Criteria[0].MaxScore);
+    }
+
+    [Fact]
+    public async Task The_examiner_is_told_how_the_marking_is_going_and_how_it_ended()
+    {
+        await using var db = await SeedAsync();
+        var notifier = new RecordingNotifier();
+
+        await Service(db, new StubGrader(FullMarks), notifier).GradeCandidateAsync(1);
+
+        var progress = Assert.Single(notifier.Progress);
+        Assert.Equal((1, 1, 1, 1), progress);
+        var finished = Assert.Single(notifier.Finished);
+        Assert.Equal(1, finished.GradedAnswers);
+        Assert.Equal(10m, finished.SlotScore);
+    }
+
+    [Fact]
+    public async Task An_answer_left_unmarked_still_moves_the_progress_along()
+    {
+        // Otherwise a slot the model could not mark would look stuck on the examiner's
+        // screen for as long as grading ran.
+        await using var db = await SeedAsync();
+        var notifier = new RecordingNotifier();
+
+        await Service(db, new ThrowingGrader(), notifier).GradeCandidateAsync(1);
+
+        Assert.Single(notifier.Progress);
+        Assert.Equal(1, Assert.Single(notifier.Finished).SkippedAnswers);
+    }
+
+    [Fact]
+    public async Task A_notification_that_fails_cannot_undo_a_stored_mark()
+    {
+        await using var db = await SeedAsync();
+
+        var result = await Service(db, new StubGrader(FullMarks), new ThrowingNotifier()).GradeCandidateAsync(1);
+
+        Assert.False(result.Success, "the failure is reported rather than hidden");
+        db.ChangeTracker.Clear();
+        // What was already written stays written: grading again is safe and cheap.
+        Assert.Empty(await db.AiEvaluations.ToListAsync());
     }
 
     [Fact]

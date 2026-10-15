@@ -27,10 +27,10 @@ if (storageRoot.Equals(publicStorageRoot, StringComparison.OrdinalIgnoreCase)
     throw new InvalidOperationException("MaterialStorage:RootPath must be outside wwwroot to protect private recordings.");
 
 builder.Services.AddBusiness(connectionString, storageRoot);
-builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
 builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
+builder.Services.AddSingleton<AssignmentPRN.Business.Services.IGradingNotifier, SignalRGradingNotifier>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
 builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
