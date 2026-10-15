@@ -48,6 +48,126 @@
         </div>
     }
 
+    @if (Model.ReviewError is not null)
+    {
+        <div class="info-note">Không đọc được đánh giá của AI: @Model.ReviewError</div>
+    }
+    else if (Model.Review is { } review)
+    {
+        <div class="content-card exam-result-ai">
+            <div class="section-heading">
+                <div>
+                    <h2>AI đề xuất &amp; điểm chốt</h2>
+                    <p class="text-muted">
+                        AI chỉ gợi ý. Điểm chốt là của giảng viên, và mọi lần thay đổi đều được ghi lại.
+                    </p>
+                </div>
+            </div>
+
+            <div class="metric-row">
+                <div class="metric-card"><span>AI đề xuất</span><strong>@ExamResultText.Score(review.AiScore)</strong></div>
+                <div class="metric-card"><span>Giảng viên chốt</span><strong>@ExamResultText.Score(review.LecturerScore)</strong></div>
+                <div class="metric-card"><span>Điểm cuối</span><strong>@ExamResultText.Score(review.FinalScore)</strong></div>
+            </div>
+
+            @if (review.FinalizedAt is { } finalizedAt)
+            {
+                <p class="text-muted">Chốt bởi @(review.FinalizedByName ?? "—") lúc @finalizedAt.ToString("HH:mm dd/MM/yyyy").</p>
+            }
+
+            <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="Adjust" asp-route-id="@candidate.Paper.CandidateId"
+                  class="exam-result-adjust">
+                <div class="form-row">
+                    <label for="lecturer-score">Điểm giảng viên (0–10)</label>
+                    <input class="form-control" id="lecturer-score" name="score" type="number" inputmode="decimal"
+                           min="0" max="10" step="0.01" value="@review.LecturerScore?.ToString("0.##")" />
+                    <small class="text-muted">Để trống rồi lưu nếu muốn bỏ điểm chốt và quay lại điểm AI.</small>
+                </div>
+                <div class="form-row">
+                    <label for="lecturer-comment">Nhận xét</label>
+                    <textarea class="form-control" id="lecturer-comment" name="comment" rows="3"
+                              maxlength="2000">@review.LecturerComment</textarea>
+                </div>
+                <button class="btn btn-primary" type="submit">Lưu điểm chốt</button>
+            </form>
+
+            @if (review.Answers.Count > 0)
+            {
+                <ol class="exam-result-ai-answers">
+                    @foreach (var answer in review.Answers)
+                    {
+                        <li>
+                            <h3>Câu @answer.OrderNo · @ExamResultText.Score(answer.AiScore)</h3>
+                            <p class="text-muted">@answer.QuestionText</p>
+                            @if (answer.NotGraded)
+                            {
+                                <p class="info-note">AI chưa chấm câu này. Giảng viên cần tự đánh giá.</p>
+                            }
+                            else
+                            {
+                                @if (!string.IsNullOrWhiteSpace(answer.Feedback))
+                                {
+                                    <p class="info-note">@answer.Feedback</p>
+                                }
+                                <table class="data-table">
+                                    <thead>
+                                        <tr><th>Tiêu chí</th><th>Điểm</th><th>Nhận xét</th></tr>
+                                    </thead>
+                                    <tbody>
+                                    @foreach (var criterion in answer.Criteria)
+                                    {
+                                        <tr>
+                                            <td>@criterion.Name</td>
+                                            <td class="cell-nowrap">@criterion.Awarded.ToString("0.##") / @criterion.MaxScore.ToString("0.##")</td>
+                                            <td>@(criterion.Comment ?? "—")</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                                @if (!string.IsNullOrWhiteSpace(answer.Strengths))
+                                {
+                                    <p><strong>Điểm mạnh:</strong> @answer.Strengths</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(answer.Weaknesses))
+                                {
+                                    <p><strong>Điểm yếu:</strong> @answer.Weaknesses</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(answer.MissingPoints))
+                                {
+                                    <p><strong>Ý còn thiếu:</strong> @answer.MissingPoints</p>
+                                }
+                            }
+                            @if (answer.Probes.Count > 0)
+                            {
+                                <h4>Câu hỏi thêm</h4>
+                                <ul>
+                                    @foreach (var probe in answer.Probes)
+                                    {
+                                        <li>@probe.Question<br /><span class="text-muted">@(probe.Transcript ?? "Sinh viên không trả lời.")</span></li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+
+            @if (review.Trail.Count > 0)
+            {
+                <h3>Lịch sử thay đổi điểm</h3>
+                <ul class="exam-result-trail">
+                    @foreach (var entry in review.Trail)
+                    {
+                        <li>
+                            <span class="text-muted">@entry.At.ToString("HH:mm dd/MM/yyyy")</span> ·
+                            @(entry.ByName ?? "—") · @entry.Description
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+
     @if (paper.Questions.Count == 0)
     {
         <div class="content-card">

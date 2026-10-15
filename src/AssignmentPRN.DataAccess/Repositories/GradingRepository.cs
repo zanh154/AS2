@@ -39,8 +39,54 @@ public sealed record AnswerEvaluation(
     string? MissingPoints,
     IReadOnlyList<(int CriteriaId, decimal Score, string? Comment)> Criteria);
 
+/// <summary>One criterion as the examiner reads it back: what the AI gave, out of what.</summary>
+public sealed record ReviewCriterionRow(int CriteriaId, string Name, decimal Awarded, decimal MaxScore, string? Comment);
+
+/// <summary>What the AI said about one answer, with the probes it was judged alongside.</summary>
+public sealed record ReviewAnswerRow(
+    int AnswerId,
+    int ExamQuestionId,
+    int OrderNo,
+    string QuestionText,
+    string? Transcript,
+    decimal? AiScore,
+    decimal? Confidence,
+    string? Feedback,
+    string? Strengths,
+    string? Weaknesses,
+    string? MissingPoints,
+    IReadOnlyList<ReviewCriterionRow> Criteria,
+    IReadOnlyList<GradingProbeRow> Probes);
+
+/// <summary>The AI's side of one candidate's paper, plus where the mark stands.</summary>
+public sealed record ReviewRow(
+    int CandidateId,
+    int ExamId,
+    decimal? AiScore,
+    decimal? LecturerScore,
+    decimal? FinalScore,
+    string? LecturerComment,
+    string? FinalizedByName,
+    DateTime? FinalizedAt,
+    IReadOnlyList<ReviewAnswerRow> Answers);
+
+/// <summary>One line of the trail left behind by a mark that was changed.</summary>
+public sealed record ResultAuditRow(string? ByName, DateTime At, string Description);
+
 public interface IGradingRepository
 {
+    /// <summary>What the AI suggested for one candidate, or null when they do not exist.</summary>
+    Task<ReviewRow?> LoadReviewAsync(int candidateId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Stores the mark a lecturer decided and writes the change to exam_logs, in one
+    /// transaction. Passing a null score hands the slot back to the AI suggestion.
+    /// </summary>
+    Task AdjustAsync(int candidateId, int examId, int lecturerId, decimal? score, decimal? finalScore,
+        string? comment, string auditLine, DateTime at, CancellationToken ct = default);
+
+    /// <summary>The trail of mark changes for one candidate, newest first.</summary>
+    Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default);
     /// <summary>Null when the candidate does not exist.</summary>
     Task<GradingSlotRow?> LoadAsync(int candidateId, CancellationToken ct = default);
 
@@ -185,6 +231,139 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
+
+    /// <summary>The action written on every mark change, so the trail can be read back.</summary>
+    public const string AdjustedAction = "result.adjusted";
+
+    public async Task<ReviewRow?> LoadReviewAsync(int candidateId, CancellationToken ct = default)
+    {
+        var candidate = await db.ExamCandidates.AsNoTracking()
+            .Where(x => x.CandidateId == candidateId)
+            .Select(x => new { x.CandidateId, x.ExamId })
+            .SingleOrDefaultAsync(ct);
+        if (candidate is null) return null;
+
+        var answers = await db.Answers.AsNoTracking()
+            .Where(answer => answer.CandidateId == candidateId)
+            .Select(answer => new
+            {
+                answer.AnswerId,
+                answer.ExamQuestionId,
+                answer.Transcript,
+                Question = db.ExamQuestions
+                    .Where(x => x.ExamQuestionId == answer.ExamQuestionId)
+                    .Select(x => new { x.OrderNo, x.Question.QuestionText })
+                    .FirstOrDefault(),
+                Evaluation = db.AiEvaluations
+                    .Where(x => x.AnswerId == answer.AnswerId)
+                    .Select(x => new
+                    {
+                        x.AiScore,
+                        x.Confidence,
+                        x.Feedback,
+                        x.Strengths,
+                        x.Weaknesses,
+                        x.MissingPoints,
+                        Criteria = x.Criteria
+                            .Select(mark => new ReviewCriterionRow(mark.CriteriaId, mark.Criteria.CriteriaName,
+                                mark.Score, mark.Criteria.MaxScore, mark.Comment))
+                            .ToList()
+                    })
+                    .FirstOrDefault(),
+                Probes = db.FollowUpQuestions
+                    .Where(x => x.AnswerId == answer.AnswerId)
+                    .OrderBy(x => x.OrderNo).ThenBy(x => x.FollowUpId)
+                    .Select(x => new GradingProbeRow(x.FollowUpId, x.QuestionText, x.AnswerTranscript))
+                    .ToList()
+            })
+            .ToListAsync(ct);
+
+        var result = await db.FinalResults.AsNoTracking()
+            .Where(x => x.CandidateId == candidateId)
+            .Select(x => new
+            {
+                x.AiScore,
+                x.LecturerScore,
+                x.FinalScore,
+                x.LecturerComment,
+                x.FinalizedAt,
+                FinalizedByName = db.Users.Where(user => user.UserId == x.FinalizedBy).Select(user => user.FullName).FirstOrDefault()
+            })
+            .SingleOrDefaultAsync(ct);
+
+        return new ReviewRow(
+            candidate.CandidateId,
+            candidate.ExamId,
+            result?.AiScore,
+            result?.LecturerScore,
+            result?.FinalScore,
+            result?.LecturerComment,
+            result?.FinalizedByName,
+            result?.FinalizedAt,
+            answers
+                .Where(x => x.Question != null)
+                .OrderBy(x => x.Question!.OrderNo)
+                .Select(x => new ReviewAnswerRow(
+                    x.AnswerId,
+                    x.ExamQuestionId,
+                    x.Question!.OrderNo,
+                    x.Question.QuestionText,
+                    x.Transcript,
+                    x.Evaluation?.AiScore,
+                    x.Evaluation?.Confidence,
+                    x.Evaluation?.Feedback,
+                    x.Evaluation?.Strengths,
+                    x.Evaluation?.Weaknesses,
+                    x.Evaluation?.MissingPoints,
+                    x.Evaluation is null ? [] : x.Evaluation.Criteria,
+                    x.Probes))
+                .ToList());
+    }
+
+    public async Task AdjustAsync(int candidateId, int examId, int lecturerId, decimal? score, decimal? finalScore,
+        string? comment, string auditLine, DateTime at, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+        db.ChangeTracker.Clear();
+
+        var result = await db.FinalResults.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct);
+        if (result is null)
+        {
+            result = new FinalResult { ExamId = examId, CandidateId = candidateId };
+            db.FinalResults.Add(result);
+        }
+
+        result.LecturerScore = score;
+        result.FinalScore = finalScore;
+        result.LecturerComment = comment;
+        result.FinalizedBy = lecturerId;
+        result.FinalizedAt = at;
+
+        // The row only keeps the mark that counts now; the log is what makes an earlier
+        // mark traceable when a student questions their grade.
+        db.Set<ExamLog>().Add(new ExamLog
+        {
+            ExamId = examId,
+            CandidateId = candidateId,
+            UserId = lecturerId,
+            Action = AdjustedAction,
+            Description = auditLine,
+            Timestamp = at
+        });
+
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default) =>
+        await db.Set<ExamLog>().AsNoTracking()
+            .Where(log => log.CandidateId == candidateId && log.Action == AdjustedAction)
+            .OrderByDescending(log => log.Timestamp).ThenByDescending(log => log.LogId)
+            .Select(log => new ResultAuditRow(
+                db.Users.Where(user => user.UserId == log.UserId).Select(user => user.FullName).FirstOrDefault(),
+                log.Timestamp,
+                log.Description ?? string.Empty))
+            .ToListAsync(ct);
 
     public async Task<IReadOnlyList<int>> PendingCandidateIdsAsync(CancellationToken ct = default) =>
         await db.ExamCandidates.AsNoTracking()

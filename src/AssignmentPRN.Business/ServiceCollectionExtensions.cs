@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AssignmentPRN.DataAccess.Repositories.IGradingRepository,
             AssignmentPRN.DataAccess.Repositories.GradingRepository>();
         services.AddScoped<IGradingService, GradingService>();
+        services.AddScoped<IResultReviewService, ResultReviewService>();
         services.AddSingleton<GradingQueue>();
         services.AddHostedService<GradingBackgroundService>();
 
