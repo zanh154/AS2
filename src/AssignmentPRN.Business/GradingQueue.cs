@@ -81,6 +81,26 @@ public sealed class GradingBackgroundService(
     /// </summary>
     internal static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
 
+    /// <summary>Cho test rút ngắn vòng quét; ứng dụng luôn dùng <see cref="SweepInterval"/>.</summary>
+    internal TimeSpan Interval { get; init; } = SweepInterval;
+
+    /// <summary>
+    /// Những lượt thi đã được chấm (thành công hay không) trong lần chạy này của app.
+    /// <para>
+    /// "Chưa chấm" trong database nghĩa là chưa có dòng <c>ai_evaluations</c> nào, và một
+    /// lượt thi có thể ở mãi trạng thái đó: câu hỏi không có rubric, sinh viên không nói
+    /// gì, hoặc model không trả lời. Không nhớ những lượt đã thử thì vòng quét sẽ đưa
+    /// chúng vào hàng đợi lại mỗi phút, mãi mãi — tốn một lần gọi model mỗi phút nếu
+    /// model hỏng, và chen trước lượt thi thật vừa nộp. Đo thật ngày 15/10/2026 đã thấy
+    /// đúng chuyện đó với 7 lượt thi cũ.
+    /// </para>
+    /// <para>
+    /// Chỉ nhớ trong bộ nhớ, nên mỗi lần khởi động lại app vẫn thử lại tất cả một lần —
+    /// giữ nguyên cách cũ để chấm bù khi model từng bị tắt.
+    /// </para>
+    /// </summary>
+    private readonly HashSet<int> _attempted = [];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Quét ngay lúc khởi động, rồi quét lại đều đặn, song song với việc chấm.
@@ -92,7 +112,7 @@ public sealed class GradingBackgroundService(
     /// <summary>Gom các lượt thi đã xong mà chưa có đánh giá nào.</summary>
     private async Task SweepAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(SweepInterval);
+        using var timer = new PeriodicTimer(Interval);
         do
         {
             try
@@ -102,7 +122,9 @@ public sealed class GradingBackgroundService(
                     .GetRequiredService<DataAccess.Repositories.IGradingRepository>();
                 foreach (var candidateId in await repository.PendingCandidateIdsAsync(stoppingToken))
                 {
-                    await queue.QueueCandidateAsync(candidateId, stoppingToken);
+                    bool seen;
+                    lock (_attempted) seen = _attempted.Contains(candidateId);
+                    if (!seen) await queue.QueueCandidateAsync(candidateId, stoppingToken);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
@@ -127,6 +149,10 @@ public sealed class GradingBackgroundService(
         await foreach (var candidateId in queue.DequeueAsync(stoppingToken))
         {
             if (stoppingToken.IsCancellationRequested) break;
+
+            // Ghi nhận trước khi chấm: dù kết quả ra sao, vòng quét không đưa lượt này vào
+            // lại nữa. Đường nộp bài vẫn đưa vào trực tiếp được, không qua bộ lọc này.
+            lock (_attempted) _attempted.Add(candidateId);
 
             try
             {
