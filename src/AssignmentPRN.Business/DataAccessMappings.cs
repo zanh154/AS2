@@ -54,6 +54,24 @@ internal static class DataAccessMappings
     public static QuestionSource ToBusiness(this DaEnums.QuestionSource value) =>
         (QuestionSource)(int)value;
 
+    public static AssignmentPRN.DataAccess.Entities.DocumentStatus ToDataAccess(this DocumentStatus value) =>
+        (AssignmentPRN.DataAccess.Entities.DocumentStatus)(int)value;
+
+    public static DocumentStatus ToBusiness(this AssignmentPRN.DataAccess.Entities.DocumentStatus value) =>
+        (DocumentStatus)(int)value;
+
+    public static AssignmentPRN.DataAccess.Entities.DocumentBloomLevel ToDataAccess(this DocumentBloomLevel value) =>
+        (AssignmentPRN.DataAccess.Entities.DocumentBloomLevel)(int)value;
+
+    public static DocumentBloomLevel ToBusiness(this AssignmentPRN.DataAccess.Entities.DocumentBloomLevel value) =>
+        (DocumentBloomLevel)(int)value;
+
+    public static AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus ToDataAccess(this GeneratedQuestionStatus value) =>
+        (AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus)(int)value;
+
+    public static GeneratedQuestionStatus ToBusiness(this AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus value) =>
+        (GeneratedQuestionStatus)(int)value;
+
     public static DaContracts.ExamSessionUpdateInput ToDataAccess(this ExamSessionUpdateInput value) => new()
     {
         ExamId = value.ExamId,

@@ -36,7 +36,7 @@
             </a>
 
             <span class="sidebar-nav__label">Ngân hàng câu hỏi</span>
-            <a class="sidebar-link" asp-page="/Documents/Index"><partial name="_Icon" model="@("file-text")" /><span>Tài liệu &amp; AI</span></a>
+            <a class="sidebar-link @(current == "Documents" ? "is-active" : null)" asp-controller="Documents" asp-action="Index"><partial name="_Icon" model="@("file-text")" /><span>Tài liệu &amp; AI</span></a>
             <a class="sidebar-link @(current == "Questions" ? "is-active" : null)"
                asp-controller="Questions" asp-action="Index">
                 <partial name="_Icon" model="@("question")" />

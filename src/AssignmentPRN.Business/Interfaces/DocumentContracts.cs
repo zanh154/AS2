@@ -1,5 +1,3 @@
-using AssignmentPRN.DataAccess.Entities;
-using Microsoft.AspNetCore.Http;
 namespace AssignmentPRN.Business.Interfaces;
 
 public sealed record DocumentResponse(
@@ -56,7 +54,19 @@ public sealed record GeneratedQuestionResponse(
 
 public interface IDocumentService
 {
-    Task<ServiceResponse<DocumentResponse>> UploadAsync(int courseId, int userId, IFormFile file, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Stores a file already opened by the Presentation layer. The controller owns
+    /// <see cref="IFormFile"/>; Business only sees the file name, an open stream,
+    /// its size and content type — mirroring <c>ICourseMaterialService.UploadAsync</c>.
+    /// </summary>
+    Task<ServiceResponse<DocumentResponse>> UploadAsync(
+        int courseId,
+        string fileName,
+        Stream content,
+        long fileSize,
+        string contentType,
+        int userId,
+        CancellationToken cancellationToken = default);
 
     Task<ServiceResponse<DocumentResponse>> GetAsync(int documentId, CancellationToken cancellationToken = default);
 

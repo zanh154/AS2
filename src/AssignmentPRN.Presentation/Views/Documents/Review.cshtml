@@ -1,24 +1,24 @@
-@page "{id:int}"
-@model AssignmentPRN.Presentation.Pages.Documents.Questions.ReviewModel
+@model DocumentQuestionReviewViewModel
 @{
     ViewData["Title"] = Model.IsNew ? "Duyệt câu hỏi mới" : "Xem/Xét duyệt câu hỏi";
 }
-
 <div class="page-header">
-    <h1>@(Model.IsNew ? "Duyệt câu hỏi mới" : "Xem/Xét duyệt câu hỏi")</h1>
-    <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Quay lại danh sách
-    </a>
+    <div>
+        <a class="back-link" asp-action="Questions" asp-route-documentId="@Model.DocumentId">← Danh sách câu hỏi</a>
+        <h1>@(Model.IsNew ? "Duyệt câu hỏi mới" : "Xem/Xét duyệt câu hỏi")</h1>
+    </div>
 </div>
 
-@if (Model.Error != null)
+@if (TempData["Success"] is string success)
 {
-    <div class="alert alert-danger">@Model.Error</div>
+    <div class="alert alert-success app-alert" role="alert">@success</div>
 }
-
-@if (Model.Success != null)
+@{
+    var danger = TempData["Error"] as string ?? Model.LoadError;
+}
+@if (danger is not null)
 {
-    <div class="alert alert-success">@Model.Success</div>
+    <div class="alert alert-danger app-alert" role="alert">@danger</div>
 }
 
 @if (Model.Question is not null)
@@ -30,7 +30,8 @@
                 <h5>Nội dung câu hỏi</h5>
             </div>
             <div class="card-body">
-                <form method="post">
+                <form asp-action="Review" method="post">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" name="questionId" value="@Model.Question.QuestionId" />
                     <input type="hidden" name="documentId" value="@Model.DocumentId" />
 
@@ -53,12 +54,12 @@
                         <div class="col-md-6">
                             <label class="form-label">Mức độ Bloom</label>
                             <select name="bloomLevel" class="form-select">
-                                <option value="1" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Remember)">Remember (Nhớ)</option>
-                                <option value="2" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Understand)">Understand (Hiểu)</option>
-                                <option value="3" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Apply)">Apply (Áp dụng)</option>
-                                <option value="4" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Analyze)">Analyze (Phân tích)</option>
-                                <option value="5" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Evaluate)">Evaluate (Đánh giá)</option>
-                                <option value="6" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Create)">Create (Sáng tạo)</option>
+                                <option value="1" selected="@(Model.Question.BloomLevel == DocumentBloomLevel.Remember)">Remember (Nhớ)</option>
+                                <option value="2" selected="@(Model.Question.BloomLevel == DocumentBloomLevel.Understand)">Understand (Hiểu)</option>
+                                <option value="3" selected="@(Model.Question.BloomLevel == DocumentBloomLevel.Apply)">Apply (Áp dụng)</option>
+                                <option value="4" selected="@(Model.Question.BloomLevel == DocumentBloomLevel.Analyze)">Analyze (Phân tích)</option>
+                                <option value="5" selected="@(Model.Question.BloomLevel == DocumentBloomLevel.Evaluate)">Evaluate (Đánh giá)</option>
+                                <option value="6" selected="@(Model.Question.BloomLevel == DocumentBloomLevel.Create)">Create (Sáng tạo)</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -67,15 +68,15 @@
                         </div>
                     </div>
 
-                    @if (Model.IsNew)
+                    @if (Model.Question.Status == GeneratedQuestionStatus.PendingReview)
                     {
                         <div class="mb-3">
                             <label class="form-label">Quyết định <span class="text-danger">*</span></label>
                             <div class="btn-group w-100" role="group">
                                 <input type="radio" class="btn-check" name="decision" id="approve" value="1" checked />
-                                <label class="btn btn-success" for="approve"><i class="bi bi-check-circle"></i> Duyệt</label>
+                                <label class="btn btn-success" for="approve">Duyệt</label>
                                 <input type="radio" class="btn-check" name="decision" id="reject" value="2" />
-                                <label class="btn btn-danger" for="reject"><i class="bi bi-x-circle"></i> Từ chối</label>
+                                <label class="btn btn-danger" for="reject">Từ chối</label>
                             </div>
                         </div>
                     }
@@ -84,30 +85,14 @@
                         <div class="mb-3">
                             <label class="form-label">Trạng thái hiện tại</label>
                             <div class="form-control-plaintext">
-                                <span class="badge @Model.GetQuestionStatusBadgeClass(Model.Question.Status)">
-                                    @Model.GetQuestionStatusText(Model.Question.Status)
+                                <span class="badge @DocumentText.QuestionStatusBadge(Model.Question.Status)">
+                                    @DocumentText.QuestionStatus(Model.Question.Status)
                                 </span>
-                                @if (Model.Question.Status != AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus.PendingReview)
-                                {
-                                    <span class="ms-2 text-muted">
-                                        Đã duyệt bởi @Model.Question.ReviewedByName vào @Model.Question.ReviewedAt?.ToString("dd/MM/yyyy HH:mm")
-                                    </span>
-                                }
+                                <span class="ms-2 text-muted">
+                                    Đã duyệt bởi @Model.Question.ReviewedByName vào @Model.Question.ReviewedAt?.ToString("dd/MM/yyyy HH:mm")
+                                </span>
                             </div>
                         </div>
-
-                        @if (Model.Question.Status == AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus.PendingReview)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">Quyết định <span class="text-danger">*</span></label>
-                                <div class="btn-group w-100" role="group">
-                                    <input type="radio" class="btn-check" name="decision" id="approve" value="1" checked />
-                                    <label class="btn btn-success" for="approve"><i class="bi bi-check-circle"></i> Duyệt</label>
-                                    <input type="radio" class="btn-check" name="decision" id="reject" value="2" />
-                                    <label class="btn btn-danger" for="reject"><i class="bi bi-x-circle"></i> Từ chối</label>
-                                </div>
-                            </div>
-                        }
                     }
 
                     <div class="mb-3">
@@ -116,10 +101,8 @@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Lưu quyết định
-                        </button>
-                        <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-secondary">Hủy</a>
+                        <button type="submit" class="btn btn-primary">Lưu quyết định</button>
+                        <a asp-action="Questions" asp-route-documentId="@Model.DocumentId" class="btn btn-secondary">Hủy</a>
                     </div>
                 </form>
             </div>
@@ -144,8 +127,8 @@
 
                     <dt class="col-sm-4">Trạng thái</dt>
                     <dd class="col-sm-8">
-                        <span class="badge @Model.GetQuestionStatusBadgeClass(Model.Question.Status)">
-                            @Model.GetQuestionStatusText(Model.Question.Status)
+                        <span class="badge @DocumentText.QuestionStatusBadge(Model.Question.Status)">
+                            @DocumentText.QuestionStatus(Model.Question.Status)
                         </span>
                     </dd>
                 </dl>

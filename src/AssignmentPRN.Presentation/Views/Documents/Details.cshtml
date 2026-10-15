@@ -1,22 +1,33 @@
-@page "{id:int}"
-@model AssignmentPRN.Presentation.Pages.Documents.DetailsModel
+@model DocumentDetailsViewModel
 @{
     ViewData["Title"] = "Chi tiết tài liệu";
 }
-
 <div class="page-header">
-    <h1>Chi tiết tài liệu</h1>
-    <a asp-page="Index" asp-route-courseId="@Model.Document?.CourseId" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Quay lại danh sách
-    </a>
+    <div>
+        <a class="back-link" asp-action="Index" asp-route-courseId="@Model.Document?.CourseId">← Tài liệu &amp; AI</a>
+        <h1>@ViewData["Title"]</h1>
+    </div>
+    <div class="d-flex gap-2">
+        @if (Model.Document is not null && Model.Document.Status == DocumentStatus.Completed)
+        {
+            <a class="btn btn-primary" asp-action="Questions" asp-route-documentId="@Model.Document.DocumentId">Quản lý câu hỏi</a>
+        }
+    </div>
 </div>
 
-@if (Model.Error != null)
+@if (TempData["Success"] is string success)
 {
-    <div class="alert alert-danger">@Model.Error</div>
+    <div class="alert alert-success app-alert" role="alert">@success</div>
+}
+@{
+    var danger = TempData["Error"] as string ?? Model.LoadError;
+}
+@if (danger is not null)
+{
+    <div class="alert alert-danger app-alert" role="alert">@danger</div>
 }
 
-@if (Model.Document != null)
+@if (Model.Document is not null)
 {
     <div class="row mb-4">
         <div class="col-md-6">
@@ -31,7 +42,7 @@
                         <dd class="col-sm-9"><span class="badge bg-secondary">@Model.Document.ContentType</span></dd>
 
                         <dt class="col-sm-3">Kích thước</dt>
-                        <dd class="col-sm-9">@Model.FormatFileSize(Model.Document.FileSize)</dd>
+                        <dd class="col-sm-9">@DocumentText.FileSize(Model.Document.FileSize)</dd>
 
                         <dt class="col-sm-3">Môn học</dt>
                         <dd class="col-sm-9">@Model.Document.CourseCode - @Model.Document.CourseName</dd>
@@ -53,22 +64,18 @@
                     <dl class="row mb-0">
                         <dt class="col-sm-4">Trạng thái</dt>
                         <dd class="col-sm-8">
-                            <span class="badge @Model.GetStatusBadgeClass(Model.Document.Status) fs-6">
-                                @Model.GetStatusText(Model.Document.Status)
+                            <span class="badge @DocumentText.StatusBadge(Model.Document.Status) fs-6">
+                                @DocumentText.Status(Model.Document.Status)
                             </span>
                         </dd>
 
-                        @if (Model.Document.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Processing)
+                        @if (Model.Document.Status == DocumentStatus.Processing)
                         {
                             <dt class="col-sm-4">Tiến độ</dt>
                             <dd class="col-sm-8">
                                 <div class="progress" style="height: 24px;">
                                     <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                         role="progressbar"
-                                         style="width: 100%"
-
-                                         aria-valuemin="0"
-                                         aria-valuemax="100">
+                                         role="progressbar" style="width: 100%" aria-valuemin="0" aria-valuemax="100">
                                         Đang xử lý…
                                     </div>
                                 </div>
@@ -76,7 +83,7 @@
                             </dd>
                         }
 
-                        @if (Model.Document.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Completed)
+                        @if (Model.Document.Status == DocumentStatus.Completed)
                         {
                             <dt class="col-sm-4">Hoàn tất lúc</dt>
                             <dd class="col-sm-8">@Model.Document.ProcessedAt?.ToString("dd/MM/yyyy HH:mm")</dd>
@@ -86,7 +93,7 @@
                             <dd class="col-sm-8">@Model.Document.QuestionCount</dd>
                         }
 
-                        @if (Model.Document.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Failed)
+                        @if (Model.Document.Status == DocumentStatus.Failed)
                         {
                             <dt class="col-sm-4">Lỗi</dt>
                             <dd class="col-sm-8 text-danger">@Model.Document.ErrorMessage</dd>
@@ -97,14 +104,12 @@
         </div>
     </div>
 
-    @if (Model.Document.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Completed)
+    @if (Model.Document.Status == DocumentStatus.Completed)
     {
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Câu hỏi đã sinh</h5>
-                <a asp-page="Questions/Index" asp-route-documentId="@Model.Document.DocumentId" class="btn btn-sm btn-primary">
-                    <i class="bi bi-question-circle"></i> Quản lý câu hỏi
-                </a>
+                <a asp-action="Questions" asp-route-documentId="@Model.Document.DocumentId" class="btn btn-sm btn-primary">Quản lý câu hỏi</a>
             </div>
             <div class="card-body">
                 @if (Model.Questions.Count == 0)
@@ -129,11 +134,11 @@
                                 {
                                     <tr>
                                         <td>@q.QuestionText[..Math.Min(100, q.QuestionText.Length)]@(q.QuestionText.Length > 100 ? "..." : "")</td>
-                                        <td><span class="badge bg-info">@q.BloomLevel</span></td>
+                                        <td><span class="badge bg-info">@DocumentText.Bloom(q.BloomLevel)</span></td>
                                         <td>@(q.Topic ?? "-")</td>
-                                        <td><span class="badge @Model.GetQuestionStatusBadgeClass(q.Status)">@Model.GetQuestionStatusText(q.Status)</span></td>
+                                        <td><span class="badge @DocumentText.QuestionStatusBadge(q.Status)">@DocumentText.QuestionStatus(q.Status)</span></td>
                                         <td>
-                                            <a asp-page="Questions/Review" asp-route-id="@q.QuestionId" class="btn btn-sm btn-outline-primary">Xem/Duyệt</a>
+                                            <a asp-action="Review" asp-route-id="@q.QuestionId" asp-route-documentId="@Model.Document.DocumentId" class="btn btn-sm btn-outline-primary">Xem/Duyệt</a>
                                         </td>
                                     </tr>
                                 }
@@ -143,7 +148,7 @@
                     @if (Model.Questions.Count > 10)
                     {
                         <div class="text-center">
-                            <a asp-page="Questions/Index" asp-route-documentId="@Model.Document.DocumentId" class="btn btn-link">
+                            <a asp-action="Questions" asp-route-documentId="@Model.Document.DocumentId" class="btn btn-link">
                                 Xem tất cả @Model.Questions.Count câu hỏi
                             </a>
                         </div>
@@ -157,7 +162,8 @@
                 <h5>Sinh câu hỏi mới</h5>
             </div>
             <div class="card-body">
-                <form method="post" asp-page-handler="GenerateQuestions">
+                <form asp-action="GenerateQuestions" method="post">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" name="documentId" value="@Model.Document.DocumentId" />
                     <div class="row g-3">
                         <div class="col-md-3">
@@ -181,9 +187,7 @@
                             <input type="text" name="topic" class="form-control" placeholder="Ví dụ: Lập trình hướng đối tượng" />
                         </div>
                         <div class="col-md-2 d-flex align-items-end">
-                            <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-magic"></i> Sinh câu hỏi
-                            </button>
+                            <button type="submit" class="btn btn-success w-100">Sinh câu hỏi</button>
                         </div>
                     </div>
                 </form>
@@ -192,7 +196,10 @@
     }
 }
 
-
-@if (Model.Document is { } doc) {
-<script src="~/js/document-realtime.js" asp-append-version="true" defer data-document-id="@doc.DocumentId" data-document-status="@doc.Status"></script>
+@if (Model.Document is not null)
+{
+    <span data-document-status="@Model.Document.Status" class="d-none"></span>
+    @section Scripts {
+        <script src="~/js/document-realtime.js" asp-append-version="true" defer data-document-id="@Model.Document.DocumentId" data-document-status="@Model.Document.Status"></script>
+    }
 }

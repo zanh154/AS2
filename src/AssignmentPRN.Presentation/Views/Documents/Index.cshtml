@@ -1,0 +1,115 @@
+@model DocumentListViewModel
+@{
+    ViewData["Title"] = "Tài liệu & AI";
+}
+<div class="page-header">
+    <div>
+        <span class="eyebrow">RAG</span>
+        <h1>Tài liệu &amp; AI</h1>
+        <p>Tài liệu được xử lý nền (chunk + embedding), sau đó sinh câu hỏi bằng AI.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary" asp-action="Upload" asp-route-courseId="@Model.CourseId">Tải lên tài liệu mới</a>
+    </div>
+</div>
+
+<form method="get" asp-action="Index" class="content-card">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label class="form-label" for="courseId">Môn học</label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = "courseId",
+                SelectedValue = Model.CourseId ?? 0,
+                Placeholder = "Chọn môn học",
+                SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                EmptyText = "Không tìm thấy môn học phù hợp",
+                Options = Model.CourseOptions
+            })" />
+        </div>
+        <div class="col-md-6 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Xem tài liệu</button>
+            <a class="btn btn-outline-secondary" asp-action="Index">Xoá lọc</a>
+        </div>
+    </div>
+</form>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success app-alert" role="alert">@success</div>
+}
+@{
+    var danger = TempData["Error"] as string ?? Model.LoadError;
+}
+@if (danger is not null)
+{
+    <div class="alert alert-danger app-alert" role="alert">@danger</div>
+}
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Danh sách tài liệu</h2>
+            <p class="text-muted">Có @Model.Documents.Count tài liệu phù hợp bộ lọc.</p>
+        </div>
+    </div>
+
+    @if (Model.Documents.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>Chưa có tài liệu nào</h2>
+            <p>Nhấn "Tải lên tài liệu mới" để bắt đầu.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Tên file</th>
+                        <th>Loại</th>
+                        <th>Kích thước</th>
+                        <th>Trạng thái</th>
+                        <th>Chunks</th>
+                        <th>Câu hỏi</th>
+                        <th>Người tải lên</th>
+                        <th>Ngày tạo</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <tr>
+                            <td><strong>@doc.FileName</strong></td>
+                            <td><span class="status-chip status-chip--muted">@doc.ContentType</span></td>
+                            <td>@DocumentText.FileSize(doc.FileSize)</td>
+                            <td>
+                                <span class="badge @DocumentText.StatusBadge(doc.Status)">
+                                    @DocumentText.Status(doc.Status)
+                                </span>
+                            </td>
+                            <td>@doc.ChunkCount</td>
+                            <td>@doc.QuestionCount</td>
+                            <td>@doc.UploadedByName</td>
+                            <td>@doc.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-outline-secondary btn-sm" asp-action="Details" asp-route-id="@doc.DocumentId">Xem</a>
+                                    @if (doc.Status == DocumentStatus.Completed)
+                                    {
+                                        <a class="btn btn-outline-secondary btn-sm" asp-action="Questions" asp-route-documentId="@doc.DocumentId">Câu hỏi</a>
+                                    }
+                                    <form asp-action="Delete" asp-route-id="@doc.DocumentId" asp-route-courseId="@Model.CourseId" method="post" data-confirm="Bạn có chắc muốn xoá tài liệu này?">
+                                        <button class="btn btn-outline-danger btn-sm">Xoá</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

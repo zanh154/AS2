@@ -23,7 +23,6 @@ var storageRoot = builder.Configuration["MaterialStorage:RootPath"]
 storageRoot = Path.GetFullPath(storageRoot, builder.Environment.ContentRootPath);
 
 builder.Services.AddBusiness(connectionString, storageRoot);
-builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
 builder.Services.AddHttpContextAccessor();

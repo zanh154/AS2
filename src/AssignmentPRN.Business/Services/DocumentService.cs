@@ -1,8 +1,7 @@
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Services;
-using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Repositories;
-using Microsoft.AspNetCore.Http;
+using DaEntities = AssignmentPRN.DataAccess.Entities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -43,7 +42,7 @@ public sealed class DocumentService : IDocumentService
         _actor = actor; _courses = courses; _rag = rag.Value;
     }
 
-    public async Task<ServiceResponse<DocumentResponse>> UploadAsync(int courseId, int userId, IFormFile file, CancellationToken cancellationToken = default)
+    public async Task<ServiceResponse<DocumentResponse>> UploadAsync(int courseId, string fileName, Stream content, long fileSize, string contentType, int userId, CancellationToken cancellationToken = default)
     {
         return await ServiceExecutor.RunAsync(async () =>
         {
@@ -57,32 +56,32 @@ public sealed class DocumentService : IDocumentService
             }
 
             // Validate file
-            ValidateFile(file);
+            ValidateFile(fileName, fileSize);
 
             // Generate unique filename and save
             var fileId = Guid.NewGuid().ToString("N")[..12];
-            var extension = Path.GetExtension(file.FileName);
+            var extension = Path.GetExtension(fileName);
             var storedFileName = $"{fileId}{extension}";
             var relativePath = Path.Combine("documents", courseId.ToString(), storedFileName);
             var fullPath = Path.Combine(_storageOptions.BasePath, relativePath);
 
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-            using (var stream = new FileStream(fullPath, FileMode.Create))
+            await using (var stream = new FileStream(fullPath, FileMode.Create))
             {
-                await file.CopyToAsync(stream, cancellationToken);
+                await content.CopyToAsync(stream, cancellationToken);
             }
 
             // Create document record
-            var document = new Document
+            var document = new DaEntities.Document
             {
                 CourseId = courseId,
                 UploadedById = userId,
-                FileName = file.FileName,
-                ContentType = extension.ToLowerInvariant() switch { ".pdf" => "application/pdf", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", _ => file.ContentType },
-                FileSize = file.Length,
+                FileName = Path.GetFileName(fileName),
+                ContentType = extension.ToLowerInvariant() switch { ".pdf" => "application/pdf", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", _ => contentType },
+                FileSize = fileSize,
                 StoragePath = relativePath,
-                Status = DocumentStatus.Pending
+                Status = DaEntities.DocumentStatus.Pending
             };
 
             var created = await _documentRepository.CreateAsync(document, cancellationToken);
@@ -177,7 +176,7 @@ public sealed class DocumentService : IDocumentService
                 ?? throw new BusinessValidationException("Không tìm thấy tài liệu.");
             await EnsureCourseAccessAsync(doc.CourseId, cancellationToken);
 
-            if (doc.Status != DocumentStatus.Completed)
+            if (doc.Status != DaEntities.DocumentStatus.Completed)
             {
                 throw new BusinessValidationException("Tài liệu chưa được xử lý xong. Vui lòng đợi xử lý hoàn tất.");
             }
@@ -196,7 +195,7 @@ public sealed class DocumentService : IDocumentService
             var prompt = BuildGenerationPrompt(context, request);
 
             // Call Ollama
-            var questionsJson = await CallOllamaGenerateAsync(prompt, cancellationToken);
+            var questionsJson = await CallOllamaGenerateAsync(prompt, request.Count, cancellationToken);
 
             // Parse and save questions
             var questions = ParseQuestionsResponse(questionsJson, documentId, doc.CourseId, request);
@@ -235,12 +234,12 @@ public sealed class DocumentService : IDocumentService
         }, "Không thể tải danh sách câu hỏi.");
     }
 
-    public async Task<ServiceResponse<IReadOnlyList<GeneratedQuestionResponse>>> ListQuestionsByCourseAsync(int courseId, GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
+    public async Task<ServiceResponse<IReadOnlyList<GeneratedQuestionResponse>>> ListQuestionsByCourseAsync(int courseId, Interfaces.GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
     {
         return await ServiceExecutor.RunAsync<IReadOnlyList<GeneratedQuestionResponse>>(async () =>
         {
             await EnsureCourseAccessAsync(courseId, cancellationToken);
-            var questions = await _documentRepository.GetQuestionsByCourseAsync(courseId, status, cancellationToken);
+            var questions = await _documentRepository.GetQuestionsByCourseAsync(courseId, status?.ToDataAccess(), cancellationToken);
             return questions.Select(MapQuestionToResponse).ToList();
         }, "Không thể tải danh sách câu hỏi.");
     }
@@ -253,44 +252,44 @@ public sealed class DocumentService : IDocumentService
                 ?? throw new BusinessValidationException("Không tìm thấy câu hỏi.");
             await EnsureCourseAccessAsync(question.CourseId ?? question.Document.CourseId, cancellationToken);
 
-            if (reviewerId != _actor.UserId || request.Status is not (GeneratedQuestionStatus.Approved or GeneratedQuestionStatus.Rejected))
+            if (reviewerId != _actor.UserId || request.Status is not (Interfaces.GeneratedQuestionStatus.Approved or Interfaces.GeneratedQuestionStatus.Rejected))
                 throw new BusinessValidationException("Quyết định duyệt không hợp lệ.");
             await _documentRepository.ReviewAsync(questionId, current => {
                 if (_actor.Role != "Admin" && current.Course?.LecturerId != _actor.UserId)
                     throw new BusinessValidationException("Bạn không có quyền duyệt câu hỏi.");
-                if (current.Status != GeneratedQuestionStatus.PendingReview) throw new BusinessValidationException("Câu hỏi đã có quyết định duyệt.");
+                if (current.Status != DaEntities.GeneratedQuestionStatus.PendingReview) throw new BusinessValidationException("Câu hỏi đã có quyết định duyệt.");
                 if (request.QuestionText is not null) current.QuestionText = BusinessValidation.RequiredText(request.QuestionText, "Nội dung câu hỏi", 10000);
                 if (request.AnswerKey is not null) current.AnswerKey = BusinessValidation.OptionalText(request.AnswerKey, "Đáp án", 2000);
                 if (request.Explanation is not null) current.Explanation = BusinessValidation.OptionalText(request.Explanation, "Giải thích", 2000);
                 if (request.Topic is not null) current.Topic = BusinessValidation.OptionalText(request.Topic, "Chủ đề", 200);
-                if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom; }
-                current.Status = request.Status; current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
+                if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(typeof(DaEntities.DocumentBloomLevel), (int)bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom.ToDataAccess(); }
+                current.Status = request.Status.ToDataAccess(); current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
                 current.ReviewNotes = BusinessValidation.OptionalText(request.Notes, "Ghi chú", 1000);
             }, cancellationToken);
         }, "Không thể duyệt câu hỏi.");
     }
 
-    private void ValidateFile(IFormFile file)
+    private void ValidateFile(string fileName, long fileSize)
     {
-        if (file == null || file.Length == 0)
+        if (string.IsNullOrWhiteSpace(fileName) || fileSize <= 0)
         {
             throw new BusinessValidationException("Vui lòng chọn file.");
         }
 
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
         if (!_storageOptions.AllowedExtensions.Contains(extension))
         {
             throw new BusinessValidationException($"Định dạng file không được hỗ trợ. Chỉ chấp nhận: {string.Join(", ", _storageOptions.AllowedExtensions)}");
         }
 
         var maxSizeBytes = _storageOptions.MaxFileSizeMB * 1024L * 1024L;
-        if (file.Length > maxSizeBytes)
+        if (fileSize > maxSizeBytes)
         {
             throw new BusinessValidationException($"File quá lớn. Kích thước tối đa: {_storageOptions.MaxFileSizeMB} MB.");
         }
     }
 
-    private static DocumentResponse MapToResponse(Document doc, int chunkCount, int questionCount) => new(
+    private static DocumentResponse MapToResponse(DaEntities.Document doc, int chunkCount, int questionCount) => new(
         doc.DocumentId,
         doc.CourseId,
         doc.Course?.CourseCode ?? string.Empty,
@@ -300,7 +299,7 @@ public sealed class DocumentService : IDocumentService
         doc.FileName,
         doc.ContentType,
         doc.FileSize,
-        doc.Status,
+        doc.Status.ToBusiness(),
         doc.ErrorMessage,
         doc.CreatedAt,
         doc.ProcessedAt,
@@ -308,16 +307,16 @@ public sealed class DocumentService : IDocumentService
         questionCount
     );
 
-    private static GeneratedQuestionResponse MapQuestionToResponse(GeneratedQuestion q) => new(
+    private static GeneratedQuestionResponse MapQuestionToResponse(DaEntities.GeneratedQuestion q) => new(
         q.QuestionId,
         q.DocumentId,
         q.CourseId,
         q.QuestionText,
         q.AnswerKey,
         q.Explanation,
-        q.BloomLevel,
+        q.BloomLevel.ToBusiness(),
         q.Topic,
-        q.Status,
+        q.Status.ToBusiness(),
         q.ReviewedById,
         q.ReviewedBy?.FullName,
         q.ReviewedAt,
@@ -329,12 +328,12 @@ public sealed class DocumentService : IDocumentService
     {
         var bloomDesc = request.BloomLevel switch
         {
-            DocumentBloomLevel.Remember => "Nhớ (Remember): Nhận biết, nhớ lại thông tin",
-            DocumentBloomLevel.Understand => "Hiểu (Understand): Giải thích, tóm tắt, diễn giải",
-            DocumentBloomLevel.Apply => "Áp dụng (Apply): Sử dụng kiến thức vào tình huống mới",
-            DocumentBloomLevel.Analyze => "Phân tích (Analyze): Phân tách, so sánh, đối chiếu",
-            DocumentBloomLevel.Evaluate => "Đánh giá (Evaluate): Phán xét, critique, bảo vệ quan điểm",
-            DocumentBloomLevel.Create => "Sáng tạo (Create): Thiết kế, xây dựng, sáng tạo mới",
+            Interfaces.DocumentBloomLevel.Remember => "Nhớ (Remember): Nhận biết, nhớ lại thông tin",
+            Interfaces.DocumentBloomLevel.Understand => "Hiểu (Understand): Giải thích, tóm tắt, diễn giải",
+            Interfaces.DocumentBloomLevel.Apply => "Áp dụng (Apply): Sử dụng kiến thức vào tình huống mới",
+            Interfaces.DocumentBloomLevel.Analyze => "Phân tích (Analyze): Phân tách, so sánh, đối chiếu",
+            Interfaces.DocumentBloomLevel.Evaluate => "Đánh giá (Evaluate): Phán xét, critique, bảo vệ quan điểm",
+            Interfaces.DocumentBloomLevel.Create => "Sáng tạo (Create): Thiết kế, xây dựng, sáng tạo mới",
             _ => "Tự do"
         };
 
@@ -365,25 +364,26 @@ public sealed class DocumentService : IDocumentService
             """;
     }
 
-    private async Task<string> CallOllamaGenerateAsync(string prompt, CancellationToken cancellationToken)
+    private async Task<string> CallOllamaGenerateAsync(string prompt, int questionCount, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
         client.BaseAddress = new Uri(_ollamaOptions.BaseUrl);
-        client.Timeout = TimeSpan.FromMinutes(5);
+        client.Timeout = TimeSpan.FromMinutes(10);
 
+        // NOTE: qwen3.5 is a thinking model. The strict JSON-schema `format`
+        // makes it return an empty response, and leaving thinking on makes it
+        // too slow on CPU. "think": false + plain "format": "json" works.
+        // num_predict scales with the requested count: one question is about
+        // 250 tokens, so a fixed 2048 budget only makes small requests wait
+        // for tokens they never use.
         var request = new
         {
             model = _ollamaOptions.GenerationModel,
             prompt = prompt,
             stream = false,
-            format = new {
-                type = "object",
-                properties = new { questions = new { type = "array", minItems = 1, items = new { type = "object", properties = new {
-                    questionText = new { type = "string" }, answerKey = new { type = "string" }, explanation = new { type = "string" }, bloomLevel = new { type = "integer" }, topic = new { type = "string" }
-                }, required = new[] { "questionText", "answerKey", "explanation", "bloomLevel", "topic" } } } },
-                required = new[] { "questions" }
-            },
-            options = new { temperature = 0.3, top_p = 0.9, num_ctx = 4096, num_predict = 2048 }
+            think = false,
+            format = "json",
+            options = new { temperature = 0.3, top_p = 0.9, num_ctx = 4096, num_predict = Math.Min(2048, 256 + questionCount * 300) }
         };
 
         var response = await client.PostAsJsonAsync("/api/generate", request, cancellationToken);
@@ -393,10 +393,11 @@ public sealed class DocumentService : IDocumentService
         return result?.Response ?? "[]";
     }
 
-    private List<GeneratedQuestion> ParseQuestionsResponse(string json, int documentId, int courseId, GenerateQuestionsRequest request)
+    private List<DaEntities.GeneratedQuestion> ParseQuestionsResponse(string json, int documentId, int courseId, GenerateQuestionsRequest request)
     {
         try
         {
+            json = StripMarkdownFences(json);
             using var parsed = JsonDocument.Parse(json);
             var list = parsed.RootElement.ValueKind == JsonValueKind.Array ? parsed.RootElement : parsed.RootElement.GetProperty("questions");
             var items = JsonSerializer.Deserialize<List<QuestionDto>>(list.GetRawText(), new JsonSerializerOptions
@@ -405,16 +406,16 @@ public sealed class DocumentService : IDocumentService
             }) ?? [];
 
             if (items.Count == 0 || items.Any(x => string.IsNullOrWhiteSpace(x.QuestionText) || string.IsNullOrWhiteSpace(x.AnswerKey))) throw new BusinessValidationException("AI chưa tạo được câu hỏi hợp lệ.");
-            return items.Take(request.Count).Select((item, index) => new GeneratedQuestion
+            return items.Take(request.Count).Select((item, index) => new DaEntities.GeneratedQuestion
             {
                 DocumentId = documentId,
                 CourseId = courseId,
                 QuestionText = item.QuestionText ?? string.Empty,
                 AnswerKey = item.AnswerKey,
                 Explanation = item.Explanation,
-                BloomLevel = Enum.IsDefined(typeof(DocumentBloomLevel), item.BloomLevel) ? (DocumentBloomLevel)item.BloomLevel : request.BloomLevel ?? DocumentBloomLevel.Apply,
+                BloomLevel = Enum.IsDefined(typeof(DaEntities.DocumentBloomLevel), item.BloomLevel) ? (DaEntities.DocumentBloomLevel)item.BloomLevel : (request.BloomLevel?.ToDataAccess() ?? DaEntities.DocumentBloomLevel.Apply),
                 Topic = item.Topic,
-                Status = GeneratedQuestionStatus.PendingReview
+                Status = DaEntities.GeneratedQuestionStatus.PendingReview
             }).ToList();
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException)
@@ -426,6 +427,19 @@ public sealed class DocumentService : IDocumentService
 
     private sealed record QuestionDto(string? QuestionText, string? AnswerKey, string? Explanation, int BloomLevel, string? Topic);
     private sealed record OllamaGenerateResponse(string Response);
+
+    private static string StripMarkdownFences(string json)
+    {
+        var text = json.Trim();
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        if (start >= 0 && end > start)
+        {
+            text = text[start..(end + 1)];
+        }
+
+        return text;
+    }
 
     private async Task EnsureActorAsync(CancellationToken ct) {
         if (_actor.UserId <= 0 || _actor.Role is not ("Admin" or "Lecturer") || !await _catalogRepository.UserIsInRoleAsync(_actor.UserId, _actor.Role!, ct))

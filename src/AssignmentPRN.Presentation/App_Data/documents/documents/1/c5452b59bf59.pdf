@@ -1,0 +1,50 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 1249 >>
+stream
+BT
+/F1 18 Tf 1 0 0 1 72 760 Tm (PRN212 - Bai giang 01) Tj
+/F1 13 Tf 1 0 0 1 72 730 Tm (Lap trinh C# va .NET: cu phap co ban) Tj
+/F1 11 Tf 1 0 0 1 72 700 Tm (Tai lieu mau dung de kiem thu ngan hang cau hoi \(Module 5\).) Tj
+/F1 11 Tf 1 0 0 1 72 676 Tm (Moi tai lieu tuong ung mot chu de; cau hoi duoc gan vao tai lieu nay.) Tj
+/F1 13 Tf 1 0 0 1 72 640 Tm (1. Kieu du lieu) Tj
+/F1 11 Tf 1 0 0 1 72 618 Tm (int, long, double, decimal, bool, char, string.) Tj
+/F1 11 Tf 1 0 0 1 72 596 Tm (Kieu tham tri nam tren stack, kieu tham chieu nam tren heap.) Tj
+/F1 13 Tf 1 0 0 1 72 566 Tm (2. Lop va doi tuong) Tj
+/F1 11 Tf 1 0 0 1 72 544 Tm (class dinh nghia khuon mau; new tao mot the hien tren heap.) Tj
+/F1 11 Tf 1 0 0 1 72 522 Tm (Thanh vien static thuoc ve lop, khong thuoc ve the hien.) Tj
+/F1 13 Tf 1 0 0 1 72 492 Tm (3. Xu ly ngoai le) Tj
+/F1 11 Tf 1 0 0 1 72 470 Tm (try/catch/finally; finally luon chay du co ngoai le hay khong.) Tj
+/F1 11 Tf 1 0 0 1 72 448 Tm (using bao dam Dispose duoc goi khi ra khoi pham vi.) Tj
+/F1 13 Tf 1 0 0 1 72 418 Tm (4. LINQ) Tj
+/F1 11 Tf 1 0 0 1 72 396 Tm (Where loc, Select chieu, OrderBy sap xep; thuc thi tri hoan.) Tj
+/F1 11 Tf 1 0 0 1 72 374 Tm (ToList\(\) hoac ToArray\(\) buoc truy van chay ngay lap tuc.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000001548 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1645
+%%EOF

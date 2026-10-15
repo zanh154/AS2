@@ -64,7 +64,7 @@ public class RazorModuleTwoHttpTests
                 db.ExamCandidates.Add(new ExamCandidate { CandidateId = 1, ExamId = 1, StudentId = 3, Status = CandidateStatus.Waiting, ScheduledTime = DateTime.Now.AddHours(1) });
                 db.Questions.Add(new Question { QuestionId = 1, CourseId = 1, CreatedBy = 1, QuestionText = "Test question", Status = AssignmentPRN.DataAccess.Enums.QuestionStatus.Approved,
                     QuestionType = AssignmentPRN.DataAccess.Enums.QuestionType.Main, Options = [new QuestionOption { OptionText = "Yes", IsCorrect = true }, new QuestionOption { OptionText = "No", IsCorrect = false }] });
-                db.Documents.AddRange(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "own.docx", StoragePath = "own.docx", ContentType = "application/docx", Status = DocumentStatus.Completed }, new Document { DocumentId = 2, CourseId = 2, UploadedById = 2, FileName = "other.docx", StoragePath = "other.docx", ContentType = "application/docx", Status = DocumentStatus.Completed });
+                db.Documents.AddRange(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "own.docx", StoragePath = "own.docx", ContentType = "application/docx", Status = DataAccess.Entities.DocumentStatus.Completed }, new Document { DocumentId = 2, CourseId = 2, UploadedById = 2, FileName = "other.docx", StoragePath = "other.docx", ContentType = "application/docx", Status = DataAccess.Entities.DocumentStatus.Completed });
                 await db.SaveChangesAsync();
             }
             await app.StartAsync();
@@ -76,7 +76,7 @@ public class RazorModuleTwoHttpTests
             Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "/Account/Login", login, new() { ["Input.Email"] = "test1@example.test", ["Input.Password"] = "Test@123" })).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Rubrics")).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Documents")).StatusCode);
-            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Documents/Questions/Review/999?documentId=1")).StatusCode);
+            Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/Documents/Review/999?documentId=1")).StatusCode);
             var index = await client.GetStringAsync("/ExamSessions");
             Assert.Contains("Own exam", index); Assert.DoesNotContain("Other exam", index);
             Assert.Contains("Own exam", await client.GetStringAsync("/ExamSessions?handler=Snapshot"));

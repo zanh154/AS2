@@ -1,6 +1,6 @@
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Services;
-using AssignmentPRN.DataAccess.Entities;
+using DaEntities = AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -66,7 +66,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
     {
         _logger.LogInformation("Processing document {DocumentId}", documentId);
 
-        await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Processing, null, cancellationToken);
+        await documentRepository.UpdateStatusAsync(documentId, DaEntities.DocumentStatus.Processing, null, cancellationToken);
 
         try
         {
@@ -96,11 +96,11 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
             _logger.LogInformation("Document {DocumentId} split into {ChunkCount} chunks", documentId, chunks.Count);
 
             // Generate embeddings for each chunk
-            var documentChunks = new List<DocumentChunk>();
+            var documentChunks = new List<DaEntities.DocumentChunk>();
             for (int i = 0; i < chunks.Count; i++)
             {
                 var embedding = await GetEmbeddingAsync(chunks[i], cancellationToken);
-                documentChunks.Add(new DocumentChunk
+                documentChunks.Add(new DaEntities.DocumentChunk
                 {
                     DocumentId = documentId,
                     ChunkIndex = i,
@@ -114,7 +114,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
             await documentRepository.AddChunksAsync(documentChunks, cancellationToken);
 
             // Update document status
-            await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Completed, null, cancellationToken);
+            await documentRepository.UpdateStatusAsync(documentId, DaEntities.DocumentStatus.Completed, null, cancellationToken);
 
             if (_progress is not null) await _progress.ChangedAsync(new(doc.DocumentId, doc.CourseId, "Completed"), cancellationToken);
             _logger.LogInformation("Document {DocumentId} processed successfully with {ChunkCount} chunks", documentId, chunks.Count);
@@ -122,7 +122,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process document {DocumentId}", documentId);
-            await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Failed, ex.Message, cancellationToken);
+            await documentRepository.UpdateStatusAsync(documentId, DaEntities.DocumentStatus.Failed, ex.Message, cancellationToken);
             var failed = await documentRepository.GetByIdAsync(documentId, cancellationToken);
             if (_progress is not null && failed is not null) await _progress.ChangedAsync(new(documentId, failed.CourseId, "Failed"), cancellationToken);
         }
