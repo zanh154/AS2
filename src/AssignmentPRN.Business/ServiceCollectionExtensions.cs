@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         // end to end with nothing listening on the Ollama port.
         services.AddSingleton<OllamaJsonClient>();
         services.AddScoped<IFollowUpAnalyzer, OllamaFollowUpAnalyzer>();
+        services.AddScoped<IAnswerGrader, OllamaAnswerGrader>();
 
         // Document processing
         services.AddSingleton<DocumentProcessingQueue>();
