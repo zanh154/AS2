@@ -67,6 +67,12 @@ public sealed class VoiceRoomHttpTests
             var page = await client.GetStringAsync("/VoiceRoom/1");
             Assert.Contains("voice-record", page);
             Assert.Contains("handler=Upload", page);
+            var oldRoom = await client.GetAsync("/ExamRoom/Index/1");
+            Assert.Equal(HttpStatusCode.Redirect, oldRoom.StatusCode);
+            Assert.Contains("VoiceRoom", oldRoom.Headers.Location!.OriginalString);
+            var oldResult = await client.GetAsync("/ExamRoom/Result/1");
+            Assert.Equal(HttpStatusCode.Redirect, oldResult.StatusCode);
+            Assert.Contains("VoiceRoom", oldResult.Headers.Location!.OriginalString);
             Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", (object?)null)).StatusCode);
             client.DefaultRequestHeaders.Add("RequestVerificationToken", Token(page));
             var firstResponse = await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", (object?)null);
@@ -100,6 +106,7 @@ public sealed class VoiceRoomHttpTests
             Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
             var next = (await submitted.Content.ReadFromJsonAsync<VoiceRoomState>())!;
             Assert.Equal(2, next.Question!.OrderNo);
+            Assert.Equal("final", Assert.Single(next.SavedAnswers!).Transcript);
             var notification = await Receive(socket);
             Assert.Contains("VoiceRoomChanged", notification);
             Assert.DoesNotContain("final", notification);

@@ -34,6 +34,10 @@
         <button class="btn btn-primary" type="submit" id="voice-submit">Nộp câu trả lời</button>
     </form>
     <button type="button" class="btn btn-outline-secondary" id="voice-retry">Đồng bộ lại</button>
+    <section aria-label="Các câu đã nộp">
+        <h2>Các câu đã nộp</h2>
+        <div id="voice-history"></div>
+    </section>
     <a asp-controller="StudentSchedule" asp-action="Mine">Về lịch thi</a>
 </section>
 @section Scripts {

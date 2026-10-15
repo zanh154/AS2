@@ -29,6 +29,21 @@ function harness(recovery = []) {
   return { get, requests, window, intervals, type(value) { get("voice-transcript").value = value; get("voice-transcript").dispatchEvent(new Event("input")); } };
 }
 
+test("a slow local draft write cannot make a stale autosave acknowledge newer typing", async () => {
+  const h = harness(); await turn(); h.requests[0].resolve(state()); await turn();
+  h.type("earlier text");
+  let release;
+  h.window.voiceRecovery.put = () => new Promise(resolve => { release = resolve; });
+  h.get("voice-save").dispatchEvent(new Event("click")); await turn();
+  const releaseSave = release;
+  h.type("newer typing while IndexedDB is pending");
+  releaseSave(true); await turn();
+  h.requests[1].resolve(state(10, "earlier text")); await turn();
+  assert.equal(h.get("voice-transcript").value, "newer typing while IndexedDB is pending");
+  const event = new Event("beforeunload", { cancelable: true }); h.window.dispatchEvent(event);
+  assert.equal(event.defaultPrevented, true, "the newer text must still be considered unsaved");
+});
+
 test("submit queued behind an in-flight autosave retains the newer transcript", async () => {
   const h = harness(); await turn(); h.requests[0].resolve(state()); await turn();
   h.type("first draft"); h.get("voice-save").dispatchEvent(new Event("click")); await turn();

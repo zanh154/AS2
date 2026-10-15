@@ -15,7 +15,7 @@ public interface IVoiceAudioStore
 public sealed class LocalVoiceAudioStore(string root) : IVoiceAudioStore
 {
     public const long MaxBytes = 12 * 1024 * 1024;
-    private static readonly Regex KeyPattern = new(@"\A[1-9][0-9]*/[1-9][0-9]*/[a-f0-9]{64}\.(webm|ogg|wav|m4a)\z", RegexOptions.CultureInvariant);
+    private static readonly Regex KeyPattern = new(@"\A[1-9][0-9]*/[1-9][0-9]*/[a-f0-9]{64}(?:-[a-f0-9]{32})?\.(webm|ogg|wav|m4a)\z", RegexOptions.CultureInvariant);
 
     public async Task<string> SaveAsync(int candidateId, int questionId, string contentType, Stream content, CancellationToken ct)
     {
@@ -40,6 +40,22 @@ public sealed class LocalVoiceAudioStore(string root) : IVoiceAudioStore
         var key = $"{candidateId}/{questionId}/{hash}.{extension}";
         var path = Path.Combine(Path.GetFullPath(root), key.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        // Retain any interrupted file and create a fresh immutable copy. Never delete
+        // or overwrite it. A retry can reuse an already verified complete copy.
+        foreach (var existingPath in Directory.EnumerateFiles(Path.GetDirectoryName(path)!, hash + "*." + extension))
+        {
+            try {
+                var existing = await File.ReadAllBytesAsync(existingPath, ct);
+                if (SHA256.HashData(existing).AsSpan().SequenceEqual(SHA256.HashData(bytes)))
+                    return $"{candidateId}/{questionId}/{Path.GetFileName(existingPath)}";
+            }
+            catch (IOException) { /* An in-flight or interrupted copy is retained. */ }
+        }
+        if (File.Exists(path))
+        {
+            key = $"{candidateId}/{questionId}/{hash}-{Guid.NewGuid():N}.{extension}";
+            path = Path.Combine(Path.GetFullPath(root), key.Replace('/', Path.DirectorySeparatorChar));
+        }
         try
         {
             await using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
@@ -49,7 +65,7 @@ public sealed class LocalVoiceAudioStore(string root) : IVoiceAudioStore
         {
             var existing = await File.ReadAllBytesAsync(path, ct);
             if (!SHA256.HashData(existing).AsSpan().SequenceEqual(SHA256.HashData(bytes)))
-                throw new IOException("Bản ghi trước chưa lưu hoàn tất; hãy thử lại bằng một bản thu mới.");
+                throw new IOException("Bản ghi trước chưa lưu hoàn tất; hãy thử lưu lại bản thu.");
         }
         return key;
     }

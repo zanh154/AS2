@@ -10,6 +10,9 @@ namespace AssignmentPRN.Business.Services;
 public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionService questions,
     TimeProvider clock, IVoiceAudioStore? audioStore = null, IVoiceRoomNotifier? notifier = null) : IVoiceRoomService
 {
+    public Task<bool> IsVoiceAsync(int candidateId, int studentId, CancellationToken ct = default) =>
+        repository.IsVoiceAsync(candidateId, studentId, ct);
+
     public Task<ServiceResponse<bool>> CanSubscribeAsync(int candidateId, int studentId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
             ValidateOwner(a);
@@ -209,7 +212,11 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         return new(a.Candidate.CandidateId, a.Candidate.ExamId, a.Candidate.Session.ExamName, Stamp(now), Stamp(SlotEnd(a)),
             a.Candidate.Status == CandidateStatus.Completed, a.Questions.Count(x => x.IsCompleted), a.Questions.Count,
             open == null ? null : new(open.ExamQuestionId, open.OrderNo, open.Question.QuestionText,
-                Stamp(open.AskedAt!.Value), Stamp(Deadline(a, open)), saved?.Transcript, saved?.AudioPath != null));
+                Stamp(open.AskedAt!.Value), Stamp(Deadline(a, open)), saved?.Transcript, saved?.AudioPath != null),
+            a.Questions.Where(x => x.IsCompleted).Select(q => {
+                var answer = a.Answers.SingleOrDefault(x => x.ExamQuestionId == q.ExamQuestionId);
+                return new VoiceSavedAnswer(q.ExamQuestionId, q.OrderNo, q.Question.QuestionText, answer?.Transcript, answer?.AudioPath != null);
+            }).ToArray());
     }
 
     private static DateTimeOffset Stamp(DateTime date) => new(DateTime.SpecifyKind(date, DateTimeKind.Local));

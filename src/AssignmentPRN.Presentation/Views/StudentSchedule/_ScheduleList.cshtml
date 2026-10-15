@@ -57,6 +57,10 @@ else if (Model.Schedule is not null)
 
                     <div class="student-schedule-item">
                         <partial name="_ScheduleItem" model="item" />
+                        @if (Model.IsOwnSchedule && item.CandidateStatus == CandidateStatus.Completed)
+                        {
+                            <a class="btn btn-outline-secondary" asp-controller="ExamRoom" asp-action="Result" asp-route-id="@item.CandidateId">Xem bài đã nộp</a>
+                        }
                         @if (canSit)
                         {
                             <form method="post" asp-page="/VoiceRoom/Index" asp-page-handler="Enter"

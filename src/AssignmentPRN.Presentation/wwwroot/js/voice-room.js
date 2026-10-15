@@ -13,10 +13,10 @@
   form.hidden = true;
   const localDraft = (questionId, value, synced, submit = false) => window.voiceRecovery?.put({
     id: `text/${questionId}`, questionId, kind: "text", value, synced, submit });
-  const sync = (answer = null) => {
+  const sync = (answer = null, requestVersion = version) => {
     // Preserve writes in order; coalesce redundant polls instead of dropping a submit.
     if (!answer && queued) return queue;
-    const sentVersion = version;
+    const sentVersion = requestVersion;
     queued++;
     const operation = async () => {
       try {
@@ -51,6 +51,22 @@
         window.voiceCapture?.setState(next);
         status.textContent = next.completed ? "Đã hoàn thành lượt thi." : `Câu ${next.completedCount + 1}/${next.totalCount}`;
         document.getElementById("voice-question").textContent = next.question?.text || "Cảm ơn bạn đã hoàn thành bài thi.";
+        const history = document.getElementById("voice-history");
+        if (history && document.createElement) {
+          history.replaceChildren();
+          for (const answer of next.savedAnswers || []) {
+            const row = document.createElement("article"), title = document.createElement("h3"), body = document.createElement("p");
+            title.textContent = `Câu ${answer.orderNo}: ${answer.text}`;
+            body.textContent = answer.transcript || "Chưa có nội dung nhận dạng.";
+            row.append(title, body);
+            if (answer.hasAudio) {
+              const link = document.createElement("a"), url = new URL(root.dataset.audio, location.href);
+              url.searchParams.set("questionId", answer.examQuestionId);
+              link.href = url; link.textContent = "Nghe bản thu đã nộp"; link.target = "_blank"; link.rel = "noopener"; row.append(link);
+            }
+            history.append(row);
+          }
+        }
         form.hidden = next.completed;
         if (next.completed) document.getElementById("voice-clock").textContent = "00:00";
         startRealtime();
@@ -64,9 +80,10 @@
   const save = async submit => {
     if (!state?.question) return false;
     const answer = { examQuestionId: state.question.examQuestionId, transcript: transcript.value, submit };
+    const requestVersion = version;
     if (submit) pendingSubmit = answer;
     await localDraft(answer.examQuestionId, answer.transcript, false, submit);
-    return sync(answer);
+    return sync(answer, requestVersion);
   };
   const poll = () => {
     if (submitting || closed) return;

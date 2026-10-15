@@ -142,4 +142,29 @@ public sealed class VoiceRoomTests
         Assert.False((await legacy.SubmitExamAsync(1, 2, new Dictionary<int, int?>())).Success);
         Assert.Empty(await db.Answers.ToListAsync());
     }
+
+    [Fact]
+    public async Task Rejected_payload_cannot_leak_partial_question_changes_into_a_later_save()
+    {
+        var clock = new Clock();
+        await using var db = await SeedAsync(clock);
+        Assert.False((await Service(db, clock).SyncAsync(1, 2, new(999, "invalid"))).Success);
+        await db.SaveChangesAsync();
+        Assert.All(await db.ExamQuestions.ToListAsync(), q => Assert.Null(q.AskedAt));
+        Assert.Empty(await db.Answers.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Question_deadline_is_clamped_to_the_session_end()
+    {
+        var clock = new Clock();
+        await using var db = await SeedAsync(clock);
+        var end = clock.At.LocalDateTime.AddSeconds(5);
+        (await db.ExamSessions.SingleAsync()).EndTime = end;
+        await db.SaveChangesAsync();
+        var state = (await Service(db, clock).SyncAsync(1, 2)).Data!;
+        Assert.Equal(end, state.Question!.Deadline.LocalDateTime);
+        clock.At = clock.At.AddSeconds(6);
+        Assert.True((await Service(db, clock).SyncAsync(1, 2)).Data!.Completed);
+    }
 }

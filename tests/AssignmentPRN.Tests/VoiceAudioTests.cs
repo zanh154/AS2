@@ -101,4 +101,23 @@ public sealed class VoiceAudioTests
         await Assert.ThrowsAsync<ArgumentException>(() => store.SaveAsync(1, 2, "audio/wav", Stream.Null, default));
         // Keep test artifacts: no cleanup/deletion is performed without user approval.
     }
+
+    [Fact]
+    public async Task Interrupted_file_is_preserved_and_retry_creates_a_complete_copy()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "aives-voice-interrupted-" + Guid.NewGuid().ToString("N"));
+        var store = new LocalVoiceAudioStore(root);
+        byte[] wav = new byte[44]; "RIFF"u8.CopyTo(wav); "WAVE"u8.CopyTo(wav.AsSpan(8));
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(wav));
+        var directory = Path.Combine(root, "1", "2"); Directory.CreateDirectory(directory);
+        var partial = Path.Combine(directory, hash + ".wav");
+        await File.WriteAllBytesAsync(partial, [1, 2]);
+        var key = await store.SaveAsync(1, 2, "audio/wav", new MemoryStream(wav), default);
+        Assert.Contains(hash + "-", key);
+        Assert.Equal(new byte[] { 1, 2 }, await File.ReadAllBytesAsync(partial));
+        Assert.Equal(key, await store.SaveAsync(1, 2, "audio/wav", new MemoryStream(wav), default));
+        Assert.Equal(2, Directory.GetFiles(directory).Length);
+        var file = await store.OpenAsync(key, default);
+        await using (file.Content) Assert.Equal(44, file.Content.Length);
+    }
 }

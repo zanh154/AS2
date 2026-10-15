@@ -2,8 +2,10 @@ namespace AssignmentPRN.Business.Interfaces;
 
 public sealed record VoiceQuestion(int ExamQuestionId, int OrderNo, string Text, DateTimeOffset AskedAt,
     DateTimeOffset Deadline, string? Transcript, bool HasAudio);
+public sealed record VoiceSavedAnswer(int ExamQuestionId, int OrderNo, string Text, string? Transcript, bool HasAudio);
 public sealed record VoiceRoomState(int CandidateId, int ExamId, string ExamName, DateTimeOffset ServerNow,
-    DateTimeOffset SlotEnd, bool Completed, int CompletedCount, int TotalCount, VoiceQuestion? Question);
+    DateTimeOffset SlotEnd, bool Completed, int CompletedCount, int TotalCount, VoiceQuestion? Question,
+    IReadOnlyList<VoiceSavedAnswer>? SavedAnswers = null);
 public sealed record VoiceAnswerRequest(int ExamQuestionId, string? Transcript = null, bool Submit = false);
 public sealed record VoiceAudioDownload(Stream Content, string ContentType);
 public interface IVoiceRoomNotifier
@@ -13,6 +15,7 @@ public interface IVoiceRoomNotifier
 
 public interface IVoiceRoomService
 {
+    Task<bool> IsVoiceAsync(int candidateId, int studentId, CancellationToken ct = default);
     Task<ServiceResponse<bool>> CanSubscribeAsync(int candidateId, int studentId, CancellationToken ct = default);
     Task<ServiceResponse<VoiceRoomState>> EnterAsync(int candidateId, int studentId, CancellationToken ct = default);
     Task<ServiceResponse<VoiceRoomState>> SyncAsync(int candidateId, int studentId, VoiceAnswerRequest? answer = null, CancellationToken ct = default);
