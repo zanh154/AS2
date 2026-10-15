@@ -5,7 +5,13 @@
         string.IsNullOrEmpty(a.Value) ? a.Key : $"{a.Key}=\"{a.Value}\""));
 }
 
-<div class="date-time-picker" data-date-time-picker>
+<div class="date-time-picker @(Model.DateOnly ? "date-time-picker--date-only" : null)"
+     data-date-time-picker
+     data-date-only="@(Model.DateOnly ? "true" : "false")"
+     data-allow-past="@(Model.AllowPast ? "true" : "false")"
+     data-placeholder="@Model.Placeholder"
+     data-earliest="@Model.Earliest?.ToString("yyyy-MM-ddTHH:mm")"
+     data-latest="@Model.Latest?.ToString("yyyy-MM-ddTHH:mm")">
     <button class="date-time-picker__trigger" type="button"
             aria-haspopup="dialog" aria-expanded="false"
             data-date-time-trigger>
@@ -21,7 +27,7 @@
            @Html.Raw(extraAttrs) />
 
     <div class="date-time-picker__panel" role="dialog"
-         aria-label="Chọn ngày và giờ" aria-hidden="true"
+         aria-label="@(Model.DateOnly ? "Chọn ngày" : "Chọn ngày và giờ")" aria-hidden="true"
          data-date-time-panel>
         <div class="date-time-picker__body">
             <div class="date-time-picker__calendar">
@@ -37,28 +43,48 @@
                 <div class="date-time-picker__days" data-date-time-days></div>
             </div>
 
-            <aside class="date-time-picker__side">
-                <div class="date-time-picker__time">
-                    <div>
-                        <strong>Giờ bắt đầu</strong>
-                        <span>Định dạng 24 giờ</span>
+            @if (!Model.DateOnly)
+            {
+                <aside class="date-time-picker__side">
+                    <div class="date-time-picker__time">
+                        <div>
+                            <strong>Giờ bắt đầu</strong>
+                            <span>Định dạng 24 giờ</span>
+                            <small class="date-time-picker__hint" data-date-time-hint hidden></small>
+                        </div>
+                        <div class="date-time-picker__time-fields">
+                            <input type="number" min="0" max="23" inputmode="numeric"
+                                   aria-label="Giờ" data-date-time-hour />
+                            <span>:</span>
+                            <input type="number" min="0" max="59" inputmode="numeric"
+                                   aria-label="Phút" data-date-time-minute />
+                        </div>
                     </div>
-                    <div class="date-time-picker__time-fields">
-                        <input type="number" min="0" max="23" inputmode="numeric"
-                               aria-label="Giờ" data-date-time-hour />
-                        <span>:</span>
-                        <input type="number" min="0" max="59" inputmode="numeric"
-                               aria-label="Phút" data-date-time-minute />
-                    </div>
-                </div>
 
-                <div class="date-time-picker__footer">
-                    <button type="button" class="date-time-picker__today"
-                            data-date-time-today>Hôm nay</button>
-                    <button type="button" class="date-time-picker__done"
-                            data-date-time-done>Xong</button>
-                </div>
-            </aside>
+                    <div class="date-time-picker__footer">
+                        <button type="button" class="date-time-picker__today"
+                                data-date-time-today>Hôm nay</button>
+                        <button type="button" class="date-time-picker__done"
+                                data-date-time-done>Xong</button>
+                    </div>
+                </aside>
+            }
         </div>
+
+        @if (Model.DateOnly)
+        {
+            @* No clock column to hang the footer off, so it sits under the calendar. *@
+            <div class="date-time-picker__footer">
+                @if (Model.Clearable)
+                {
+                    <button type="button" class="date-time-picker__today"
+                            data-date-time-clear>Xoá</button>
+                }
+                <button type="button" class="date-time-picker__today"
+                        data-date-time-today>Hôm nay</button>
+                <button type="button" class="date-time-picker__done"
+                        data-date-time-done>Xong</button>
+            </div>
+        }
     </div>
 </div>

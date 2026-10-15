@@ -1,3 +1,4 @@
+using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -101,17 +102,27 @@ public class CatalogRepository(AivesDbContext context) : ICatalogRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<int>> ListStudentIdsInCourseAsync(
+        int courseId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.ClassStudents
+            .AsNoTracking()
+            .Where(item => item.Class.CourseId == courseId && item.Class.IsActive)
+            .Select(item => item.StudentId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<bool> CourseExistsAsync(int courseId, CancellationToken cancellationToken = default)
     {
-        return context.Courses.AnyAsync(course => course.CourseId == courseId, cancellationToken);
+        return context.Courses.AnyAsync(course => course.CourseId == courseId && course.IsActive, cancellationToken);
     }
 
     public Task<bool> UserIsInRoleAsync(int userId, string roleName, CancellationToken cancellationToken = default)
     {
         return context.Users.AnyAsync(
-            user => user.UserId == userId
-                && user.Role.RoleName == roleName
-                && user.Status == ActiveStatus,
+            user => user.UserId == userId && user.Role.RoleName == roleName && user.Status == ActiveStatus,
             cancellationToken);
     }
 

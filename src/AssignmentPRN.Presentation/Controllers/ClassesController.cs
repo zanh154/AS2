@@ -1,145 +1,139 @@
+using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business;
+using AssignmentPRN.Business.Interfaces;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
-using AssignmentPRN.Presentation.Hubs;
-using AssignmentPRN.Presentation.Models;
-using AssignmentPRN.Presentation.Security;
+using AssignmentPRN.Presentation.ViewModels;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace AssignmentPRN.Presentation.Controllers;
 
 [SessionAuthorize(RoleNames.Admin, RoleNames.Lecturer)]
-public sealed class ClassesController(
-    IClassManagementService classService,
-    IExamSessionService examSessionService,
-    IHubContext<ExamUpdatesHub> updatesHub) : Controller
+public class ClassesController(
+    IAcademicClassService service,
+    ICatalogService catalog, Microsoft.AspNetCore.SignalR.IHubContext<AssignmentPRN.Presentation.Hubs.ExamUpdatesHub> updatesHub) : Controller
 {
-    [HttpGet]
-    public async Task<IActionResult> Index(string? q, CancellationToken cancellationToken)
+    private int? LecturerId => HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Lecturer
+        ? HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0 : null;
+
+    public async Task<IActionResult> Index(CancellationToken ct)
     {
-        var response = await classService.ListAsync(cancellationToken);
-        var classes = response.Data ?? Array.Empty<AcademicClassResponse>();
-        if (CurrentRole == RoleNames.Lecturer)
-        {
-            classes = classes.Where(item => item.LecturerId == CurrentUserId).ToList();
-        }
-
-        var query = q?.Trim() ?? string.Empty;
-        if (!string.IsNullOrEmpty(query))
-        {
-            classes = classes.Where(item =>
-                    item.ClassCode.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || item.ClassName.Contains(query, StringComparison.OrdinalIgnoreCase)
-                    || item.CourseCode.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
-
-        return View(new ClassListViewModel
-        {
-            Classes = classes,
-            Query = query,
-            Error = response.Success ? null : response.Error
-        });
+        var result = await service.ListAsync(LecturerId, ct);
+        if (!result.Success) TempData["Error"] = result.Error;
+        return View(result.Data ?? []);
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(int id, string? q, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create(CancellationToken ct)
     {
-        var classInfo = await FindAuthorizedClassAsync(id, cancellationToken);
-        if (classInfo is null)
-        {
-            return RedirectToPage("/Account/AccessDenied");
-        }
+        var model = new AcademicClassViewModel { LecturerId = LecturerId ?? 0 };
+        await Options(model, ct);
+        return View("Edit", model);
+    }
 
-        var roster = await classService.GetAsync(id, cancellationToken);
-        if (!roster.Success || roster.Data is null)
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id, CancellationToken ct)
+    {
+        var result = await service.GetAsync(id, LecturerId, ct);
+        if (!result.Success || result.Data is null) { TempData["Error"] = result.Error; return RedirectToAction(nameof(Index)); }
+        var item = result.Data;
+        var model = new AcademicClassViewModel
         {
-            TempData["Error"] = roster.Error;
-            return RedirectToAction(nameof(Index));
-        }
+            ClassId = item.ClassId,
+            ClassCode = item.ClassCode,
+            ClassName = item.ClassName,
+            CourseId = item.CourseId,
+            LecturerId = item.LecturerId,
+            IsActive = item.IsActive
+        };
+        await Options(model, ct);
+        return View(model);
+    }
 
-        var query = q?.Trim() ?? string.Empty;
-        IReadOnlyList<PersonResponse> matches = Array.Empty<PersonResponse>();
-        if (!string.IsNullOrEmpty(query))
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Save(AcademicClassViewModel model, CancellationToken ct)
+    {
+        if (LecturerId.HasValue) { model.LecturerId = LecturerId.Value; ModelState.Remove(nameof(model.LecturerId)); }
+        if (ModelState.IsValid)
         {
-            var search = await examSessionService.SearchStudentsAsync(query, cancellationToken);
-            if (search.Success && search.Data is not null)
+            var result = await service.SaveAsync(new(model.ClassId, model.ClassCode, model.ClassName,
+                model.CourseId, model.LecturerId, model.IsActive), LecturerId, ct);
+            if (result.Success && result.Data is not null)
             {
-                var enrolledIds = roster.Data.Students.Select(item => item.UserId).ToHashSet();
-                matches = search.Data.Where(item => !enrolledIds.Contains(item.UserId)).ToList();
+                TempData["Success"] = "Đã lưu lớp học.";
+                return RedirectToAction(nameof(Roster), new { id = result.Data.ClassId });
             }
+            ModelState.AddModelError(string.Empty, result.Error!);
         }
+        await Options(model, ct);
+        return View("Edit", model);
+    }
 
-        return View(new ClassDetailViewModel
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        var result = await service.DeleteAsync(id, LecturerId, ct);
+        TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã xoá lớp học." : result.Error;
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>The roster screen where students are added to and removed from the class.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Roster(int id, CancellationToken ct)
+    {
+        var result = await service.GetRosterAsync(id, LecturerId, ct);
+        if (!result.Success || result.Data is null) { TempData["Error"] = result.Error; return RedirectToAction(nameof(Index)); }
+
+        var enrolled = result.Data.Students.Select(x => x.StudentId).ToHashSet();
+        var studentResult = await catalog.ListActiveUsersInRoleAsync(RoleNames.Student, ct);
+        var students = studentResult.Data ?? [];
+        return View(new ClassRosterViewModel
         {
-            Class = classInfo,
-            Roster = roster.Data,
-            Query = query,
-            Matches = matches
+            Class = result.Data.Class,
+            Students = result.Data.Students,
+            AvailableStudents = students
+                .Where(x => !enrolled.Contains(x.UserId))
+                .Select(x => new SelectListItem($"{x.FullName} · {x.Email}", x.UserId.ToString()))
+                .ToList()
         });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddStudent(int id, int studentId, CancellationToken cancellationToken)
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddStudent(int id, int studentId, CancellationToken ct)
     {
-        if (await FindAuthorizedClassAsync(id, cancellationToken) is null)
-        {
-            return RedirectToPage("/Account/AccessDenied");
-        }
-
-        var response = await classService.AddStudentAsync(id, studentId, cancellationToken);
-        TempData[response.Success ? "Success" : "Error"] = response.Success
-            ? "Đã thêm sinh viên vào lớp."
-            : response.Error;
-        if (response.Success)
-        {
-            await BroadcastAsync(id, "Danh sách sinh viên của lớp vừa thay đổi.", cancellationToken);
-        }
-
-        return RedirectToAction(nameof(Details), new { id });
+        var result = await service.AddStudentAsync(id, studentId, LecturerId, ct);
+        TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã thêm sinh viên vào lớp." : result.Error;
+        if (result.Success) await updatesHub.Clients.Groups([AssignmentPRN.Presentation.Hubs.ExamGroups.Admins, AssignmentPRN.Presentation.Hubs.ExamGroups.User(HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0)]).SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
+        return RedirectToAction(nameof(Roster), new { id });
     }
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RemoveStudent(int id, int studentId, CancellationToken cancellationToken)
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveStudent(int id, int studentId, CancellationToken ct)
     {
-        if (await FindAuthorizedClassAsync(id, cancellationToken) is null)
-        {
-            return RedirectToPage("/Account/AccessDenied");
-        }
-
-        var response = await classService.RemoveStudentAsync(id, studentId, cancellationToken);
-        TempData[response.Success ? "Success" : "Error"] = response.Success
-            ? "Đã xoá sinh viên khỏi lớp."
-            : response.Error;
-        if (response.Success)
-        {
-            await BroadcastAsync(id, "Danh sách sinh viên của lớp vừa thay đổi.", cancellationToken);
-        }
-
-        return RedirectToAction(nameof(Details), new { id });
+        var result = await service.RemoveStudentAsync(id, studentId, LecturerId, ct);
+        TempData[result.Success ? "Success" : "Error"] = result.Success ? "Đã xoá sinh viên khỏi lớp." : result.Error;
+        if (result.Success) await updatesHub.Clients.Groups([AssignmentPRN.Presentation.Hubs.ExamGroups.Admins, AssignmentPRN.Presentation.Hubs.ExamGroups.User(HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0)]).SendCoreAsync("ExamListChanged", [new { classId = id, message = "Danh sách lớp vừa thay đổi." }], ct);
+        return RedirectToAction(nameof(Roster), new { id });
     }
 
-    private async Task<AcademicClassResponse?> FindAuthorizedClassAsync(
-        int classId,
-        CancellationToken cancellationToken)
+    [HttpGet]
+    public Task<IActionResult> Details(int id, CancellationToken ct) => Roster(id, ct);
+
+    private async Task Options(AcademicClassViewModel model, CancellationToken ct)
     {
-        var response = await classService.ListAsync(cancellationToken);
-        var item = response.Data?.FirstOrDefault(value => value.ClassId == classId);
-        return item is not null && RoleAccessRules.CanManageClass(CurrentRole, CurrentUserId, item.LecturerId)
-            ? item
-            : null;
+        model.IsLecturerFixed = LecturerId.HasValue;
+        // A class inherits its course's lecturer, so only that lecturer's active courses can be picked.
+        var courseResult = await catalog.ListActiveCoursesAsync(ct);
+        model.Courses = (courseResult.Data ?? [])
+            .Where(x => !LecturerId.HasValue || x.LecturerId == LecturerId)
+            .Select(x => new SelectListItem($"{x.CourseCode} · {x.CourseName}", x.CourseId.ToString()))
+            .ToList();
+        var lecturerResult = await catalog.ListActiveUsersInRoleAsync(RoleNames.Lecturer, ct);
+        model.Lecturers = (lecturerResult.Data ?? [])
+            .Where(x => !LecturerId.HasValue || x.UserId == LecturerId)
+            .Select(x => new SelectListItem(x.FullName, x.UserId.ToString()))
+            .ToList();
     }
-
-    private Task BroadcastAsync(int classId, string message, CancellationToken cancellationToken) =>
-        updatesHub.Clients.All.SendAsync(
-            "ExamListChanged",
-            new { change = "class-roster", classId, message },
-            cancellationToken);
-
-    private int CurrentUserId => HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
-
-    private string? CurrentRole => HttpContext.Session.GetString(SessionKeys.Role);
 }

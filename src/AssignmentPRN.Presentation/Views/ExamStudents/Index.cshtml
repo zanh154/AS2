@@ -1,0 +1,94 @@
+@model ExamStudentSearchViewModel
+@{
+    ViewData["Title"] = "Sinh viên trong phiên thi";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Sinh viên trong phiên thi") };
+}
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Quản lý sinh viên</span>
+        <h1>Sinh viên trong phiên thi</h1>
+        <p>Tra cứu sinh viên, phiên thi và lịch thi trong khoảng ngày bạn chọn.</p>
+    </div>
+</div>
+
+<section class="content-card" data-exam-student-search>
+    <form method="get" asp-action="Index" class="exam-student-filters" data-search-form>
+        <div>
+            <label class="form-label" for="Query">Tên hoặc email</label>
+            <input id="Query" name="Query" value="@Model.Filter.Query" maxlength="255"
+                   type="search" class="form-control" placeholder="Nhập tên hoặc email sinh viên" />
+        </div>
+        <div>
+            <label class="form-label" for="ExamId">Phiên thi</label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(Model.Filter.ExamId),
+                SelectedValue = Model.Filter.ExamId ?? 0,
+                Placeholder = "Tất cả phiên thi",
+                SearchPlaceholder = "Tìm tên phiên thi",
+                EmptyText = "Không tìm thấy phiên thi phù hợp",
+                Options = Model.Result.Sessions
+                    .Select(exam => new SelectListItem(exam.ExamName, exam.ExamId.ToString()))
+                    .ToList()
+            })" />
+        </div>
+        <div>
+            <span class="form-label">Từ ngày</span>
+            <partial name="_DateTimePicker" model="@(new DateTimePickerViewModel
+            {
+                Name = nameof(Model.Filter.From),
+                Value = Model.Filter.From?.ToString("yyyy-MM-dd"),
+                DisplayLabel = Model.Filter.From?.ToString("dd/MM/yyyy"),
+                Placeholder = "Chọn ngày",
+                DateOnly = true,
+                AllowPast = true,
+                Clearable = true
+            })" />
+        </div>
+        <div>
+            <span class="form-label">Đến ngày</span>
+            <partial name="_DateTimePicker" model="@(new DateTimePickerViewModel
+            {
+                Name = nameof(Model.Filter.To),
+                Value = Model.Filter.To?.ToString("yyyy-MM-dd"),
+                DisplayLabel = Model.Filter.To?.ToString("dd/MM/yyyy"),
+                Placeholder = "Chọn ngày",
+                DateOnly = true,
+                AllowPast = true,
+                Clearable = true
+            })" />
+        </div>
+        <div>
+            <label class="form-label" for="Status">Trạng thái</label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(Model.Filter.Status),
+                SelectedKey = Model.Filter.Status?.ToString() ?? string.Empty,
+                Placeholder = "Tất cả trạng thái",
+                SearchPlaceholder = "Tìm trạng thái",
+                EmptyText = "Không có trạng thái phù hợp",
+                Options = Enum.GetValues<CandidateStatus>()
+                    .Select(status => new SelectListItem(ExamSessionText.Status(status), status.ToString()))
+                    .ToList()
+            })" />
+        </div>
+        <div class="d-flex gap-2 align-items-end">
+            <button class="btn btn-primary" type="submit">
+                <partial name="_Icon" model="@("search")" /> Tìm kiếm
+            </button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Xóa bộ lọc</a>
+        </div>
+    </form>
+
+    <p class="field-hint">Ngày lọc là ngày thi của từng sinh viên, bao gồm cả ngày bắt đầu và ngày kết thúc.</p>
+    <p data-search-message role="status"></p>
+
+    <div data-search-results aria-live="polite"><partial name="_Results" model="Model" /></div>
+</section>
+
+@section Scripts {
+    @* combobox.js drives the shared _SearchableSelect; without it the picker is inert. *@
+    <script src="~/js/combobox.js" asp-append-version="true"></script>
+    <script src="~/js/exam-student-search.js" asp-append-version="true"></script>
+}

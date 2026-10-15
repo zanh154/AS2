@@ -1,0 +1,105 @@
+@model CandidateResultViewModel
+@{
+    var candidate = Model.Candidate;
+    var paper = candidate.Paper;
+    var isCompleted = candidate.Status == CandidateStatus.Completed;
+    ViewData["Title"] = $"Bài làm · {candidate.StudentName}";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lịch thi", "ExamSessions", "Index"),
+        new(paper.ExamName, "ExamSessions", "Details", new { id = candidate.ExamId }),
+        new("Kết quả", "ExamResults", "Index", new { id = candidate.ExamId }),
+        new(candidate.StudentName)
+    };
+}
+
+<div class="exam-result-page">
+    <div class="page-header exam-result-header">
+        <div>
+            <a class="back-link" asp-action="Index" asp-route-id="@candidate.ExamId">
+                <partial name="_Icon" model="@("arrow-left")" /> Quay lại bảng điểm
+            </a>
+            <span class="eyebrow">@paper.CourseCode · @paper.ExamName</span>
+            <h1>@candidate.StudentName</h1>
+            <p>
+                @candidate.StudentEmail ·
+                <span class="status-chip @ExamSessionText.ChipModifier(candidate.Status)">@ExamSessionText.Status(candidate.Status)</span>
+            </p>
+        </div>
+        <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(isCompleted ? paper.Score : null) trên 10">
+            <span>Điểm</span>
+            <strong>@ExamResultText.Score(isCompleted ? paper.Score : null)</strong>
+            <small>/ 10</small>
+        </div>
+    </div>
+
+    <section class="metric-row">
+        <div class="metric-card"><span>Giờ thi</span><strong>@(candidate.ScheduledTime?.ToString("HH:mm") ?? "—")</strong></div>
+        <div class="metric-card"><span>Bắt đầu</span><strong>@(candidate.StartedAt?.ToString("HH:mm") ?? "—")</strong></div>
+        <div class="metric-card"><span>Nộp bài</span><strong>@(candidate.FinishedAt?.ToString("HH:mm") ?? "—")</strong></div>
+        <div class="metric-card"><span>Câu chính đúng</span><strong>@ExamResultText.Ratio(paper.MainQuestions.Count(q => q.IsCorrect), paper.MainQuestions.Count)</strong></div>
+        <div class="metric-card"><span>Đào sâu đúng</span><strong>@ExamResultText.Ratio(paper.FollowUpCorrectCount, paper.FollowUpQuestions.Count)</strong></div>
+    </section>
+
+    @if (!isCompleted)
+    {
+        <div class="info-note">
+            Sinh viên chưa hoàn thành bài, điểm chưa được tính. Nội dung dưới đây là những gì đã lưu đến lúc này.
+        </div>
+    }
+
+    @if (paper.Questions.Count == 0)
+    {
+        <div class="content-card">
+            <div class="empty-state">
+                <div class="empty-icon"><partial name="_Icon" model="@("question")" /></div>
+                <h2>Chưa có bài làm</h2>
+                <p>Sinh viên chưa vào thi nên chưa được phát đề.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="content-card exam-result-review">
+            <div class="section-heading">
+                <div>
+                    <h2>Vòng 1 · Câu hỏi chính</h2>
+                    <p class="text-muted">Phương án sinh viên chọn được đánh dấu; câu sai hiển thị đáp án đúng.</p>
+                </div>
+            </div>
+            <ol class="exam-room-questions">
+                @foreach (var question in paper.MainQuestions)
+                {
+                    <partial name="_ExamResultQuestion" model="@(new ExamResultQuestionViewModel
+                    {
+                        Question = question,
+                        PickedLabel = "Sinh viên chọn"
+                    })" />
+                }
+            </ol>
+        </div>
+
+        @if (paper.FollowUpQuestions.Count > 0)
+        {
+            <div class="content-card exam-result-review">
+                <div class="section-heading">
+                    <div>
+                        <h2>Vòng 2 · Câu hỏi đào sâu</h2>
+                        <p class="text-muted">Mỗi câu đào sâu có trọng số bằng nửa câu chính.</p>
+                    </div>
+                </div>
+                <ol class="exam-room-questions">
+                    @foreach (var question in paper.FollowUpQuestions)
+                    {
+                        <partial name="_ExamResultQuestion" model="@(new ExamResultQuestionViewModel
+                        {
+                            Question = question,
+                            ParentOrderNo = Model.OrderOf(question.ParentExamQuestionId),
+                            PickedLabel = "Sinh viên chọn"
+                        })" />
+                    }
+                </ol>
+            </div>
+        }
+    }
+</div>

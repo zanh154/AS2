@@ -1,0 +1,76 @@
+@model ClassRosterViewModel
+@{
+    ViewData["Title"] = $"Sinh viên lớp {Model.Class.ClassCode}";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lớp học", "Classes", "Index"),
+        new(Model.Class.ClassCode, "Classes", "Edit", new { id = Model.Class.ClassId }),
+        new("Sinh viên")
+    };
+
+    var index = 0;
+    var table = new DataTableViewModel
+    {
+        Columns = [new("#"), new("Sinh viên"), new("Ngày vào lớp"), new("Thao tác", AlignEnd: true)],
+        Rows = Model.Students.Select(item => new List<TableCell>
+        {
+            new CountCell(++index),
+            new StackCell(item.FullName, item.Email),
+            new TextCell(item.JoinedAt.ToString("dd/MM/yyyy HH:mm"), Muted: true, Nowrap: true),
+            new ActionsCell(
+            [
+                new("Xoá khỏi lớp", "trash", "RemoveStudent",
+                    new { id = Model.Class.ClassId, studentId = item.StudentId },
+                    Tone: "danger", IsPost: true,
+                    Confirm: $"Xoá {item.FullName} khỏi lớp này?")
+            ])
+        } as IReadOnlyList<TableCell>).ToList()
+    };
+}
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-action="Index">← Lớp học</a>
+        <span class="eyebrow">@Model.Class.CourseCode · @Model.Class.CourseName</span>
+        <h1>@Model.Class.ClassCode — @Model.Class.ClassName</h1>
+        <p>Giảng viên @Model.Class.LecturerName · @Model.Students.Count sinh viên · @(Model.Class.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-action="Edit" asp-route-id="@Model.Class.ClassId">Sửa lớp</a>
+</div>
+
+<div class="content-card">
+    <h2 class="h5">Thêm sinh viên</h2>
+    @if (Model.AvailableStudents.Count == 0)
+    {
+        <p class="text-muted mb-0">Không còn tài khoản sinh viên nào đang hoạt động để thêm vào lớp.</p>
+    }
+    else
+    {
+        <form asp-action="AddStudent" asp-route-id="@Model.Class.ClassId" method="post" class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label" for="studentId">Sinh viên</label>
+                <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+                {
+                    Name = "studentId",
+                    SelectedValue = 0,
+                    Placeholder = "Chọn sinh viên",
+                    SearchPlaceholder = "Tìm tên hoặc email sinh viên",
+                    EmptyText = "Không tìm thấy sinh viên phù hợp",
+                    Options = Model.AvailableStudents
+                })" />
+            </div>
+            <div class="col-md-4"><button class="btn btn-primary">Thêm vào lớp</button></div>
+        </form>
+    }
+</div>
+
+<div class="content-card">
+    <h2 class="h5">Danh sách sinh viên</h2>
+    @if (Model.Students.Count == 0)
+    {
+        <div class="empty-state"><h2>Lớp chưa có sinh viên</h2><p>Thêm sinh viên vào lớp trước khi tạo lịch thi cho lớp này.</p></div>
+    }
+    else
+    {
+        <partial name="_DataTable" model="table" />
+    }
+</div>

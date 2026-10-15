@@ -1,0 +1,101 @@
+@model CourseMaterialListViewModel
+@{
+    ViewData["Title"] = "Tài liệu môn";
+}
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Module 5</span>
+        <h1>Tài liệu môn</h1>
+        <p>Tài liệu là nguồn của chủ đề, câu hỏi trong ngân hàng được gắn vào một tài liệu.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" asp-controller="Questions" asp-action="Index">Ngân hàng câu hỏi</a>
+        <a class="btn btn-primary" asp-action="Upload" asp-route-courseId="@Model.CourseId">Tải lên tài liệu</a>
+    </div>
+</div>
+
+<form method="get" asp-action="Index" class="content-card material-filters">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label class="form-label" for="courseId">Môn học</label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = "courseId",
+                SelectedValue = Model.CourseId ?? 0,
+                Placeholder = "Tất cả môn đã phân công",
+                SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                EmptyText = "Không tìm thấy môn học phù hợp",
+                Options = Model.CourseOptions
+            })" />
+        </div>
+        <div class="col-md-6 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Lọc</button>
+            <a class="btn btn-outline-secondary" asp-action="Index">Xoá lọc</a>
+        </div>
+    </div>
+</form>
+
+@if (Model.LoadError is not null)
+{
+    <div class="alert alert-danger app-alert" role="alert">@Model.LoadError</div>
+}
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Danh sách tài liệu</h2>
+            <p class="text-muted">Có @Model.Materials.Count tài liệu phù hợp bộ lọc.</p>
+        </div>
+    </div>
+
+    @if (Model.Materials.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>Chưa có tài liệu nào</h2>
+            <p>Tải lên tài liệu đầu tiên để làm chủ đề cho câu hỏi.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Tệp</th>
+                        <th>Môn học</th>
+                        <th>Loại</th>
+                        <th>Dung lượng</th>
+                        <th>Câu hỏi</th>
+                        <th>Người tải lên</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var material in Model.Materials)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@material.FileName</strong>
+                                <div class="text-muted">@material.UploadedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                            </td>
+                            <td><strong>@material.CourseCode</strong><div class="text-muted">@material.CourseName</div></td>
+                            <td><span class="status-chip status-chip--muted">@QuestionText.FileType(material.FileType)</span></td>
+                            <td>@QuestionText.FileSize(material.FileSize)</td>
+                            <td>@material.QuestionCount</td>
+                            <td>@material.UploaderName</td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-outline-secondary btn-sm" asp-action="Download" asp-route-id="@material.MaterialId">Mở</a>
+                                    <a class="btn btn-outline-secondary btn-sm" asp-action="Edit" asp-route-id="@material.MaterialId">Sửa</a>
+                                    <form asp-action="Delete" asp-route-id="@material.MaterialId" method="post" data-confirm="Xoá tài liệu này? Tệp sẽ bị xoá khỏi máy chủ.">
+                                        <button class="btn btn-outline-danger btn-sm">Xoá</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

@@ -13,9 +13,136 @@
   }
 }
 
-.page-content {
+// Sidebar + page column. The sidebar folds away below md, where the header
+// toggler reveals it as a stacked block instead.
+.app-body {
   flex: 1;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  align-items: start;
+  gap: $space-6;
+
+  @include respond-below($breakpoint-md) {
+    display: block;
+  }
+}
+
+.page-content {
+  min-width: 0;
   padding-block: $space-6 $space-7;
+}
+
+// -- Sidebar -------------------------------------------------------------
+.app-sidebar {
+  position: sticky;
+  top: calc(62px + #{$space-6});
+  padding-block: $space-6;
+
+  @include respond-below($breakpoint-md) {
+    position: static;
+    padding-block: $space-4 0;
+  }
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-3;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+}
+
+.sidebar-nav__label {
+  margin: $space-3 $space-3 $space-1;
+  color: $color-muted;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  &:first-child {
+    margin-top: $space-1;
+  }
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-2 $space-3;
+  border-radius: $radius-md;
+  color: $color-text;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  transition: background $transition, color $transition;
+
+  svg {
+    flex-shrink: 0;
+    color: $color-muted;
+    transition: color $transition;
+  }
+
+  &:hover,
+  &:focus {
+    color: $color-heading;
+    background: $color-surface-alt;
+  }
+
+  &.is-active {
+    color: $color-primary;
+    background: $color-primary-soft;
+
+    svg {
+      color: $color-primary;
+    }
+  }
+}
+
+// -- Breadcrumb ----------------------------------------------------------
+.breadcrumb-trail {
+  margin-bottom: $space-4;
+
+  ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $space-1;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+    color: $color-muted;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+  }
+
+  a {
+    color: $color-muted;
+    font-weight: $font-weight-semibold;
+
+    &:hover {
+      color: $color-primary;
+    }
+  }
+
+  [aria-current="page"] {
+    color: $color-heading;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+.breadcrumb-trail__sep svg {
+  width: 14px;
+  height: 14px;
+  color: $color-border-strong;
 }
 
 // -- Header --------------------------------------------------------------
@@ -101,10 +228,8 @@
   border-left: 1px solid rgba(255, 255, 255, 0.14);
 
   @include respond-below($breakpoint-md) {
-    padding: $space-3 0 $space-3;
-    margin: $space-2 0 0;
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    padding-left: $space-3;
+    margin-left: $space-2;
   }
 }
 

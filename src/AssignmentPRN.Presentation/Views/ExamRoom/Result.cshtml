@@ -1,0 +1,95 @@
+@model ExamResultViewModel
+@{
+    var result = Model.Result;
+    ViewData["Title"] = $"Kết quả · {result.ExamName}";
+    Layout = "_ExamLayout";
+    ViewData["ExamLocked"] = false;
+    ViewData["ExamContextLabel"] = "Kết quả thi";
+}
+
+<div class="exam-result-page">
+    <div class="page-header exam-result-header">
+        <div>
+            <a class="back-link" asp-controller="StudentSchedule" asp-action="Mine">
+                <partial name="_Icon" model="@("arrow-left")" /> Quay lại lịch thi
+            </a>
+            <span class="eyebrow">@result.CourseCode · @result.CourseName</span>
+            <h1>Kết quả bài thi</h1>
+            <p>@result.ExamName · Giảng viên: @result.LecturerName</p>
+        </div>
+        <div class="exam-result-score" aria-label="Điểm @result.Score trên 10">
+            <span>Điểm của bạn</span>
+            <strong>@result.Score.ToString("0.0")</strong>
+            <small>/ 10</small>
+        </div>
+    </div>
+
+    <section class="exam-result-summary @(result.FollowUpQuestions.Count > 0 ? "exam-result-summary--with-follow-up" : null)"
+             aria-label="Tổng quan kết quả">
+        <div class="exam-result-stat exam-result-stat--total">
+            <span>Tổng số câu</span>
+            <strong>@result.TotalQuestions</strong>
+        </div>
+        <div class="exam-result-stat exam-result-stat--correct">
+            <span>Trả lời đúng</span>
+            <strong>@result.CorrectCount</strong>
+        </div>
+        <div class="exam-result-stat exam-result-stat--incorrect">
+            <span>Trả lời sai</span>
+            <strong>@result.IncorrectCount</strong>
+        </div>
+        <div class="exam-result-stat exam-result-stat--unanswered">
+            <span>Bỏ trống</span>
+            <strong>@result.UnansweredCount</strong>
+        </div>
+        @if (result.FollowUpQuestions.Count > 0)
+        {
+            <div class="exam-result-stat exam-result-stat--follow-up">
+                <span>Đào sâu đúng</span>
+                <strong>@result.FollowUpCorrectCount / @result.FollowUpQuestions.Count</strong>
+            </div>
+        }
+    </section>
+
+    <div class="content-card exam-result-review">
+        <div class="section-heading">
+            <div>
+                <h2>@(result.FollowUpQuestions.Count > 0 ? "Vòng 1 · Câu hỏi chính" : "Chi tiết bài làm")</h2>
+                <p class="text-muted">Câu đúng được đánh dấu màu xanh. Câu sai hiển thị đáp án đúng ngay bên dưới.</p>
+            </div>
+            <span class="status-chip status-chip--success">Đã chấm điểm</span>
+        </div>
+
+        <ol class="exam-room-questions">
+            @foreach (var question in result.MainQuestions)
+            {
+                <partial name="_ExamResultQuestion" model="@(new ExamResultQuestionViewModel { Question = question })" />
+            }
+        </ol>
+    </div>
+
+    @if (result.FollowUpQuestions.Count > 0)
+    {
+        <div class="content-card exam-result-review">
+            <div class="section-heading">
+                <div>
+                    <h2>Vòng 2 · Câu hỏi đào sâu</h2>
+                    <p class="text-muted">
+                        Mỗi câu đào sâu có trọng số bằng nửa câu chính; điểm cả bài được quy về thang 10.
+                    </p>
+                </div>
+            </div>
+
+            <ol class="exam-room-questions">
+                @foreach (var question in result.FollowUpQuestions)
+                {
+                    <partial name="_ExamResultQuestion" model="@(new ExamResultQuestionViewModel
+                    {
+                        Question = question,
+                        ParentOrderNo = Model.OrderOf(question.ParentExamQuestionId)
+                    })" />
+                }
+            </ol>
+        </div>
+    }
+</div>

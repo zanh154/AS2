@@ -1,0 +1,67 @@
+@model ExamStudentSearchViewModel
+@{
+    var table = new DataTableViewModel
+    {
+        Columns =
+        [
+            new("Sinh viên"),
+            new("Phiên thi"),
+            new("Môn học"),
+            new("Ngày / giờ"),
+            new("Trạng thái"),
+            new("Thao tác", AlignEnd: true)
+        ],
+        Rows = Model.Result.Items.Select(item => new List<TableCell>
+        {
+            new StackCell(item.StudentName, item.Email),
+            new TextCell(item.ExamName),
+            new TextCell(item.CourseName, Muted: true),
+            new TextCell(item.ScheduledTime?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa xếp giờ", Nowrap: true),
+            new ChipCell(ExamSessionText.Status(item.Status), ExamSessionText.ChipModifier(item.Status)),
+            new ActionsCell(
+            [
+                new("Xem phiên thi", "arrow-right", "Details", new { id = item.ExamId },
+                    Controller: "ExamSessions", Tone: "primary")
+            ])
+        } as IReadOnlyList<TableCell>).ToList()
+    };
+}
+@if (Model.Error is not null)
+{
+    <div class="alert alert-danger" role="alert">@Model.Error</div>
+}
+else
+{
+    <div class="section-heading">
+        <h2>Kết quả tra cứu</h2>
+        <span>@Model.Result.Total lượt sinh viên · Trang @Model.Result.Page / @Model.Result.PageCount</span>
+    </div>
+
+    @if (Model.Result.Items.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon"><partial name="_Icon" model="@("search")" /></div>
+            <h3>Không tìm thấy sinh viên phù hợp</h3>
+            <p>Thử đổi tên, phiên thi hoặc mở rộng khoảng ngày.</p>
+        </div>
+    }
+    else
+    {
+        <partial name="_DataTable" model="table" />
+
+        <nav class="d-flex gap-3 justify-content-end" aria-label="Phân trang sinh viên">
+            @foreach (var page in new[] { Model.Result.Page - 1, Model.Result.Page + 1 })
+            {
+                if (page >= 1 && page <= Model.Result.PageCount)
+                {
+                    <a asp-action="Index" asp-route-Query="@Model.Filter.Query" asp-route-ExamId="@Model.Filter.ExamId"
+                       asp-route-From="@Model.Filter.From?.ToString("yyyy-MM-dd")" asp-route-To="@Model.Filter.To?.ToString("yyyy-MM-dd")"
+                       asp-route-Status="@Model.Filter.Status" asp-route-Page="@(page)"
+                       class="btn btn-outline-secondary" data-search-page>
+                        @(page < Model.Result.Page ? "← Trang trước" : "Trang sau →")
+                    </a>
+                }
+            }
+        </nav>
+    }
+}

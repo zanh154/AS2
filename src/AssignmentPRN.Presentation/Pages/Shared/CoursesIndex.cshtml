@@ -1,0 +1,7 @@
+@model IReadOnlyList<CourseResponse>
+<div class="page-header"><h1>Môn học</h1><a asp-page="/Courses/Create" class="btn btn-primary">Thêm môn học</a></div>
+<div class="content-card"><table class="table"><thead><tr><th>Môn học</th><th>Giảng viên</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+@foreach (var course in Model) {
+<tr><td>@course.CourseCode · @course.CourseName</td><td>@course.LecturerName</td><td>@(course.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")</td><td><a asp-page="/Courses/Edit" asp-route-id="@course.CourseId">Sửa</a><form method="post" asp-page="/Courses/Index" asp-page-handler="Delete" asp-route-id="@course.CourseId" data-confirm="Xoá môn học?"><button class="btn btn-outline-danger btn-sm">Xoá</button></form></td></tr>
+}
+</tbody></table>@if (Model.Count == 0) { <p>Chưa có môn học.</p> }</div>

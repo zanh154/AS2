@@ -1,49 +1,63 @@
-@model ClassListViewModel
+@model IReadOnlyList<AcademicClassResponse>
 @{
     ViewData["Title"] = "Lớp học";
-}
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Lớp học") };
 
+    var table = new DataTableViewModel
+    {
+        Columns =
+        [
+            new("Lớp"),
+            new("Môn học"),
+            new("Giảng viên"),
+            new("Sĩ số"),
+            new("Trạng thái"),
+            new("Thao tác", AlignEnd: true)
+        ],
+        Rows = Model.Select(item => new List<TableCell>
+        {
+            new StackCell(item.ClassName, item.ClassCode),
+            new StackCell(item.CourseCode, item.CourseName),
+            new TextCell(item.LecturerName, Nowrap: true),
+            new CountCell(item.StudentCount, "sinh viên"),
+            new ChipCell(item.IsActive ? "Đang hoạt động" : "Ngừng hoạt động",
+                item.IsActive ? "status-chip--success" : "status-chip--muted"),
+            new ActionsCell(
+            [
+                new("Sinh viên", "users", "Roster", new { id = item.ClassId }, Tone: "primary"),
+                new("Sửa lớp", "pencil", "Edit", new { id = item.ClassId }),
+                new("Xoá lớp", "trash", "Delete", new { id = item.ClassId }, Tone: "danger", IsPost: true,
+                    Confirm: $"Xoá lớp {item.ClassCode}? Lớp còn sinh viên sẽ không được xoá.")
+            ])
+        } as IReadOnlyList<TableCell>).ToList()
+    };
+}
 <div class="page-header">
-    <div>
-        <span class="eyebrow">Quản lý lớp</span>
-        <h1>Lớp và danh sách sinh viên</h1>
-        <p>Giảng viên chỉ thấy lớp mình phụ trách; quản trị viên thấy toàn bộ lớp.</p>
-    </div>
+    <div><span class="eyebrow">Quản lý đào tạo</span><h1>Lớp học</h1><p>Lớp là danh sách sinh viên mà phiên thi lấy thí sinh từ đó.</p></div>
+    <a class="btn btn-primary" asp-action="Create"><partial name="_Icon" model="@("plus")" /> Thêm lớp học</a>
 </div>
 
-<form method="get" class="content-card mb-3">
-    <div class="input-group">
-        <input class="form-control" type="search" name="q" value="@Model.Query"
-               placeholder="Tìm mã lớp, tên lớp hoặc mã môn..." />
-        <button class="btn btn-primary" type="submit">Tìm kiếm</button>
-    </div>
-</form>
-
-@if (!string.IsNullOrWhiteSpace(Model.Error))
+@if (Model.Count > 0)
 {
-    <div class="alert alert-danger">@Model.Error</div>
+    <section class="metric-row" aria-label="Tổng quan lớp học">
+        <div class="metric-card"><span>Lớp học</span><strong>@Model.Count</strong></div>
+        <div class="metric-card"><span>Đang hoạt động</span><strong>@Model.Count(x => x.IsActive)</strong></div>
+        <div class="metric-card"><span>Tổng sinh viên</span><strong>@Model.Sum(x => x.StudentCount)</strong></div>
+    </section>
 }
-else if (Model.Classes.Count == 0)
+
+<div class="content-card">
+@if (Model.Count == 0)
 {
-    <div class="content-card empty-state"><h2>Không tìm thấy lớp học</h2></div>
+    <div class="empty-state">
+        <div class="empty-icon"><partial name="_Icon" model="@("users")" /></div>
+        <h2>Chưa có lớp học</h2>
+        <p>Tạo lớp và thêm sinh viên trước khi tạo lịch thi.</p>
+        <a class="btn btn-primary" asp-action="Create">Thêm lớp học</a>
+    </div>
 }
 else
 {
-    <div class="content-card table-responsive">
-        <table class="table align-middle">
-            <thead><tr><th>Lớp</th><th>Môn học</th><th>Giảng viên</th><th>Sinh viên</th><th></th></tr></thead>
-            <tbody>
-            @foreach (var item in Model.Classes)
-            {
-                <tr>
-                    <td><strong>@item.ClassCode</strong><br /><small>@item.ClassName</small></td>
-                    <td>@item.CourseCode · @item.CourseName</td>
-                    <td>@item.LecturerName</td>
-                    <td>@item.StudentCount</td>
-                    <td><a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@item.ClassId">Quản lý</a></td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+    <partial name="_DataTable" model="table" />
 }
+</div>

@@ -1,7 +1,11 @@
+using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business;
+using AssignmentPRN.Business.Interfaces;
+using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
 using Microsoft.AspNetCore.Mvc;
+using AssignmentPRN.Presentation.ViewModels;
 
 namespace AssignmentPRN.Presentation.Controllers;
 
@@ -10,7 +14,7 @@ public class LecturerController(IExamSessionService examSessionService) : Contro
 {
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        var lecturerId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
-        return View(await DashboardBuilder.BuildStaffAsync(examSessionService, cancellationToken, lecturerId));
+        return View(await DashboardBuilder.BuildStaffAsync(examSessionService, cancellationToken,
+            HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0));
     }
 }

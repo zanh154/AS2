@@ -1,6 +1,7 @@
 @model StudentScheduleViewModel
 @{
     ViewData["Title"] = "Tra cứu lịch sinh viên";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Tra cứu sinh viên") };
 }
 
 <div class="page-header">
@@ -11,16 +12,13 @@
     </div>
 </div>
 
-@section Scripts {
-    <script src="~/js/combobox.js" asp-append-version="true"></script>
-}
 
 <div class="lookup-layout">
     <section class="content-card lookup-card">
         <form method="get">
             <label asp-for="Query" class="form-label"></label>
             <div class="combobox" data-combobox
-                 data-combobox-url="@Url.Action("SearchStudents", "ExamSessions")">
+                 data-combobox-url="@Url.Page("/ExamSessions/Details", "SearchStudents")">
                 <div class="input-group">
                     <input asp-for="Query" name="q" class="form-control"
                            placeholder="Gõ email hoặc tên sinh viên"

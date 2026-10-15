@@ -1,0 +1,61 @@
+@model AcademicClassViewModel
+@{
+    ViewData["Title"] = Model.ClassId == 0 ? "Thêm lớp học" : "Sửa lớp học";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lớp học", "Classes", "Index"),
+        new((string)ViewData["Title"]!)
+    };
+}
+<div class="page-header"><div><a class="back-link" asp-action="Index">← Lớp học</a><h1>@ViewData["Title"]</h1></div></div>
+<form asp-action="Save" method="post" class="content-card">
+    <input asp-for="ClassId" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    @if (Model.Courses.Count == 0)
+    {
+        <div class="alert alert-warning">Chưa có môn học đang hoạt động nào để gán lớp. Hãy tạo môn học trước.</div>
+    }
+    <div class="row g-3">
+        <div class="col-md-4"><label asp-for="ClassCode" class="form-label"></label><input asp-for="ClassCode" class="form-control" /></div>
+        <div class="col-md-8"><label asp-for="ClassName" class="form-label"></label><input asp-for="ClassName" class="form-control" /></div>
+        <div class="col-md-6">
+            <label asp-for="CourseId" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(AcademicClassViewModel.CourseId),
+                SelectedValue = Model.CourseId,
+                Placeholder = "Chọn môn học",
+                SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                EmptyText = "Không tìm thấy môn học phù hợp",
+                Options = Model.Courses
+            })" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="LecturerId" class="form-label"></label>
+            @if (Model.IsLecturerFixed)
+            {
+                <input class="form-control" value="@(Model.Lecturers.FirstOrDefault()?.Text)" disabled />
+                <input asp-for="LecturerId" type="hidden" />
+            }
+            else
+            {
+                <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(AcademicClassViewModel.LecturerId),
+                SelectedValue = Model.LecturerId,
+                Placeholder = "Chọn giảng viên",
+                SearchPlaceholder = "Tìm tên hoặc email giảng viên",
+                EmptyText = "Không tìm thấy giảng viên phù hợp",
+                Options = Model.Lecturers
+            })" />
+            }
+            <p class="text-muted">Giảng viên phải trùng với người phụ trách môn học đã chọn.</p>
+        </div>
+        <div class="col-12"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label"></label></div>
+            <p class="text-muted">Lớp ngừng hoạt động vẫn giữ danh sách sinh viên, nhưng không được chọn khi tạo lịch thi mới.</p></div>
+    </div>
+    <div class="d-flex gap-2 mt-4"><button class="btn btn-primary">Lưu lớp học</button><a asp-action="Index" class="btn btn-outline-secondary">Huỷ</a></div>
+</form>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

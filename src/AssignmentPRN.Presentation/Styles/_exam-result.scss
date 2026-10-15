@@ -1,0 +1,58 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+// Module 6 — follow-up questions and exam results. Builds on the exam room and result
+// styles in _exam-schedule.scss; only what the follow-up round adds lives here.
+
+// -- Follow-up question (exam room and result review) -----------------------
+// A follow-up sits slightly indented with an info accent, so it reads as a branch of
+// the main question it digs into rather than as another main question.
+.exam-room-question--follow-up {
+  margin-left: $space-4;
+  border-left: 3px solid $color-info;
+
+  @include respond-below($breakpoint-sm) {
+    margin-left: 0;
+  }
+}
+
+// -- Result summary with a fifth tile for follow-ups ------------------------
+.exam-result-summary--with-follow-up {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+
+  @include respond-below($breakpoint-md) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include respond-below($breakpoint-sm) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exam-result-stat--follow-up::before {
+  background: $color-info;
+}
+
+// -- Examiner notes on a question (lecturer's review only) ------------------
+.exam-result-expected {
+  margin-top: $space-3;
+  padding: $space-3 $space-4;
+  color: $color-info;
+  background: $color-info-soft;
+  border: 1px solid $color-info-border;
+  border-radius: $radius-md;
+
+  span {
+    display: block;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-bold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  p {
+    margin: $space-1 0 0;
+    color: $color-heading;
+    white-space: pre-line;
+  }
+}

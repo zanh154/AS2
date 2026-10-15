@@ -1,0 +1,104 @@
+@* Shared table renderer. Views supply columns and cells; the markup lives here. *@
+@model DataTableViewModel
+@{
+    // The default route falls back to Home when no controller is given, so an
+    // action that omits one is pinned to the controller rendering this table.
+    var currentController = ViewContext.RouteData.Values["controller"] as string;
+}
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                @foreach (var column in Model.Columns)
+                {
+                    <th class="@(column.AlignEnd ? "text-end" : null)">@column.Header</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                @foreach (var cell in row)
+                {
+                    <td class="@CellClass(cell)">
+                        @switch (cell)
+                        {
+                            case StackCell stack:
+                                <span class="cell-stack">
+                                    <strong>@stack.Primary</strong>
+                                    @if (!string.IsNullOrWhiteSpace(stack.Secondary))
+                                    {
+                                        <span>@stack.Secondary</span>
+                                    }
+                                </span>
+                                break;
+
+                            case CountCell count:
+                                <span class="cell-count">@count.Value</span>
+                                @if (!string.IsNullOrWhiteSpace(count.Suffix))
+                                {
+                                    @: @count.Suffix
+                                }
+                                break;
+
+                            case ChipCell chip:
+                                <span class="status-chip @chip.Modifier">@chip.Text</span>
+                                break;
+
+                            case ActionsCell actions:
+                                <div class="table-actions">
+                                    @foreach (var action in actions.Actions)
+                                    {
+                                        if (action.IsPost)
+                                        {
+                                            <form method="post" data-confirm="@action.Confirm"
+                                                  asp-controller="@(action.Controller ?? currentController)" asp-action="@action.Action"
+                                                  asp-all-route-data="@RouteDataFor(action)">
+                                                <button type="submit" class="btn btn-outline-@action.Tone btn-sm btn-icon"
+                                                        title="@action.Label" aria-label="@action.Label">
+                                                    <partial name="_Icon" model="@action.Icon" />
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <a class="btn btn-outline-@action.Tone btn-sm btn-icon"
+                                               title="@action.Label" aria-label="@action.Label"
+                                               asp-controller="@(action.Controller ?? currentController)" asp-action="@action.Action"
+                                               asp-all-route-data="@RouteDataFor(action)">
+                                                <partial name="_Icon" model="@action.Icon" />
+                                            </a>
+                                        }
+                                    }
+                                </div>
+                                break;
+
+                            case TextCell text:
+                                @(string.IsNullOrWhiteSpace(text.Value) ? "—" : text.Value)
+                                break;
+                        }
+                    </td>
+                }
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@functions {
+    private static string? CellClass(TableCell cell) => cell switch
+    {
+        TextCell { Muted: true, Nowrap: true } => "text-muted cell-nowrap",
+        TextCell { Muted: true } => "text-muted",
+        TextCell { Nowrap: true } => "cell-nowrap",
+        CountCell => "cell-nowrap",
+        _ => null
+    };
+
+    private static Dictionary<string, string> RouteDataFor(TableAction action) =>
+        action.RouteValues is null
+            ? new Dictionary<string, string>()
+            : new Microsoft.AspNetCore.Routing.RouteValueDictionary(action.RouteValues)
+                .ToDictionary(pair => pair.Key, pair => pair.Value?.ToString() ?? string.Empty);
+}

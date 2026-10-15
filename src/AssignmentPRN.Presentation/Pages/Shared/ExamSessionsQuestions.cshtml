@@ -1,0 +1,206 @@
+@model ExamQuestionAssignViewModel
+@{
+    ViewData["Title"] = $"Phát đề · {Model.ExamName}";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lịch thi", "ExamSessions", "Index"),
+        new(Model.ExamName, "ExamSessions", "Details", new { id = Model.ExamId }),
+        new("Phát đề")
+    };
+    var selectedMaterials = Model.MaterialIds.Select(id => id.ToString()).ToHashSet();
+    var selectedDifficulties = Model.Difficulties.Select(value => value.ToString()).ToHashSet();
+}
+
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-page="/ExamSessions/Details" asp-route-id="@Model.ExamId">
+            <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại phiên thi
+        </a>
+        <span class="eyebrow">@Model.CourseCode · Ngân hàng câu hỏi</span>
+        <h1>Phát đề cho @Model.ExamName</h1>
+        <p>
+            Đề được rút tự động khi sinh viên bấm vào thi, không cần bạn thao tác. Màn hình này
+            để phát trước và xem đề của từng sinh viên; hai sinh viên trong cùng phiên thi không
+            bao giờ trùng câu.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" asp-controller="Questions" asp-action="Index" asp-route-courseId="@Model.CourseId">
+            Ngân hàng câu hỏi
+        </a>
+    </div>
+</div>
+
+@if (Model.LoadError is not null)
+{
+    <div class="alert alert-danger app-alert" role="alert">@Model.LoadError</div>
+}
+
+<section class="metric-row">
+    <div class="metric-card"><span>Sinh viên</span><strong>@Model.CandidateCount</strong></div>
+    <div class="metric-card"><span>Đã có đề</span><strong>@Model.AssignedCandidateCount</strong></div>
+    <div class="metric-card"><span>Cần thêm</span><strong>@Model.RequiredCount</strong></div>
+    <div class="metric-card">
+        <span>Câu còn dùng được</span>
+        <strong class="@(Model.IsEnough ? null : "text-danger")">@Model.AvailableCount</strong>
+    </div>
+</section>
+
+@if (!Model.CanAssign)
+{
+    <div class="alert alert-warning app-alert" role="alert">
+        Phiên thi đang ở trạng thái không cho phép phát đề. Chỉ có thể xem đề đã phát.
+    </div>
+}
+else if (Model.IsFullyAssigned)
+{
+    <div class="alert alert-success app-alert" role="status">
+        Mọi sinh viên đã có đề. Muốn đổi phạm vi câu hỏi thì huỷ đề hiện tại rồi phát lại.
+    </div>
+}
+else if (!Model.IsEnough)
+{
+    <div class="alert alert-danger app-alert" role="alert">
+        Ngân hàng chỉ còn @Model.AvailableCount câu khớp bộ lọc, cần @Model.RequiredCount câu.
+        Hãy bớt chủ đề/độ khó, giảm số câu mỗi sinh viên, hoặc
+        <a asp-controller="Questions" asp-action="Index" asp-route-courseId="@Model.CourseId">bổ sung câu hỏi</a>.
+    </div>
+}
+
+<form method="post" asp-page="/ExamSessions/Questions" asp-page-handler="AssignQuestions" class="content-card">
+    <input type="hidden" asp-for="ExamId" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger app-alert"></div>
+
+    <div class="section-heading">
+        <div>
+            <h2>Cấu hình bộ câu hỏi</h2>
+            <p class="text-muted">
+                Bỏ trống chủ đề hoặc độ khó nghĩa là lấy toàn bộ môn @Model.CourseName. Phạm vi này
+                được lưu khi phát đề thành công và áp dụng cả khi sinh viên tự vào thi, kể cả sinh viên thêm sau.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label asp-for="CountPerCandidate" class="form-label"></label>
+            <input asp-for="CountPerCandidate" type="number" class="form-control" min="1" max="50" readonly />
+            <small class="text-muted">Dùng số câu trong phiên thi. Muốn thay đổi, vào Sửa phiên thi.</small>
+            <span asp-validation-for="CountPerCandidate" class="field-validation-error"></span>
+        </div>
+
+        <div class="col-md-5">
+            <span class="form-label">Chủ đề (tài liệu)</span>
+            @if (Model.MaterialOptions.Count == 0)
+            {
+                <p class="text-muted">
+                    Môn này chưa có tài liệu nào.
+                    <a asp-controller="CourseMaterials" asp-action="Upload" asp-route-courseId="@Model.CourseId">Tải tài liệu lên</a>
+                </p>
+            }
+            else
+            {
+                <div class="checkbox-grid">
+                    @foreach (var option in Model.MaterialOptions)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="MaterialIds"
+                                   id="material-@option.Value" value="@option.Value"
+                                   checked="@selectedMaterials.Contains(option.Value)" />
+                            <label class="form-check-label" for="material-@option.Value">@option.Text</label>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="col-md-4">
+            <span class="form-label">Độ khó</span>
+            <div class="checkbox-grid">
+                @foreach (var option in Model.DifficultyOptions)
+                {
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="Difficulties"
+                               id="difficulty-@option.Value" value="@option.Value"
+                               checked="@selectedDifficulties.Contains(option.Value)" />
+                        <label class="form-check-label" for="difficulty-@option.Value">@option.Text</label>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-outline-secondary" type="submit" name="preview" value="true" formmethod="get" formaction="@Url.Page("/ExamSessions/Questions", new { id = Model.ExamId })">
+            Xem lại số câu khả dụng
+        </button>
+        @if (Model.CanAssign && !Model.IsFullyAssigned)
+        {
+            <button class="btn btn-primary" type="submit">Phát đề ngẫu nhiên</button>
+        }
+    </div>
+</form>
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Đề của từng sinh viên</h2>
+            <p class="text-muted">@Model.AssignedCandidateCount / @Model.CandidateCount sinh viên đã có đề.</p>
+        </div>
+        @if (Model.CanRedeal)
+        {
+            <form method="post" asp-page="/ExamSessions/Questions" asp-page-handler="ClearQuestions" asp-route-id="@Model.ExamId"
+                  data-confirm="Huỷ toàn bộ đề đã phát của phiên thi này?">
+                <button class="btn btn-outline-danger" type="submit">Huỷ đề đã phát</button>
+            </form>
+        }
+    </div>
+
+    @if (Model.Papers.Count == 0)
+    {
+        <div class="empty-state">
+            <h3>Chưa có sinh viên nào</h3>
+            <p>Thêm sinh viên vào phiên thi trước khi phát đề.</p>
+        </div>
+    }
+    else
+    {
+        <div class="exam-paper-list">
+            @foreach (var paper in Model.Papers)
+            {
+                <article class="exam-paper">
+                    <header class="exam-paper__head">
+                        <div>
+                            <strong>@paper.StudentName</strong>
+                            <span class="text-muted">@paper.StudentEmail</span>
+                        </div>
+                        <span class="status-chip @(paper.Questions.Count > 0 ? "status-chip--success" : "status-chip--muted")">
+                            @(paper.Questions.Count > 0 ? $"{paper.Questions.Count} câu" : "Chưa có đề")
+                        </span>
+                        <span class="text-muted">@(paper.ScheduledTime?.ToString("dd/MM · HH:mm") ?? "—")</span>
+                    </header>
+
+                    @if (paper.Questions.Count > 0)
+                    {
+                        <ol class="exam-paper__questions">
+                            @foreach (var question in paper.Questions)
+                            {
+                                <li>
+                                    <span class="exam-paper__text">@question.QuestionText</span>
+                                    <span class="status-chip @QuestionText.DifficultyChip(question.Difficulty)">
+                                        @QuestionText.Difficulty(question.Difficulty)
+                                    </span>
+                                    <span class="text-muted">@(question.MaterialName ?? "Chưa gán chủ đề")</span>
+                                    @if (question.IsCompleted)
+                                    {
+                                        <span class="status-chip status-chip--success">Đã trả lời</span>
+                                    }
+                                </li>
+                            }
+                        </ol>
+                    }
+                </article>
+            }
+        </div>
+    }
+</div>

@@ -1,0 +1,71 @@
+@model CourseMaterialEditViewModel
+@{
+    ViewData["Title"] = "Sửa tài liệu";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Tài liệu môn", "CourseMaterials", "Index"),
+        new(Model.FileName)
+    };
+}
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-action="Index">← Tài liệu môn</a>
+        <h1>@ViewData["Title"]</h1>
+        <p>Đổi môn học nếu tải nhầm, hoặc sửa lại tên hiển thị. Tệp trên máy chủ giữ nguyên.</p>
+    </div>
+</div>
+
+<form asp-action="Edit" method="post" class="content-card">
+    <input asp-for="MaterialId" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="CourseId" class="form-label"></label>
+            @if (Model.CanChangeCourse)
+            {
+                <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+                {
+                    Name = nameof(CourseMaterialEditViewModel.CourseId),
+                    SelectedValue = Model.CourseId,
+                    Placeholder = "Chọn môn học",
+                    SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                    EmptyText = "Không tìm thấy môn học phù hợp",
+                    Options = Model.CourseOptions
+                })" />
+                <p class="text-muted">Đang thuộc môn @Model.CurrentCourseLabel.</p>
+            }
+            else
+            {
+                @* The picker is gone rather than disabled: a disabled select posts nothing,
+                   which would arrive as "chưa chọn môn học" instead of "không đổi được". *@
+                <input asp-for="CourseId" type="hidden" />
+                <p class="form-control-plaintext">@Model.CurrentCourseLabel</p>
+                <p class="text-muted">
+                    Không đổi được môn vì tài liệu đang là chủ đề của @Model.QuestionCount câu hỏi
+                    thuộc môn này.
+                    <a asp-controller="Questions" asp-action="Index"
+                       asp-route-courseId="@Model.CourseId" asp-route-materialId="@Model.MaterialId">
+                        Xem các câu hỏi đó
+                    </a>
+                </p>
+            }
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="FileName" class="form-label"></label>
+            <input asp-for="FileName" class="form-control" />
+            <span asp-validation-for="FileName" class="text-danger"></span>
+            <p class="text-muted">
+                Giữ nguyên phần mở rộng. Tên này chính là giá trị cột <code>material</code>
+                khi nhập câu hỏi từ CSV, đổi tên thì phải sửa file CSV theo.
+            </p>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button class="btn btn-primary">Lưu thay đổi</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Huỷ</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

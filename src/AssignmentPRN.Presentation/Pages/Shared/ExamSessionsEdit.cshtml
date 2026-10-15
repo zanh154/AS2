@@ -1,0 +1,42 @@
+@model ExamSessionEditViewModel
+@{
+    ViewData["Title"] = "Sửa phiên thi";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lịch thi", "ExamSessions", "Index"),
+        new(Model.ExamName, "ExamSessions", "Details", new { id = Model.ExamId }),
+        new("Sửa")
+    };
+}
+<div class="page-header"><div><a class="back-link" asp-page="/ExamSessions/Details" asp-route-id="@Model.ExamId">← Chi tiết phiên thi</a><h1>Sửa phiên thi</h1>
+<p>Cập nhật thông tin, ngày giờ và thời lượng của phiên thi.</p></div></div>
+<form method="post" asp-page="/ExamSessions/Edit" asp-route-id="@Model.ExamId" class="content-card">
+    <p class="text-muted">Nếu phiên đã phát đề, cần huỷ đề trước khi đổi môn học hoặc số câu hỏi chính. Không thể huỷ đề sau khi có sinh viên vào thi.</p>
+    <input asp-for="ExamId" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="alert alert-info">Danh sách sinh viên và giảng viên được giữ nguyên. Nếu đổi ngày giờ bắt đầu hoặc thời lượng, các lượt thi sẽ được xếp liên tiếp theo thứ tự hiện tại và kiểm tra trùng lịch trước khi lưu.</div>
+    <div class="row g-3">
+        <div class="col-md-6"><label asp-for="ExamName" class="form-label"></label><input asp-for="ExamName" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="CourseId" class="form-label"></label><partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(ExamSessionEditViewModel.CourseId),
+                SelectedValue = Model.CourseId,
+                Placeholder = "Chọn môn học",
+                SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                EmptyText = "Không tìm thấy môn học phù hợp",
+                Options = Model.Courses
+            })" /></div>
+        <div class="col-md-6"><label asp-for="StartTime" class="form-label"></label><partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
+            {
+                Name = nameof(ExamSessionEditViewModel.StartTime),
+                Value = Model.StartTime?.ToString("yyyy-MM-ddTHH:mm"),
+                DisplayLabel = Model.StartTime?.ToString("dd/MM/yyyy · HH:mm"),
+                Placeholder = "Chọn ngày và giờ"
+            })" /></div>
+        <div class="col-md-6"><label asp-for="TimePerStudent" class="form-label"></label><input asp-for="TimePerStudent" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="MainQuestionCount" class="form-label"></label><input asp-for="MainQuestionCount" class="form-control" /></div>
+        <div class="col-md-6"><label asp-for="MaxFollowUpCount" class="form-label"></label><input asp-for="MaxFollowUpCount" class="form-control" /></div>
+        <div class="col-12"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" rows="3" class="form-control"></textarea></div>
+    </div>
+    <div class="d-flex gap-2 mt-4"><button class="btn btn-primary">Lưu thay đổi</button><a class="btn btn-outline-secondary" asp-page="/ExamSessions/Details" asp-route-id="@Model.ExamId">Huỷ</a></div>
+</form>

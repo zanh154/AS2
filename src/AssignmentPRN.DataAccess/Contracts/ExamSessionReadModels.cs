@@ -4,6 +4,7 @@ namespace AssignmentPRN.DataAccess.Contracts;
 
 public sealed class ExamSessionListItem
 {
+    public int LecturerId { get; init; }
     public int ExamId { get; init; }
 
     public string ExamName { get; init; } = string.Empty;
@@ -18,7 +19,7 @@ public sealed class ExamSessionListItem
 
     public string LecturerName { get; init; } = string.Empty;
 
-    public int LecturerId { get; init; }
+
 
     public string CourseCode { get; init; } = string.Empty;
 

@@ -1,14 +1,17 @@
 @model SearchableSelectViewModel
 @{
-    var selectedValue = Model.SelectedValue > 0 ? Model.SelectedValue.ToString() : string.Empty;
+    var selectedValue = Model.SelectedKey
+        ?? (Model.SelectedValue > 0 ? Model.SelectedValue.ToString() : string.Empty);
     var selectedOption = Model.Options.FirstOrDefault(option => option.Value == selectedValue);
     var selectedSeparator = selectedOption?.Text.IndexOf(" · ", StringComparison.Ordinal) ?? -1;
     var selectedLabel = selectedSeparator >= 0
         ? selectedOption!.Text[..selectedSeparator]
         : selectedOption?.Text;
+    var extraAttrs = string.Join(" ", Model.Attributes.Select(a =>
+        string.IsNullOrEmpty(a.Value) ? a.Key : $"{a.Key}=\"{a.Value}\""));
 }
 
-<div class="select-picker" data-select-picker>
+<div class="select-picker @(Model.ShowAvatar ? null : "select-picker--plain")" data-select-picker>
     <button class="select-picker__trigger" type="button"
             aria-haspopup="listbox" aria-expanded="false"
             data-select-trigger>
@@ -20,7 +23,7 @@
     </button>
 
     <select id="@Model.Name" name="@Model.Name" class="visually-hidden"
-            tabindex="-1" aria-hidden="true" data-select-value>
+            tabindex="-1" aria-hidden="true" data-select-value @Html.Raw(extraAttrs)>
         <option value="">@Model.Placeholder</option>
         @foreach (var option in Model.Options)
         {
@@ -47,10 +50,14 @@
                 <button class="select-picker__option @(isSelected ? "is-selected" : null)"
                         type="button" role="option" aria-selected="@(isSelected ? "true" : "false")"
                         data-select-option data-value="@option.Value"
+                        data-group="@option.Group?.Name"
                         data-label="@primary" data-search-text="@option.Text">
-                    <span class="select-picker__avatar" aria-hidden="true">
-                        @(string.IsNullOrWhiteSpace(primary) ? "?" : primary[..1].ToUpperInvariant())
-                    </span>
+                    @if (Model.ShowAvatar)
+                    {
+                        <span class="select-picker__avatar" aria-hidden="true">
+                            @(string.IsNullOrWhiteSpace(primary) ? "?" : primary[..1].ToUpperInvariant())
+                        </span>
+                    }
                     <span class="select-picker__identity">
                         <strong>@primary</strong>
                         @if (!string.IsNullOrWhiteSpace(secondary))

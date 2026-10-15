@@ -1,5 +1,4 @@
-@{
-    var fullName = Context.Session.GetString(SessionKeys.FullName) ?? string.Empty;
+@{    var fullName = Context.Session.GetString(SessionKeys.FullName) ?? string.Empty;
     var role = Context.Session.GetString(SessionKeys.Role);
     var isSignedIn = Context.Session.GetInt32(SessionKeys.UserId).HasValue;
     var initial = string.IsNullOrEmpty(fullName) ? "?" : fullName[..1].ToUpperInvariant();
@@ -30,8 +29,8 @@
 </head>
 <body>
     <header class="site-header">
-        <nav class="navbar navbar-expand-md">
-            <div class="app-shell d-flex flex-wrap align-items-center">
+        <nav class="navbar">
+            <div class="app-shell d-flex align-items-center">
                 <a class="navbar-brand" asp-controller="@homeAction.Item2" asp-action="@homeAction.Item1">
                     <span class="brand-mark" aria-hidden="true">AV</span>
                     <span>AIVES</span>
@@ -39,39 +38,20 @@
 
                 @if (isSignedIn)
                 {
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#mainNavigation" aria-controls="mainNavigation"
-                            aria-expanded="false" aria-label="Mở menu">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-
-                    <div class="collapse navbar-collapse" id="mainNavigation">
-                        <ul class="navbar-nav ms-auto align-items-md-center gap-md-1">
-                            @if (role is RoleNames.Admin or RoleNames.Lecturer)
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="ExamSessions" asp-action="Index">Lịch thi</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="StudentSchedule" asp-action="Index">Tra cứu sinh viên</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Classes" asp-action="Index">Lớp học</a>
-                                </li>
-                            }
-                            else if (role == RoleNames.Student)
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="StudentSchedule" asp-action="Mine">Lịch thi của tôi</a>
-                                </li>
-                            }
-                        </ul>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button class="navbar-toggler d-md-none" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#sidebarNav" aria-controls="sidebarNav" aria-expanded="false" aria-label="Mở menu">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
 
                         <div class="nav-user">
                             <span class="nav-user__avatar" aria-hidden="true">@initial</span>
-                            <span class="nav-user__meta">
+                            <span class="nav-user__meta d-none d-sm-flex">
                                 <span class="nav-user__name">@fullName</span>
                                 <span class="nav-user__role">@roleLabel</span>
+                                <span class="badge bg-danger ms-2 notif-badge" role="status">
+                                    @await Component.InvokeAsync("Notification")
+                                </span>
                             </span>
                             <form method="post" asp-page="/Account/Logout">
                                 <button class="nav-logout" type="submit">
@@ -86,17 +66,28 @@
         </nav>
     </header>
 
-    <main class="app-shell page-content">
-        @if (TempData["Success"] is string success)
+    <div class="app-shell app-body">
+        @if (isSignedIn)
         {
-            <div class="alert alert-success app-alert" role="status">@success</div>
+            <partial name="_Sidebar" />
         }
-        @if (TempData["Error"] is string error)
-        {
-            <div class="alert alert-danger app-alert" role="alert">@error</div>
-        }
-        @RenderBody()
-    </main>
+
+        <main class="page-content">
+            @{                var trail = ViewData["Breadcrumb"] as IReadOnlyList<BreadcrumbItem> ?? [];
+            }
+            <partial name="_Breadcrumb" model="trail" />
+
+            @if (TempData["Success"] is string success)
+            {
+                <div class="alert alert-success app-alert" role="status">@success</div>
+            }
+            @if (TempData["Error"] is string error)
+            {
+                <div class="alert alert-danger app-alert" role="alert">@error</div>
+            }
+            @RenderBody()
+        </main>
+    </div>
 
     <footer class="site-footer">
         <div class="app-shell">AIVES · AI-powered Viva Exam System</div>
@@ -124,7 +115,10 @@
     {
         <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
     }
+    <script src="~/js/exam-realtime.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @* Drives _SearchableSelect and the student combobox; no-ops on pages without them. *@
+    <script src="~/js/combobox.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

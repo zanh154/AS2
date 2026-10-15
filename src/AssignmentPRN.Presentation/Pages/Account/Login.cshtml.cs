@@ -1,6 +1,7 @@
 using AssignmentPRN.Business;
+using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Presentation.Constants;
-using AssignmentPRN.Presentation.Models;
+using AssignmentPRN.Presentation.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -33,7 +34,7 @@ public sealed class LoginModel(IAuthService authService) : PageModel
         }
 
         var user = await authService.LoginAsync(Input.Email, Input.Password);
-        if (user?.Role is null)
+        if (user is null)
         {
             ModelState.AddModelError(string.Empty, "Email hoặc mật khẩu không đúng.");
             return Page();
@@ -43,14 +44,14 @@ public sealed class LoginModel(IAuthService authService) : PageModel
         HttpContext.Session.SetInt32(SessionKeys.UserId, user.UserId);
         HttpContext.Session.SetString(SessionKeys.FullName, user.FullName);
         HttpContext.Session.SetString(SessionKeys.Email, user.Email);
-        HttpContext.Session.SetString(SessionKeys.Role, user.Role.RoleName);
+        HttpContext.Session.SetString(SessionKeys.Role, user.RoleName);
 
         if (!string.IsNullOrWhiteSpace(Input.ReturnUrl) && Url.IsLocalUrl(Input.ReturnUrl))
         {
             return LocalRedirect(Input.ReturnUrl);
         }
 
-        return RedirectToRoleHome(user.Role.RoleName);
+        return RedirectToRoleHome(user.RoleName);
     }
 
     private IActionResult RedirectToRoleHome(string? role) => role switch

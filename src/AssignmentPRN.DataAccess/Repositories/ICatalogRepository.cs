@@ -1,3 +1,4 @@
+using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
 
 namespace AssignmentPRN.DataAccess.Repositories;
@@ -25,6 +26,9 @@ public interface ICatalogRepository
         string roleName,
         IReadOnlyCollection<string> emails,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Ids of the students enrolled in any active class of the course.</summary>
+    Task<IReadOnlyList<int>> ListStudentIdsInCourseAsync(int courseId, CancellationToken cancellationToken = default);
 
     Task<bool> CourseExistsAsync(int courseId, CancellationToken cancellationToken = default);
 

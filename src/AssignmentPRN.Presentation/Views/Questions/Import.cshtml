@@ -1,0 +1,72 @@
+@model QuestionImportViewModel
+@{
+    ViewData["Title"] = "Nhập câu hỏi từ CSV";
+}
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-action="Index">← Ngân hàng câu hỏi</a>
+        <h1>@ViewData["Title"]</h1>
+        <p>Mỗi dòng là một câu trắc nghiệm. Dòng sai bị bỏ qua và được liệt kê bên dưới, các dòng còn lại vẫn được nhập.</p>
+    </div>
+    <a class="btn btn-outline-primary" asp-action="Template">Tải file mẫu</a>
+</div>
+
+<form asp-action="Import" method="post" enctype="multipart/form-data" class="content-card">
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="CourseId" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(QuestionImportViewModel.CourseId),
+                SelectedValue = Model.CourseId,
+                Placeholder = "Chọn môn học",
+                SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                EmptyText = "Không tìm thấy môn học phù hợp",
+                Options = Model.CourseOptions
+            })" />
+            <span asp-validation-for="CourseId" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="File" class="form-label"></label>
+            <input asp-for="File" class="form-control" accept=".csv,text/csv" />
+            <span asp-validation-for="File" class="text-danger"></span>
+        </div>
+    </div>
+
+    <details class="csv-format">
+        <summary>Định dạng cột của file CSV</summary>
+        <dl>
+            <dt>question_text</dt><dd>Nội dung câu hỏi, bắt buộc.</dd>
+            <dt>difficulty</dt><dd>Easy / Medium / Hard, thiếu thì mặc định Medium.</dd>
+            <dt>bloom</dt><dd>Remember / Understand / Apply / Analyze, thiếu thì mặc định Understand.</dd>
+            <dt>material</dt><dd>Tên tệp tài liệu đã có trong hệ thống, dùng làm chủ đề.</dd>
+            <dt>expected_answer</dt><dd>Đáp án mong đợi, không bắt buộc.</dd>
+            <dt>option_a … option_d</dt><dd>Các phương án, cần ít nhất 2 phương án.</dd>
+            <dt>correct</dt><dd>Phương án đúng: A–D hoặc 1–4.</dd>
+        </dl>
+    </details>
+
+    @if (Model.Result is not null)
+    {
+        <div class="import-result">
+            <p class="import-result__count">Đã nhập @Model.Result.Imported câu hỏi.</p>
+            @if (Model.Result.Errors.Count > 0)
+            {
+                <p class="text-muted">@Model.Result.Errors.Count dòng bị bỏ qua:</p>
+                <ul class="import-result__errors">
+                    @foreach (var error in Model.Result.Errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+
+    <div class="form-actions">
+        <button class="btn btn-primary">Nhập câu hỏi</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Huỷ</a>
+    </div>
+</form>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

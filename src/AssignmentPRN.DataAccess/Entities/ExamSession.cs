@@ -27,6 +27,9 @@ public class ExamSession
 
     public int MainQuestionCount { get; set; }
 
+    /// <summary>Persisted topic/difficulty selection shared by all main-paper draws.</summary>
+    public string? QuestionScopeJson { get; set; }
+
     public int MaxFollowUpCount { get; set; }
 
     public ExamSessionStatus Status { get; set; }

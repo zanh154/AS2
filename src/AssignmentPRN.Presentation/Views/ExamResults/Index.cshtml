@@ -1,0 +1,92 @@
+@model SessionResultViewModel
+@{
+    var session = Model.Session;
+    ViewData["Title"] = $"Kết quả · {session.ExamName}";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lịch thi", "ExamSessions", "Index"),
+        new(session.ExamName, "ExamSessions", "Details", new { id = session.ExamId }),
+        new("Kết quả")
+    };
+
+    var table = new DataTableViewModel
+    {
+        Columns =
+        [
+            new("Sinh viên"),
+            new("Giờ thi"),
+            new("Trạng thái"),
+            new("Câu chính đúng"),
+            new("Đào sâu đúng"),
+            new("Điểm / 10"),
+            new("Thao tác", AlignEnd: true)
+        ],
+        Rows = session.Candidates.Select(candidate => new List<TableCell>
+        {
+            new StackCell(candidate.StudentName, candidate.StudentEmail),
+            new TextCell(candidate.ScheduledTime?.ToString("HH:mm"), Nowrap: true),
+            new ChipCell(ExamSessionText.Status(candidate.Status), ExamSessionText.ChipModifier(candidate.Status)),
+            new TextCell(ExamResultText.Ratio(candidate.MainCorrect, candidate.MainTotal), Nowrap: true),
+            new TextCell(ExamResultText.Ratio(candidate.FollowUpCorrect, candidate.FollowUpTotal), Nowrap: true),
+            new TextCell(ExamResultText.Score(candidate.Score), Nowrap: true),
+            new ActionsCell(
+            [
+                new("Xem bài làm", "file-text", "Candidate", new { id = candidate.CandidateId })
+            ])
+        } as IReadOnlyList<TableCell>).ToList()
+    };
+}
+
+<div class="page-header">
+    <div>
+        <a class="back-link"  asp-page="/ExamSessions/Details" asp-route-id="@session.ExamId">
+            <partial name="_Icon" model="@("arrow-left")" /> Quay lại phiên thi
+        </a>
+        <span class="eyebrow">@session.CourseCode · @session.StartTime.ToString("dd/MM/yyyy")</span>
+        <h1>Kết quả phiên thi</h1>
+        <p>@session.ExamName · @session.CourseName · @session.LecturerName</p>
+    </div>
+    @if (session.OverdueCount > 0)
+    {
+        <form method="post" asp-action="CloseOverdue" asp-route-id="@session.ExamId"
+              data-confirm="Chốt @session.OverdueCount ca đã hết giờ? Sinh viên chưa vào thi được ghi Vắng, bài đang làm dở được đóng với những gì đã lưu.">
+            <button class="btn btn-primary" type="submit">
+                <partial name="_Icon" model="@("lock")" /> Chốt @session.OverdueCount ca đã hết giờ
+            </button>
+        </form>
+    }
+</div>
+
+<section class="metric-row">
+    <div class="metric-card"><span>Sinh viên</span><strong>@session.Candidates.Count</strong></div>
+    <div class="metric-card"><span>Đã hoàn thành</span><strong>@session.CompletedCount</strong></div>
+    <div class="metric-card"><span>Vắng thi</span><strong>@session.AbsentCount</strong></div>
+    <div class="metric-card"><span>Điểm trung bình</span><strong>@ExamResultText.Score(session.AverageScore)</strong></div>
+    <div class="metric-card"><span>Câu chính / đào sâu</span><strong>@session.MainQuestionCount / @session.MaxFollowUpCount</strong></div>
+    <div class="metric-card"><span>Trạng thái</span><strong>@ExamSessionText.Status(session.Status)</strong></div>
+</section>
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Bảng điểm</h2>
+            <p>
+                Điểm quy về thang 10: câu chính trọng số 1, câu đào sâu trọng số 0,5.
+                Điểm chỉ hiện khi sinh viên đã hoàn thành bài.
+            </p>
+        </div>
+    </div>
+
+    @if (session.Candidates.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon"><partial name="_Icon" model="@("users")" /></div>
+            <h2>Chưa có sinh viên nào</h2>
+            <p>Phiên thi này chưa có sinh viên để hiển thị kết quả.</p>
+        </div>
+    }
+    else
+    {
+        <partial name="_DataTable" model="table" />
+    }
+</div>

@@ -1,0 +1,10 @@
+@page "{id:int?}"
+@model AssignmentPRN.Presentation.Pages.ExamSessions.DetailsModel
+@{ ViewData["Title"] = "ExamSessions · Details"; }
+<div data-live-page="ExamSessions" data-roster-filter data-exam-id="@(RouteData.Values["id"] ?? Request.Query["id"].ToString())" data-snapshot-url="@Url.Page("/ExamSessions/Details", "Snapshot", new { id = RouteData.Values["id"] ?? Request.Query["id"].ToString() })">
+<partial name="/Pages/Shared/ExamSessionsDetails.cshtml" model="Model.Data" />
+</div>
+@section Scripts {
+    <script src="~/js/combobox.js" asp-append-version="true"></script>
+    <script src="~/js/exam-student-search.js" asp-append-version="true"></script>
+}

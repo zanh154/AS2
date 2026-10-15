@@ -2,11 +2,34 @@
   "ConnectionStrings": {
     "DefaultConnection": "Server=myteam-prn202.c.aivencloud.com;Port=15132;Database=defaultdb;User ID=avnadmin;Password=YOUR_PASSWORD;SslMode=Required;"
   },
+  "MaterialStorage": {
+    "RootPath": "../AssignmentPRN.DataAccess/Storage"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",
       "Microsoft.AspNetCore": "Warning"
     }
   },
-  "AllowedHosts": "*"
+  "AllowedHosts": "*",
+  "DocumentStorage": {
+    "BasePath": "../AssignmentPRN.DataAccess/Storage/rag",
+    "MaxFileSizeMB": 50,
+    "AllowedExtensions": [
+      ".pdf",
+      ".docx",
+      ".pptx"
+    ],
+    "ChunkSize": 800,
+    "ChunkOverlap": 100
+  },
+  "Ollama": {
+    "BaseUrl": "http://localhost:11434",
+    "EmbeddingModel": "nomic-embed-text",
+    "GenerationModel": "qwen2.5:3b"
+  },
+  "Rag": {
+    "TopK": 5,
+    "SimilarityThreshold": 0.7
+  }
 }

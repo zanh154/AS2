@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-80 0 1060 760" width="1060" height="760" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowDash" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="-80" y="0" width="1060" height="760" fill="#ffffff"/>
+  <text x="370" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">AssignmentPRN System Architecture</text>
+
+  <!-- ===== Presentation ===== -->
+  <rect x="60" y="60" width="620" height="145" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="370" y="88" text-anchor="middle" font-size="16" font-weight="700" fill="#1d4ed8">Presentation Layer (WebMVC)</text>
+  <rect x="85"  y="105" width="175" height="80" rx="6" fill="#ffffff" stroke="#93b4e8" stroke-width="1.5"/>
+  <rect x="282" y="105" width="175" height="80" rx="6" fill="#ffffff" stroke="#93b4e8" stroke-width="1.5"/>
+  <rect x="479" y="105" width="175" height="80" rx="6" fill="#ffffff" stroke="#93b4e8" stroke-width="1.5"/>
+  <text x="172" y="142" text-anchor="middle" font-size="15" font-weight="600" fill="#17325c">Controllers</text>
+  <text x="172" y="160" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">14 controller</text>
+  <text x="172" y="175" text-anchor="middle" font-size="9.5" fill="#64748b">ASP.NET Core MVC</text>
+  <text x="369" y="142" text-anchor="middle" font-size="15" font-weight="600" fill="#17325c">Razor Views</text>
+  <text x="369" y="160" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">29 view · 3 layout</text>
+  <text x="369" y="175" text-anchor="middle" font-size="9.5" fill="#64748b">13 partial · .cshtml</text>
+  <text x="566" y="142" text-anchor="middle" font-size="15" font-weight="600" fill="#17325c">ViewModels</text>
+  <text x="566" y="160" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">15 file</text>
+  <text x="566" y="175" text-anchor="middle" font-size="9.5" fill="#64748b">Binding · Validation</text>
+
+  <!-- ===== Business ===== -->
+  <rect x="60" y="266" width="620" height="145" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="370" y="294" text-anchor="middle" font-size="16" font-weight="700" fill="#15803d">Business Layer (Services)</text>
+  <rect x="175" y="311" width="175" height="80" rx="6" fill="#ffffff" stroke="#8fd3a7" stroke-width="1.5"/>
+  <rect x="390" y="311" width="175" height="80" rx="6" fill="#ffffff" stroke="#8fd3a7" stroke-width="1.5"/>
+  <text x="262" y="348" text-anchor="middle" font-size="15" font-weight="600" fill="#14532d">Services</text>
+  <text x="262" y="366" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">8 service · 3 policy</text>
+  <text x="262" y="381" text-anchor="middle" font-size="9.5" fill="#64748b">Auth · Course · Exam · Question</text>
+  <text x="477" y="348" text-anchor="middle" font-size="15" font-weight="600" fill="#14532d">Interfaces</text>
+  <text x="477" y="366" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">5 file</text>
+  <text x="477" y="381" text-anchor="middle" font-size="9.5" fill="#64748b">Request/Response DTO · Enums</text>
+
+  <!-- ===== Data Access ===== -->
+  <rect x="60" y="472" width="620" height="250" rx="10" fill="#fff5ef" stroke="#d2693c" stroke-width="2"/>
+  <text x="370" y="500" text-anchor="middle" font-size="16" font-weight="700" fill="#c2410c">Data Access Layer</text>
+  <rect x="85"  y="517" width="175" height="80" rx="6" fill="#ffffff" stroke="#e8b095" stroke-width="1.5"/>
+  <rect x="282" y="517" width="175" height="80" rx="6" fill="#ffffff" stroke="#e8b095" stroke-width="1.5"/>
+  <rect x="479" y="517" width="175" height="80" rx="6" fill="#ffffff" stroke="#e8b095" stroke-width="1.5"/>
+  <text x="172" y="554" text-anchor="middle" font-size="15" font-weight="600" fill="#7c3a1d">Repositories</text>
+  <text x="172" y="572" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">8 repository</text>
+  <text x="172" y="587" text-anchor="middle" font-size="9.5" fill="#64748b">Query · Command</text>
+  <text x="369" y="554" text-anchor="middle" font-size="15" font-weight="600" fill="#7c3a1d">AivesDbContext</text>
+  <text x="369" y="572" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">12 DbSet</text>
+  <text x="369" y="587" text-anchor="middle" font-size="9.5" fill="#64748b">EF Core 9 · Pomelo MySQL</text>
+  <text x="566" y="554" text-anchor="middle" font-size="15" font-weight="600" fill="#7c3a1d">Entity Models</text>
+  <text x="566" y="572" text-anchor="middle" font-size="10.5" font-weight="600" fill="#475569">12 entity</text>
+  <text x="566" y="587" text-anchor="middle" font-size="9.5" fill="#64748b">User · Course · ExamSession</text>
+
+  <path d="M 265 627 a 105 17 0 0 1 210 0 l 0 58 a 105 17 0 0 1 -210 0 z" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+  <ellipse cx="370" cy="627" rx="105" ry="17" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+  <text x="370" y="660" text-anchor="middle" font-size="13.5" font-weight="600" fill="#7c3a1d">File tài liệu</text>
+  <text x="370" y="677" text-anchor="middle" font-size="8.5" fill="#64748b">LocalMaterialFileStore · Storage/materials</text>
+
+  <!-- request / response giua cac tang -->
+  <line x1="320" y1="207" x2="320" y2="262" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="430" y1="264" x2="430" y2="209" stroke="#64748b" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowDash)"/>
+  <line x1="320" y1="413" x2="320" y2="468" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="430" y1="470" x2="430" y2="415" stroke="#64748b" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowDash)"/>
+
+  <!-- Luu tru ngoai: chi con MySQL -->
+  <path d="M 753 510 a 62 17 0 0 1 124 0 l 0 60 a 62 17 0 0 1 -124 0 z" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <ellipse cx="815" cy="510" rx="62" ry="17" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="815" y="547" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">MySQL 8.4</text>
+  <text x="815" y="564" text-anchor="middle" font-size="10.5" fill="#64748b">Aiven · TLS</text>
+  <line x1="684" y1="528" x2="749" y2="528" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="749" y1="558" x2="684" y2="558" stroke="#64748b" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowDash)"/>
+
+  <!-- Legend -->
+  <rect x="730" y="80" width="215" height="110" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="837" y="108" text-anchor="middle" font-size="15" font-weight="700" fill="#0f172a">Legends</text>
+  <line x1="750" y1="135" x2="810" y2="135" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="822" y="140" font-size="14" fill="#334155">request</text>
+  <line x1="750" y1="167" x2="810" y2="167" stroke="#64748b" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowDash)"/>
+  <text x="822" y="172" font-size="14" fill="#334155">response</text>
+
+  <!-- Ghi chu ben trai -->
+  <text x="-72" y="128" font-size="14" font-weight="600" fill="#475569">MVC</text>
+  <text x="-72" y="148" font-size="14" font-weight="600" fill="#475569">Web App</text>
+  <line x1="-8" y1="138" x2="54" y2="138" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowDash)"/>
+  <path d="M 52 266 C 42 266 42 276 42 286 L 42 478 C 42 490 34 492 26 492 C 34 492 42 494 42 506 L 42 698 C 42 708 42 716 52 716" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="-40" y="497" text-anchor="middle" font-size="14" font-weight="600" fill="#475569">.dll</text>
+</svg>

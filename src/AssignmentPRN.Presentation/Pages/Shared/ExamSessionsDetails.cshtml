@@ -1,0 +1,268 @@
+@model ExamSessionDetailViewModel
+@{
+    var session = Model.Session;
+    var candidates = session.Candidates;
+    ViewData["Title"] = session.ExamName;
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lịch thi", "ExamSessions", "Index"),
+        new(session.ExamName)
+    };
+    var canManageStudents = (session.Status is ExamSessionStatus.Draft
+        or ExamSessionStatus.Scheduled) && session.StartTime > DateTime.Now
+        && (Context.Session.GetString(AssignmentPRN.Presentation.Constants.SessionKeys.Role) == AssignmentPRN.Presentation.Constants.RoleNames.Admin
+            || Context.Session.GetInt32(AssignmentPRN.Presentation.Constants.SessionKeys.UserId) == session.Lecturer.UserId);
+}
+
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-page="/ExamSessions/Index"><partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi</a>
+        <span class="eyebrow">@session.Course.CourseCode · @session.StartTime.ToString("dd/MM/yyyy")</span>
+        <h1>@session.ExamName</h1>
+        <p>@session.Course.CourseName · @session.Lecturer.FullName</p>
+    </div>
+    @if (ExamSessionRules.CanEdit(session.Status) && candidates.All(x => x.Status == CandidateStatus.Waiting))
+    {
+    <div class="d-flex gap-2">
+    <a class="btn btn-primary" asp-page="/ExamSessions/Edit" asp-route-id="@session.ExamId">Sửa phiên thi</a>
+    <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="Delete" asp-route-id="@session.ExamId"
+          data-confirm="Xoá toàn bộ lịch thi này?">
+        <button class="btn btn-outline-danger" type="submit">Xoá lịch</button>
+    </form>
+    </div>
+    }
+</div>
+
+@{
+    // A slot may only be moved inside the exam day, and it has to finish before
+    // midnight — so the picker is handed exactly that window.
+    var examDay = session.StartTime.Date;
+    var lastStart = examDay.AddDays(1).AddMinutes(-1 - session.TimePerStudent);
+    if (lastStart < examDay) { lastStart = examDay; }
+}
+@{ var nextStatuses = Enum.GetValues<ExamSessionStatus>().Where(x => ExamSessionRules.CanTransition(session.Status, x)).ToList(); }
+<p class="text-muted">Phiên tự chuyển sang Đang diễn ra khi có sinh viên vào thi và Hoàn thành khi mọi lượt thi đã kết thúc. Nếu còn lượt quá hạn, giảng viên cần chốt ca tại trang kết quả. Bạn vẫn có thể bắt đầu phiên thủ công khi đến giờ.</p>
+@if (nextStatuses.Count > 0)
+{
+    <form asp-page="/ExamSessions/Details" asp-page-handler="ChangeStatus" asp-route-id="@session.ExamId" method="post" class="content-card" data-confirm="Xác nhận chuyển trạng thái phiên thi? Không thể quay lại trạng thái trước.">
+        <label for="session-status" class="form-label">Chuyển trạng thái</label>
+        <div class="d-flex gap-2 align-items-start">
+            <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
+            {
+                Name = "status",
+                SelectedKey = nextStatuses[0].ToString(),
+                Placeholder = "Chọn trạng thái",
+                SearchPlaceholder = "Tìm trạng thái",
+                EmptyText = "Không có trạng thái phù hợp",
+                Options = nextStatuses
+                    .Select(status => new SelectListItem(ExamSessionText.Status(status), status.ToString()))
+                    .ToList()
+            })" />
+            <button class="btn btn-outline-primary text-nowrap">Cập nhật</button>
+        </div>
+    </form>
+}
+
+<p><a class="btn btn-outline-primary" asp-page="/ExamSessions/Settings" asp-route-id="@session.ExamId">Cấu hình vấn đáp</a></p>
+<section class="metric-row" data-live-region="metrics">
+    <div class="metric-card"><span>Ngày thi</span><strong>@session.StartTime.ToString("dd/MM")</strong></div>
+    <div class="metric-card">
+        <span>Khung giờ</span>
+        <strong>@session.StartTime.ToString("HH:mm")–@session.EndTime.ToString("HH:mm")</strong>
+    </div>
+    <div class="metric-card"><span>Sinh viên</span><strong>@candidates.Count</strong></div>
+    <div class="metric-card"><span>Phút / sinh viên</span><strong>@session.TimePerStudent</strong></div>
+    <div class="metric-card"><span>Câu hỏi chính</span><strong>@session.MainQuestionCount</strong></div>
+    <div class="metric-card"><span>Trạng thái</span><strong>@ExamSessionText.Status(session.Status)</strong></div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(session.Description))
+{
+    <div class="content-card">
+        <p>@session.Description</p>
+    </div>
+}
+
+@if (canManageStudents)
+{
+    <section class="content-card student-add-card mb-3" aria-labelledby="add-student-heading">
+        <span class="eyebrow">Quản lý sinh viên</span>
+        <h2 id="add-student-heading">Thêm sinh viên vào phiên thi</h2>
+        <p>Bấm vào ô Sinh viên để xem tài khoản hiện có, hoặc gõ tên/email để tìm nhanh.</p>
+        <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="AddStudent" class="student-add-form">
+            <input type="hidden" name="ExamId" value="@session.ExamId" />
+            <div>
+                <label for="student-email" class="form-label">Sinh viên</label>
+                <div class="combobox" data-combobox data-combobox-url="@Url.Page("/ExamSessions/Details", "SearchStudents")">
+                    <input id="student-email" type="text" class="form-control" required maxlength="420"
+                           placeholder="Gõ tên hoặc email, ví dụ: stu" autocomplete="off"
+                           aria-describedby="student-search-help" aria-controls="student-search-results" data-combobox-input />
+                    <input type="hidden" name="Email" data-combobox-value />
+                    <div id="student-search-results" class="combobox__panel" role="listbox" aria-label="Sinh viên phù hợp" data-combobox-panel hidden></div>
+                </div>
+                <small id="student-search-help" class="field-hint">Chọn sinh viên từ gợi ý bên dưới. Có thể dùng phím ↑ ↓ và Enter.</small>
+            </div>
+            <div>
+                @* Same window the reschedule picker below uses: inside the exam day,
+                   and early enough that the slot still ends before midnight. *@
+                <span class="form-label">Giờ bắt đầu</span>
+                <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
+                {
+                    Name = "ScheduledTime",
+                    Value = session.EndTime.ToString("yyyy-MM-ddTHH:mm"),
+                    DisplayLabel = session.EndTime.ToString("dd/MM/yyyy · HH:mm"),
+                    Placeholder = "Chọn giờ",
+                    Earliest = examDay,
+                    Latest = lastStart
+                })" />
+            </div>
+            <button type="submit" class="btn btn-primary">Thêm sinh viên</button>
+        </form>
+        <div class="student-add-note">Ngày thi: <strong>@session.StartTime.ToString("dd/MM/yyyy")</strong> · <strong>@session.TimePerStudent phút</strong> / sinh viên · Tự động kiểm tra trùng lịch</div>
+    </section>
+}
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Ngân hàng câu hỏi</h2>
+            <p>
+                Mỗi sinh viên nhận @session.MainQuestionCount câu hỏi chính, rút ngẫu nhiên ngay
+                khi họ bấm vào thi và không trùng với sinh viên nào khác trong phiên này.
+                Bạn có thể phát trước để xem đề, nhưng không bắt buộc.
+            </p>
+        </div>
+        <a class="btn btn-outline-primary" asp-page="/ExamSessions/Questions" asp-route-id="@session.ExamId">
+            Xem và phát đề
+        </a>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Kết quả thi</h2>
+            <p>
+                Bảng điểm từng sinh viên, gồm @session.MainQuestionCount câu chính và tối đa
+                @session.MaxFollowUpCount câu đào sâu mỗi người. Chốt ca đã hết giờ để ghi nhận vắng thi.
+            </p>
+        </div>
+        <a class="btn btn-outline-primary" asp-controller="ExamResults" asp-action="Index" asp-route-id="@session.ExamId">
+            Xem kết quả
+        </a>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="section-heading">
+        <div>
+            <h2>Lịch từng sinh viên</h2>
+            <p>Có thể đổi giờ từng ca. Hệ thống sẽ từ chối nếu trùng lịch sinh viên hoặc giảng viên.</p>
+        </div>
+    </div>
+
+    <div class="exam-student-filters">
+        <div><label class="form-label" for="roster-query">Tên hoặc email</label><input id="roster-query" type="search" class="form-control" placeholder="Tìm trong phiên thi này" data-roster-query /></div>
+        <div>
+            <label class="form-label" for="roster-status">Trạng thái</label>
+            <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
+            {
+                Name = "roster-status",
+                Placeholder = "Tất cả trạng thái",
+                SearchPlaceholder = "Tìm trạng thái",
+                EmptyText = "Không có trạng thái phù hợp",
+                Attributes = new Dictionary<string, string> { ["data-roster-status"] = "" },
+                Options = Enum.GetValues<CandidateStatus>()
+                    .Select(status => new SelectListItem(ExamSessionText.Status(status), status.ToString()))
+                    .ToList()
+            })" />
+        </div>
+        <button type="button" class="btn btn-outline-secondary align-self-end" data-roster-reset>Xóa bộ lọc</button>
+    </div>
+    <p class="field-hint" data-roster-count aria-live="polite">@candidates.Count/@candidates.Count sinh viên</p>
+    <div class="empty-state" data-roster-empty hidden>Không tìm thấy sinh viên phù hợp. Hãy thử đổi bộ lọc.</div>
+    <div data-live-region="roster">
+    @if (candidates.Count == 0)
+    {
+        <div class="empty-state">
+            <h3>Chưa có sinh viên nào</h3>
+        </div>
+    }
+    else
+    {
+        <div class="schedule-timeline">
+            @for (var index = 0; index < candidates.Count; index++)
+            {
+                var candidate = candidates[index];
+                var initial = string.IsNullOrEmpty(candidate.StudentName)
+                    ? "?"
+                    : candidate.StudentName[..1].ToUpperInvariant();
+
+                <article class="timeline-item" data-roster-row data-search="@candidate.StudentName @candidate.StudentEmail" data-status="@candidate.Status">
+                    <div class="timeline-axis">
+                        <span class="timeline-dot"></span>
+                        @if (index < candidates.Count - 1)
+                        {
+                            <span class="timeline-line"></span>
+                        }
+                    </div>
+                    <div class="timeline-time">
+                        <strong>@(candidate.ScheduledTime?.ToString("HH:mm") ?? "—")</strong>
+                        <span>@(candidate.EndTime?.ToString("HH:mm") ?? "—")</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="student-identity">
+                            <div class="avatar" aria-hidden="true">@initial</div>
+                            <div>
+                                <strong>@candidate.StudentName</strong>
+                                <span>@candidate.StudentEmail</span>
+                            </div>
+                            <span class="status-chip @ExamSessionText.ChipModifier(candidate.Status)">
+                                @ExamSessionText.Status(candidate.Status)
+                            </span>
+                            @if (canManageStudents && candidate.Status == CandidateStatus.Waiting)
+                            {
+                                <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="RemoveStudent"
+                                      data-confirm="Xóa @candidate.StudentName (@candidate.StudentEmail) khỏi phiên thi này? Tài khoản sinh viên vẫn được giữ nguyên.">
+                                    <input type="hidden" name="examId" value="@session.ExamId" />
+                                    <input type="hidden" name="candidateId" value="@candidate.CandidateId" />
+                                    <button type="submit" class="btn btn-outline-danger btn-sm btn-icon"
+                                            title="Xóa khỏi phiên thi"
+                                            aria-label="Xóa @candidate.StudentName khỏi phiên thi">
+                                        <partial name="/Views/Shared/_Icon.cshtml" model="@("trash")" />
+                                    </button>
+                                </form>
+                            }
+                        </div>
+
+                        @if (ExamSessionRules.CanEdit(session.Status) && candidate.Status == CandidateStatus.Waiting)
+                        {
+                        <details class="reschedule-panel">
+                            <summary>Đổi khung giờ</summary>
+                            <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="Reschedule" class="reschedule-form">
+                                <input type="hidden" name="CandidateId" value="@candidate.CandidateId" />
+                                <input type="hidden" name="ExamId" value="@session.ExamId" />
+                                <div>
+                                    <label class="form-label">Bắt đầu mới</label>
+                                    <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
+                                    {
+                                        Name = "ScheduledTime",
+                                        Value = candidate.ScheduledTime?.ToString("yyyy-MM-ddTHH:mm"),
+                                        DisplayLabel = candidate.ScheduledTime?.ToString("dd/MM/yyyy · HH:mm"),
+                                        Placeholder = "Chọn giờ",
+                                        Earliest = examDay,
+                                        Latest = lastStart
+                                    })" />
+                                </div>
+                                <div class="info-note">Kéo dài @session.TimePerStudent phút</div>
+                                <button class="btn btn-primary" type="submit">Kiểm tra và lưu</button>
+                            </form>
+                        </details>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>
+</div>

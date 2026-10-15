@@ -1,0 +1,67 @@
+@*
+    Layout for a slot being sat. There is no sidebar, no breadcrumb and no logout: while
+    the paper is open the only way out of the page is handing it in. Once it is handed in
+    the view puts the way back on the page itself.
+*@
+@{
+    var fullName = Context.Session.GetString(SessionKeys.FullName) ?? string.Empty;
+    var initial = string.IsNullOrEmpty(fullName) ? "?" : fullName[..1].ToUpperInvariant();
+    var secondsLeft = ViewData["SecondsRemaining"] as int?;
+    var isLocked = ViewData["ExamLocked"] as bool? ?? false;
+    var contextLabel = ViewData["ExamContextLabel"] as string ?? "Đang thi";
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · AIVES</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="exam-body">
+    <header class="exam-header">
+        <div class="app-shell exam-header__inner">
+            <span class="navbar-brand">
+                <span class="brand-mark" aria-hidden="true">AV</span>
+                <span>AIVES</span>
+            </span>
+
+            @if (isLocked && secondsLeft is int seconds)
+            {
+                <div class="exam-clock" id="exam-clock" data-exam-seconds="@seconds"
+                     role="timer" aria-live="off">
+                    <span class="exam-clock__label">Thời gian còn lại</span>
+                    <strong class="exam-clock__value" id="exam-clock-value">--:--</strong>
+                </div>
+            }
+
+            <div class="nav-user">
+                <span class="nav-user__avatar" aria-hidden="true">@initial</span>
+                <span class="nav-user__meta d-none d-sm-flex">
+                    <span class="nav-user__name">@fullName</span>
+                    <span class="nav-user__role">@contextLabel</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-shell exam-main">
+        @if (TempData["Success"] is string success)
+        {
+            <div class="alert alert-success app-alert" role="status">@success</div>
+        }
+        @if (TempData["Error"] is string error)
+        {
+            <div class="alert alert-danger app-alert" role="alert">@error</div>
+        }
+        @RenderBody()
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/exam-room.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

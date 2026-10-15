@@ -1,0 +1,51 @@
+@model ExamRoomQuestionViewModel
+@{
+    var question = Model.Question;
+}
+
+<li class="exam-room-question @(question.IsFollowUp ? "exam-room-question--follow-up" : null)">
+    <div class="exam-room-question__head">
+        <strong>Câu @question.OrderNo</strong>
+        <span class="status-chip @QuestionText.DifficultyChip(question.Difficulty)">
+            @QuestionText.Difficulty(question.Difficulty)
+        </span>
+        @if (Model.ParentOrderNo is int parent)
+        {
+            <span class="status-chip">Đào sâu cho câu @parent</span>
+        }
+        @if (!Model.Editable && !question.SelectedOptionId.HasValue)
+        {
+            <span class="status-chip status-chip--muted">Bỏ trống</span>
+        }
+    </div>
+    <p class="exam-room-question__text">@question.QuestionText</p>
+
+    @if (question.Options.Count > 0)
+    {
+        <ul class="exam-room-options">
+            @for (var index = 0; index < question.Options.Count; index++)
+            {
+                var option = question.Options[index];
+                var inputId = $"answer-{question.ExamQuestionId}-{option.OptionId}";
+                var isPicked = question.SelectedOptionId == option.OptionId;
+
+                <li class="exam-room-option @(isPicked ? "is-picked" : null)">
+                    @if (Model.Editable)
+                    {
+                        @* One radio group per question, keyed by the slot id, so
+                           the controller binds them straight into a dictionary. *@
+                        <input class="form-check-input" type="radio"
+                               id="@inputId"
+                               name="answers[@question.ExamQuestionId]"
+                               value="@option.OptionId"
+                               checked="@isPicked" />
+                    }
+                    <label class="exam-room-option__body" for="@inputId">
+                        <span class="exam-room-options__label">@((char)('A' + index))</span>
+                        <span>@option.Text</span>
+                    </label>
+                </li>
+            }
+        </ul>
+    }
+</li>

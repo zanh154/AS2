@@ -58,7 +58,7 @@ từ chính các token đó:
 - `avatar`, `avatar--lg` — ảnh đại diện chữ cái
 - `empty-state` + `empty-icon` — màn hình chưa có dữ liệu
 - `dashboard-grid` / `dashboard-tile` — ô điều hướng ở trang chủ mỗi vai trò
-- `form-actions`, `info-note`, `validation-summary` — form
+- `form-actions`, `info-note`, `field-hint`, `validation-summary` — form
 - `btn btn-primary`, `btn-outline-primary`, `btn-outline-secondary`,
   `btn-outline-danger` — nút (Bootstrap đã được nhuộm lại theo token)
 
