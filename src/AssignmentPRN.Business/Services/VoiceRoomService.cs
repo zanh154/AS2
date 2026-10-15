@@ -135,13 +135,12 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         VoiceAnswerRequest? answer = null, CancellationToken ct = default)
     {
         var changed = false;
-        var finished = false;
+        var wasFinished = false;
         var result = await ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
             var before = (a.Candidate.Status, Completed: a.Questions.Count(x => x.IsCompleted));
+            wasFinished = before.Status == CandidateStatus.Completed;
             var state = Apply(a, answer);
             changed = before != (a.Candidate.Status, a.Questions.Count(x => x.IsCompleted));
-            finished = before.Status != CandidateStatus.Completed
-                && a.Candidate.Status == CandidateStatus.Completed;
             return state;
         }, ct), "Không thể đồng bộ phòng thi. Hãy thử lại.");
 
@@ -163,6 +162,13 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
 
         // Marking takes a model call per answer, far longer than a request may stay
         // open, so the finished slot is queued rather than graded here.
+        //
+        // Đọc trạng thái CUỐI, không phải trạng thái sau giao dịch đầu: lượt thi thường
+        // kết thúc ở giao dịch thứ hai (ReleaseHoldAsync), khi giám khảo quyết định không
+        // hỏi thêm sau câu cuối. Chỉ xét giao dịch đầu thì đúng trường hợp phổ biến nhất
+        // lại không ai đưa vào hàng đợi, và kết quả AI chỉ xuất hiện sau khi khởi động
+        // lại app — đúng lỗi đo được ngày 15/10/2026.
+        var finished = !wasFinished && result.Data?.Completed == true;
         if (result.Success && finished && grading != null)
         {
             try { await grading.QueueCandidateAsync(candidateId, ct); }

@@ -42,10 +42,11 @@ public sealed class VoiceFollowUpTests
     private static readonly FollowUpDecision Probe =
         new(FollowUpReason.MissingPoint, "Bạn giải thích rõ hơn phần khoá được không?");
 
-    private static VoiceRoomService Service(AivesDbContext db, VoiceRoomTests.Clock clock, IFollowUpAnalyzer? analyzer) =>
+    private static VoiceRoomService Service(AivesDbContext db, VoiceRoomTests.Clock clock, IFollowUpAnalyzer? analyzer,
+        AssignmentPRN.Business.GradingQueue? grading = null) =>
         new(new VoiceRoomRepository(db, new ExamStatePolicy()),
             new QuestionService(new QuestionRepository(db, new ExamStatePolicy()), new CatalogRepository(db), null!),
-            clock, null, null, analyzer);
+            clock, null, null, analyzer, grading);
 
     /// <summary>Seeds a room whose session allows probes.</summary>
     private static async Task<AivesDbContext> SeedAsync(
@@ -346,5 +347,67 @@ public sealed class VoiceFollowUpTests
         Assert.Equal(Probe.Question, probe.Text);
         Assert.Equal("Trả lời thêm.", probe.Transcript);
         Assert.Equal(FollowUpReason.MissingPoint, probe.Reason);
+    }
+
+    [Fact]
+    public async Task A_slot_that_finishes_when_the_examiner_asks_nothing_is_queued_for_grading()
+    {
+        // Lỗi đo được ngày 15/10/2026, và là trường hợp PHỔ BIẾN NHẤT: sau câu cuối, phòng
+        // thi giữ chỗ chờ giám khảo quyết định; giám khảo không hỏi gì thì lượt thi kết
+        // thúc ở giao dịch thứ hai (ReleaseHoldAsync). Trước đây chỉ giao dịch đầu được
+        // xét, nên không ai đưa lượt thi vào hàng đợi và kết quả AI chỉ hiện ra sau khi
+        // khởi động lại app.
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 1, perSlot: 1);
+        var queue = new AssignmentPRN.Business.GradingQueue();
+        var analyzer = new StubAnalyzer(FollowUpDecision.None);
+
+        await Service(db, clock, analyzer, queue).SyncAsync(1, 2, Submit(1, "Câu một."));
+        clock.At = clock.At.AddSeconds(2);
+        db.ChangeTracker.Clear();
+        var state = await Service(db, clock, analyzer, queue).SyncAsync(1, 2, Submit(2, "Câu hai."));
+
+        Assert.True(state.Data!.Completed);
+        Assert.Equal([1], await GradingQueueTests.DrainAsync(queue));
+    }
+
+    [Fact]
+    public async Task A_slot_that_finishes_on_the_last_probe_is_queued_for_grading()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 1, perSlot: 1);
+        var queue = new AssignmentPRN.Business.GradingQueue();
+        var analyzer = new StubAnalyzer(FollowUpDecision.None);
+
+        await Service(db, clock, analyzer, queue).SyncAsync(1, 2, Submit(1, "Câu một."));
+        clock.At = clock.At.AddSeconds(2);
+        db.ChangeTracker.Clear();
+        analyzer.Decision = Probe;
+        var probed = await Service(db, clock, analyzer, queue).SyncAsync(1, 2, Submit(2, "Câu hai."));
+        var followUpId = probed.Data!.Question!.FollowUpId!.Value;
+
+        // Câu hỏi thêm còn mở thì lượt thi chưa xong.
+        Assert.Empty(await GradingQueueTests.DrainAsync(queue));
+
+        clock.At = clock.At.AddSeconds(2);
+        db.ChangeTracker.Clear();
+        var state = await Service(db, clock, analyzer, queue).SyncAsync(1, 2,
+            new VoiceAnswerRequest(2, "Nói thêm.", Submit: true, FollowUpId: followUpId));
+
+        Assert.True(state.Data!.Completed);
+        Assert.Equal([1], await GradingQueueTests.DrainAsync(queue));
+    }
+
+    [Fact]
+    public async Task A_slot_still_being_sat_is_never_queued()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 1, perSlot: 1);
+        var queue = new AssignmentPRN.Business.GradingQueue();
+
+        await Service(db, clock, new StubAnalyzer(FollowUpDecision.None), queue)
+            .SyncAsync(1, 2, Submit(1, "Câu một."));
+
+        Assert.Empty(await GradingQueueTests.DrainAsync(queue));
     }
 }
