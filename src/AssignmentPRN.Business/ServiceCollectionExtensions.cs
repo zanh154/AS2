@@ -41,6 +41,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<OllamaJsonClient>();
         services.AddScoped<IFollowUpAnalyzer, OllamaFollowUpAnalyzer>();
         services.AddScoped<IAnswerGrader, OllamaAnswerGrader>();
+        services.AddScoped<AssignmentPRN.DataAccess.Repositories.IGradingRepository,
+            AssignmentPRN.DataAccess.Repositories.GradingRepository>();
+        services.AddScoped<IGradingService, GradingService>();
+        services.AddSingleton<GradingQueue>();
+        services.AddHostedService<GradingBackgroundService>();
 
         // Document processing
         services.AddSingleton<DocumentProcessingQueue>();

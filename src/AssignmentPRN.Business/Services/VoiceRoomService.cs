@@ -9,7 +9,7 @@ namespace AssignmentPRN.Business.Services;
 
 public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionService questions,
     TimeProvider clock, IVoiceAudioStore? audioStore = null, IVoiceRoomNotifier? notifier = null,
-    IFollowUpAnalyzer? analyzer = null) : IVoiceRoomService
+    IFollowUpAnalyzer? analyzer = null, GradingQueue? grading = null) : IVoiceRoomService
 {
     /// <summary>
     /// How long the room holds the next question closed while the examiner decides
@@ -135,10 +135,13 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         VoiceAnswerRequest? answer = null, CancellationToken ct = default)
     {
         var changed = false;
+        var finished = false;
         var result = await ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
             var before = (a.Candidate.Status, Completed: a.Questions.Count(x => x.IsCompleted));
             var state = Apply(a, answer);
             changed = before != (a.Candidate.Status, a.Questions.Count(x => x.IsCompleted));
+            finished = before.Status != CandidateStatus.Completed
+                && a.Candidate.Status == CandidateStatus.Completed;
             return state;
         }, ct), "Không thể đồng bộ phòng thi. Hãy thử lại.");
 
@@ -156,6 +159,14 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
                 result = ServiceResponse<VoiceRoomState>.Ok(next);
                 changed = true;
             }
+        }
+
+        // Marking takes a model call per answer, far longer than a request may stay
+        // open, so the finished slot is queued rather than graded here.
+        if (result.Success && finished && grading != null)
+        {
+            try { await grading.QueueCandidateAsync(candidateId, ct); }
+            catch (Exception) { /* The background service also sweeps up ungraded slots. */ }
         }
 
         if (result.Success && changed && notifier != null)
