@@ -1,7 +1,10 @@
 # AI hỏi xoáy, chấm điểm và kết quả (ASM2 — phần 6)
 
-Trạng thái: **đã code xong, đã test, đã chạy thử với Ollama thật trên database cục bộ; chưa chạy trên database chung.**
-Nhánh: `TriDev`, cắt từ `GiaThuan` (`200f5c0`). Ngày cập nhật: 2026-10-15.
+Trạng thái: **đã code xong, đã test, đã chạy thật với Ollama trên database cục bộ; migration đã chạy trên Aiven.**
+Nhánh: `TriDev`, cắt từ `GiaThuan` (`200f5c0`). Ngày cập nhật: 2026-10-16.
+
+> Đây là **nhật ký làm việc**: kế hoạch, roadmap, từng lần đo, từng lỗi. Bản tổng kết ngắn
+> gọn để đọc trước nằm ở [phan-6-tong-ket.md](phan-6-tong-ket.md).
 
 Tài liệu này chỉ mô tả phần việc số 6 trong bảng phân công ASM2. Các phần đã có nằm ở
 [README](../README.md); không chép lại nội dung của chúng ở đây.
