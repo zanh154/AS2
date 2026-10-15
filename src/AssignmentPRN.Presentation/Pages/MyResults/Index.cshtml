@@ -1,0 +1,110 @@
+@page "{id:int}"
+@model AssignmentPRN.Presentation.Pages.MyResults.IndexModel
+@using AssignmentPRN.Presentation.ViewModels
+@{
+    ViewData["Title"] = "Kết quả bài thi của tôi";
+    var review = Model.Review;
+}
+<div class="exam-result-page">
+    <div class="page-header exam-result-header">
+        <div>
+            <a class="back-link" asp-controller="StudentSchedule" asp-action="Mine">
+                <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi
+            </a>
+            <h1>Kết quả bài thi</h1>
+            <p>Điểm dưới đây là điểm giảng viên đã chốt. Nhận xét do AI gợi ý để bạn tự rút kinh nghiệm.</p>
+        </div>
+        <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(review.FinalScore) trên 10">
+            <span>Điểm</span>
+            <strong>@ExamResultText.Score(review.FinalScore)</strong>
+            <small>/ 10</small>
+        </div>
+    </div>
+
+    @if (review.FinalScore is null)
+    {
+        <div class="info-note">Bài của bạn chưa được chấm xong. Hãy quay lại sau.</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(review.LecturerComment))
+    {
+        <div class="content-card">
+            <h2>Nhận xét của giảng viên</h2>
+            <p>@review.LecturerComment</p>
+        </div>
+    }
+
+    <div class="content-card exam-result-ai">
+        <div class="section-heading">
+            <div>
+                <h2>Từng câu hỏi</h2>
+                <p class="text-muted">Điểm từng câu do AI đề xuất; điểm cuối cùng vẫn do giảng viên quyết định.</p>
+            </div>
+        </div>
+        @if (review.Answers.Count == 0)
+        {
+            <div class="empty-state">
+                <div class="empty-icon"><partial name="/Views/Shared/_Icon.cshtml" model="@("question")" /></div>
+                <h2>Chưa có nội dung</h2>
+                <p>Bài thi này chưa ghi nhận câu trả lời nào.</p>
+            </div>
+        }
+        else
+        {
+            <ol class="exam-result-ai-answers">
+                @foreach (var answer in review.Answers)
+                {
+                    <li>
+                        <h3>Câu @answer.OrderNo · @ExamResultText.Score(answer.AiScore)</h3>
+                        <p class="text-muted">@answer.QuestionText</p>
+                        <p><strong>Bạn đã trả lời:</strong> @(answer.Transcript ?? "Không có nội dung nhận dạng.")</p>
+                        @if (answer.NotGraded)
+                        {
+                            <p class="info-note">Câu này do giảng viên chấm trực tiếp, không có gợi ý của AI.</p>
+                        }
+                        else
+                        {
+                            @if (answer.Criteria.Count > 0)
+                            {
+                                <table class="data-table">
+                                    <thead><tr><th>Tiêu chí</th><th>Điểm</th><th>Nhận xét</th></tr></thead>
+                                    <tbody>
+                                    @foreach (var criterion in answer.Criteria)
+                                    {
+                                        <tr>
+                                            <td>@criterion.Name</td>
+                                            <td class="cell-nowrap">@criterion.Awarded.ToString("0.##") / @criterion.MaxScore.ToString("0.##")</td>
+                                            <td>@(criterion.Comment ?? "—")</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(answer.Strengths))
+                            {
+                                <p><strong>Điểm mạnh:</strong> @answer.Strengths</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(answer.Weaknesses))
+                            {
+                                <p><strong>Điểm yếu:</strong> @answer.Weaknesses</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(answer.MissingPoints))
+                            {
+                                <p><strong>Ý còn thiếu:</strong> @answer.MissingPoints</p>
+                            }
+                        }
+                        @if (answer.Probes.Count > 0)
+                        {
+                            <h4>Câu hỏi thêm</h4>
+                            <ul>
+                                @foreach (var probe in answer.Probes)
+                                {
+                                    <li>@probe.Question<br /><span class="text-muted">@(probe.Transcript ?? "Bạn không trả lời câu này.")</span></li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ol>
+        }
+    </div>
+</div>

@@ -54,6 +54,13 @@ public interface IResultReviewService
     /// </summary>
     Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
         int? ownerLecturerId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A student's own report, after their slot is finished: the mark that counts and
+    /// what the AI said about each answer. Someone else's slot, or one still being sat,
+    /// is refused.
+    /// </summary>
+    Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -125,6 +132,54 @@ public sealed class ResultReviewService(
                 ResultAdjustmentRules.AuditLine(review.FinalScore, final, trimmed),
                 clock.GetLocalNow().DateTime, ct);
         }, "Không thể lưu điểm.");
+
+    public Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default) =>
+        ServiceExecutor.RunAsync(async () =>
+        {
+            var id = BusinessValidation.PositiveId(candidateId, "lượt thi");
+            BusinessValidation.PositiveId(studentId, "sinh viên");
+
+            var slot = await repository.SlotOwnerAsync(id, ct)
+                ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
+
+            // The same message either way: whether a slot belongs to someone else is
+            // not something a student should be able to probe for.
+            if (slot.StudentId != studentId)
+                throw new BusinessValidationException("Không tìm thấy lượt thi.");
+            if (!slot.Completed)
+                throw new BusinessValidationException("Bài thi chưa hoàn thành nên chưa có kết quả.");
+
+            var review = await repository.LoadReviewAsync(id, ct)
+                ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
+
+            // No trail: who changed the mark and when is the examiner's record, not the
+            // student's. The mark itself, and the reason for it, they do get.
+            return new CandidateReview(
+                review.CandidateId,
+                review.ExamId,
+                review.AiScore,
+                review.LecturerScore,
+                review.FinalScore,
+                review.LecturerComment,
+                null,
+                review.FinalizedAt,
+                review.Answers.Select(answer => new ReviewAnswer(
+                    answer.OrderNo,
+                    answer.QuestionText,
+                    answer.Transcript,
+                    answer.AiScore,
+                    answer.Confidence,
+                    answer.Feedback,
+                    answer.Strengths,
+                    answer.Weaknesses,
+                    answer.MissingPoints,
+                    answer.Criteria
+                        .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
+                        .ToArray(),
+                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray()))
+                    .ToArray(),
+                []);
+        }, "Không thể tải kết quả bài thi.");
 
     /// <summary>Returns the exam the candidate sits, once the caller is allowed to see it.</summary>
     private async Task<int> EnsureOwnedAsync(int candidateId, int? lecturerId, CancellationToken ct)

@@ -87,6 +87,13 @@ public interface IGradingRepository
 
     /// <summary>The trail of mark changes for one candidate, newest first.</summary>
     Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default);
+
+    /// <summary>
+    /// The student who sits this slot and whether it is finished, or null when the slot
+    /// does not exist. Lets a student's own report be checked without loading a paper
+    /// they may not be allowed to see.
+    /// </summary>
+    Task<(int StudentId, bool Completed)?> SlotOwnerAsync(int candidateId, CancellationToken ct = default);
     /// <summary>Null when the candidate does not exist.</summary>
     Task<GradingSlotRow?> LoadAsync(int candidateId, CancellationToken ct = default);
 
@@ -353,6 +360,16 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    public async Task<(int StudentId, bool Completed)?> SlotOwnerAsync(int candidateId, CancellationToken ct = default)
+    {
+        var slot = await db.ExamCandidates.AsNoTracking()
+            .Where(x => x.CandidateId == candidateId)
+            .Select(x => new { x.StudentId, x.Status })
+            .SingleOrDefaultAsync(ct);
+
+        return slot is null ? null : (slot.StudentId, slot.Status == CandidateStatus.Completed);
     }
 
     public async Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default) =>

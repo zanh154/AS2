@@ -154,6 +154,11 @@ public class RazorModuleTwoHttpTests
             Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamSessions")).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamResults/Index/1")).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamResults/Candidate/1")).StatusCode);
+            // A student's own report is for students; the lecturer reads the paper instead.
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/MyResults/1")).StatusCode);
+            // The slot has not been sat yet, so the student is sent back with a message
+            // rather than shown an empty report.
+            Assert.Equal(HttpStatusCode.Redirect, (await student.GetAsync("/MyResults/1")).StatusCode);
         } finally {
             await app.StopAsync();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

@@ -218,6 +218,65 @@ public sealed class ResultReviewTests
     }
 
     [Fact]
+    public async Task A_student_reads_their_own_report_once_the_slot_is_finished()
+    {
+        await using var db = await SeedAsync();
+        await Service(db).AdjustAsync(1, 1, 7m, "Cố gắng thêm ví dụ.", 1);
+        db.ChangeTracker.Clear();
+
+        // Student 2 is the one sitting this slot in the shared fixture.
+        var report = await Service(db).GetForStudentAsync(1, studentId: 2);
+
+        Assert.True(report.Success, report.Error);
+        Assert.Equal(7m, report.Data!.FinalScore);
+        Assert.Equal("Cố gắng thêm ví dụ.", report.Data.LecturerComment);
+        Assert.Equal(8m, Assert.Single(report.Data.Answers).AiScore);
+    }
+
+    [Fact]
+    public async Task A_student_never_sees_who_changed_their_mark()
+    {
+        // Who marked it down and when is the examiner's record. The mark and the reason
+        // for it are the student's; the trail is not.
+        await using var db = await SeedAsync();
+        await Service(db).AdjustAsync(1, 1, 7m, null, 1);
+        db.ChangeTracker.Clear();
+
+        var report = await Service(db).GetForStudentAsync(1, 2);
+
+        Assert.Empty(report.Data!.Trail);
+        Assert.Null(report.Data.FinalizedByName);
+    }
+
+    [Fact]
+    public async Task A_student_cannot_open_someone_elses_report()
+    {
+        await using var db = await SeedAsync();
+
+        var denied = await Service(db).GetForStudentAsync(1, studentId: 99);
+
+        Assert.False(denied.Success);
+        // The same message as a slot that does not exist: whether it belongs to someone
+        // else is not something to let a student probe for.
+        Assert.Equal((await Service(db).GetForStudentAsync(999, 99)).Error, denied.Error);
+    }
+
+    [Fact]
+    public async Task A_report_is_refused_while_the_slot_is_still_being_sat()
+    {
+        await using var db = await SeedAsync();
+        var candidate = await db.ExamCandidates.SingleAsync();
+        candidate.Status = CandidateStatus.InProgress;
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var result = await Service(db).GetForStudentAsync(1, 2);
+
+        Assert.False(result.Success);
+        Assert.Contains("chưa hoàn thành", result.Error);
+    }
+
+    [Fact]
     public async Task A_candidate_that_does_not_exist_is_refused()
     {
         await using var db = await SeedAsync();
