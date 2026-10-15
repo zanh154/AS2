@@ -26,6 +26,7 @@
         dirty = false;
       } else if (answer) { dirty = false; saved.textContent = "Đã lưu trên máy chủ."; }
       state = next;
+      window.voiceCapture?.setState(next);
       status.textContent = next.completed ? "Đã hoàn thành lượt thi." : `Câu ${next.completedCount + 1}/${next.totalCount}`;
       document.getElementById("voice-question").textContent = next.question?.text || "Cảm ơn bạn đã hoàn thành bài thi.";
       form.hidden = next.completed;
@@ -35,7 +36,13 @@
   const save = (submit) => state?.question && sync({ examQuestionId: state.question.examQuestionId,
     transcript: transcript.value, submit });
   transcript.addEventListener("input", () => { dirty = true; saved.textContent = "Có nội dung chưa lưu."; });
-  form.addEventListener("submit", event => { event.preventDefault(); save(true); });
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (busy) return;
+    try { await window.voiceCapture?.beforeSubmit(); await save(true); }
+    catch (error) { status.textContent = error.message; }
+  });
+  root.addEventListener("voice-audio-saved", () => { saved.textContent = "Đã lưu bản thu trên máy chủ."; });
   document.getElementById("voice-save").addEventListener("click", () => save(false));
   document.getElementById("voice-retry").addEventListener("click", () => dirty ? save(false) : sync());
   window.addEventListener("online", () => dirty ? save(false) : sync());

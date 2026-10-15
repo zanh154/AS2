@@ -25,6 +25,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IQuestionService, QuestionService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IVoiceRoomService, VoiceRoomService>();
+        services.AddSingleton<AssignmentPRN.DataAccess.Services.IVoiceAudioStore>(
+            new AssignmentPRN.DataAccess.Services.LocalVoiceAudioStore(Path.Combine(storageRootPath, "voice-audio")));
         services.AddScoped<IQuestionReviewService, QuestionReviewService>();
         services.AddScoped<ICourseMaterialService, CourseMaterialService>();
         services.AddScoped<ICatalogService, CatalogService>();

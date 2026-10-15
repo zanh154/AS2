@@ -27,6 +27,7 @@ public sealed class VoiceRoomRepository(AivesDbContext db, IExamStatePolicy poli
     public async Task<T> UpdateAsync<T>(int candidateId, int studentId, Func<VoiceRoomAggregate, T> apply, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        db.ChangeTracker.Clear();
         // Lock before reading mutable state. Parameters remain SQL parameters.
         if (db.Database.IsMySql())
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT candidate_id FROM exam_candidates WHERE candidate_id = {candidateId} AND student_id = {studentId} FOR UPDATE", ct);
@@ -40,7 +41,9 @@ public sealed class VoiceRoomRepository(AivesDbContext db, IExamStatePolicy poli
         var settings = await db.Set<ExamVivaSettings>().SingleOrDefaultAsync(x => x.ExamId == candidate.ExamId, ct)
             ?? new ExamVivaSettings { ExamId = candidate.ExamId };
         var logs = await db.Set<ExamLog>().Where(x => x.CandidateId == candidateId && x.Action == StartedAction).ToListAsync(ct);
-        var result = apply(new(candidate, questions, answers, settings, logs));
+        T result;
+        try { result = apply(new(candidate, questions, answers, settings, logs)); }
+        catch { db.ChangeTracker.Clear(); throw; }
         foreach (var answer in answers.Where(x => x.AnswerId == 0)) db.Answers.Add(answer);
         foreach (var log in logs.Where(x => x.LogId == 0)) db.Set<ExamLog>().Add(log);
         await db.SaveChangesAsync(ct);

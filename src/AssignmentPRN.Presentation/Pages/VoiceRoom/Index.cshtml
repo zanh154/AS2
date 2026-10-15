@@ -3,11 +3,24 @@
 @{
     ViewData["Title"] = "Phòng thi giọng nói";
 }
-<section class="content-card" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })">
+<section class="content-card" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })"
+         data-upload="@Url.Page(null, "Upload", new { id = Model.CandidateId })"
+         data-audio="@Url.Page(null, "Audio", new { id = Model.CandidateId })">
     <h1>Phòng thi giọng nói</h1>
     <p id="voice-status" role="status" aria-live="polite">Đang tải lượt thi…</p>
     <p>Thời gian câu hỏi: <strong id="voice-clock" role="timer">--:--</strong></p>
     <h2 id="voice-question"></h2>
+    <div id="voice-capture">
+        <button type="button" class="btn btn-outline-primary" id="voice-read">Đọc câu hỏi</button>
+        <button type="button" class="btn btn-outline-primary" id="voice-record">Cho phép mic và thu âm</button>
+        <button type="button" class="btn btn-secondary" id="voice-stop" disabled>Dừng thu và lưu</button>
+        <button type="button" class="btn btn-outline-secondary" id="voice-upload" disabled>Thử lưu lại bản thu</button>
+        <p id="voice-capture-status" role="status" aria-live="polite"></p>
+        <p id="voice-stt-status" role="status">Nhận dạng tiếng Việt phụ thuộc trình duyệt/dịch vụ Web Speech. Bạn có thể sửa hoặc nhập nội dung trả lời.</p>
+        <audio id="voice-preview" controls hidden aria-label="Nghe lại bản thu"></audio>
+        <a id="voice-download-local" hidden>Tải bản thu về máy</a>
+        <a id="voice-stored-audio" hidden target="_blank" rel="noopener">Nghe bản đã lưu</a>
+    </div>
     <form id="voice-answer">
         @Html.AntiForgeryToken()
         <label for="voice-transcript">Nội dung trả lời</label>
@@ -20,5 +33,7 @@
     <a asp-controller="StudentSchedule" asp-action="Mine">Về lịch thi</a>
 </section>
 @section Scripts {
+    <script src="~/js/voice-speech.js" asp-append-version="true"></script>
+    <script src="~/js/voice-capture.js" asp-append-version="true"></script>
     <script src="~/js/voice-room.js" asp-append-version="true"></script>
 }

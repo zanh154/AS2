@@ -2,13 +2,70 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Policies;
 using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Repositories;
+using AssignmentPRN.DataAccess.Services;
 using CandidateStatus = AssignmentPRN.DataAccess.Enums.CandidateStatus;
 
 namespace AssignmentPRN.Business.Services;
 
 public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionService questions,
-    TimeProvider clock) : IVoiceRoomService
+    TimeProvider clock, IVoiceAudioStore? audioStore = null) : IVoiceRoomService
 {
+    public Task<ServiceResponse<VoiceRoomState>> UploadAsync(int candidateId, int studentId, int questionId,
+        string contentType, long length, double durationSeconds, Stream content, CancellationToken ct = default) =>
+        ServiceExecutor.RunAsync(async () => {
+            if (length <= 0 || length > LocalVoiceAudioStore.MaxBytes || !double.IsFinite(durationSeconds) || durationSeconds <= 0)
+                throw new BusinessValidationException("Bản thu phải có dữ liệu, không quá 12 MB và có thời lượng hợp lệ.");
+            await repository.UpdateAsync(candidateId, studentId, a => {
+                Apply(a, null);
+                ValidateUpload(a, questionId, durationSeconds);
+                return true;
+            }, ct);
+            var key = await (audioStore ?? throw new InvalidOperationException("Chưa cấu hình kho âm thanh."))
+                .SaveAsync(candidateId, questionId, contentType, content, ct);
+            return await repository.UpdateAsync(candidateId, studentId, a => {
+                Apply(a, null);
+                ValidateUpload(a, questionId, durationSeconds);
+                var q = a.Questions.Single(x => x.ExamQuestionId == questionId);
+                var answer = AnswerFor(a, q, Now);
+                if (q.IsCompleted && answer.AudioPath != null && answer.AudioPath != key)
+                    throw new BusinessValidationException("Không thể thay bản thu của câu đã nộp.");
+                answer.AudioPath = key;
+                return Apply(a, null);
+            }, ct);
+        }, "Không thể lưu âm thanh. Giữ bản thu và thử lại.");
+
+    public Task<ServiceResponse<VoiceAudioDownload>> DownloadAsync(int candidateId, int studentId, int questionId, CancellationToken ct = default) =>
+        ServiceExecutor.RunAsync(async () => {
+            var key = await repository.UpdateAsync(candidateId, studentId, a => {
+                ValidateOwner(a);
+                if (a.Logs.Count == 0 || !a.Questions.Any(x => x.ExamQuestionId == questionId))
+                    throw new BusinessValidationException("Không có quyền truy cập bản thu.");
+                return a.Answers.SingleOrDefault(x => x.ExamQuestionId == questionId)?.AudioPath
+                    ?? throw new BusinessValidationException("Câu trả lời chưa có bản thu.");
+            }, ct);
+            var file = await (audioStore ?? throw new InvalidOperationException()).OpenAsync(key, ct);
+            return new VoiceAudioDownload(file.Content, file.ContentType);
+        }, "Không thể tải bản thu.");
+
+    private void ValidateUpload(VoiceRoomAggregate a, int questionId, double duration)
+    {
+        ValidateOwner(a);
+        var target = a.Questions.SingleOrDefault(x => x.ExamQuestionId == questionId);
+        if (a.Logs.Count == 0 || target?.AskedAt == null || duration > a.Settings.SecondsPerQuestion
+            || duration > Math.Min((Now - target.AskedAt.Value).TotalSeconds + 2,
+                (Deadline(a, target) - target.AskedAt.Value).TotalSeconds)
+            || a.Candidate.Status is CandidateStatus.Cancelled or CandidateStatus.Absent)
+            throw new BusinessValidationException("Câu hỏi hoặc thời lượng bản thu không còn hợp lệ.");
+        var existing = a.Answers.SingleOrDefault(x => x.ExamQuestionId == questionId);
+        // Retry of an immutable file, or bounded transfer grace for a recording stopped by timeout.
+        // This never extends the question deadline or accepts late transcript edits.
+        if (target.IsCompleted && (existing?.AudioPath != null
+            || existing?.FinishedAt == Deadline(a, target) && Now <= Deadline(a, target) + ExamSessionRules.SubmitGrace)) return;
+        ValidateWindow(a, Now);
+        if (target != a.Questions.FirstOrDefault(x => !x.IsCompleted) || Now >= Deadline(a, target))
+            throw new BusinessValidationException("Câu hỏi không còn nhận bản thu.");
+    }
+
     public async Task<ServiceResponse<VoiceRoomState>> EnterAsync(int candidateId, int studentId, CancellationToken ct = default)
     {
         if (!await repository.IsVoiceAsync(candidateId, studentId, ct))
