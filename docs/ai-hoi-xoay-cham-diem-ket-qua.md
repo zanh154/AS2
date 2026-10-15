@@ -1,7 +1,7 @@
 # AI hỏi xoáy, chấm điểm và kết quả (ASM2 — phần 6)
 
-Trạng thái: **đang lập kế hoạch, chưa code.** Nhánh dự kiến: `TriDev`, cắt từ `GiaThuan` (`200f5c0`).
-Ngày: 2026-10-15.
+Trạng thái: **đã code xong, đã test, chưa chạy thử trên database chung.**
+Nhánh: `TriDev`, cắt từ `GiaThuan` (`200f5c0`). Ngày cập nhật: 2026-10-15.
 
 Tài liệu này chỉ mô tả phần việc số 6 trong bảng phân công ASM2. Các phần đã có nằm ở
 [README](../README.md); không chép lại nội dung của chúng ở đây.
@@ -167,6 +167,8 @@ Mỗi task = 1 commit lên `TriDev`. Tổng 14 commit.
 | T12 | Trang kết quả của sinh viên (điểm từng câu, nhận xét AI, không lộ `expected_answer`) | T11 | Nhóm chức năng 6 |
 | T13 | Kiểm thử end-to-end + rà soát toàn hệ thống + cập nhật tài liệu | tất cả | Báo cáo cuối |
 
+Tất cả T0–T13 đã làm xong, mỗi task một commit trên `TriDev`.
+
 ### Task đầu tiên và lý do ưu tiên
 
 **T1 — script `ai_evaluation_criteria` + entity/mapping cho 4 bảng chưa map.** Lý do: mọi task AI
@@ -215,8 +217,64 @@ dọn dẹp, làm kèm hoặc bỏ nếu nhóm chưa muốn đụng file chung.
 
 ---
 
-## 8. Giới hạn đã biết trước
+## 8. Kết quả thực hiện
 
-- Chất lượng câu hỏi xoáy và điểm AI phụ thuộc model cục bộ (`qwen2.5:3b`); không cam kết độ chính xác tiếng Việt chuyên ngành.
-- Thêm một lượt gọi Ollama giữa hai câu hỏi làm tăng độ trễ; cần đo thực tế và có thể phải hạ `num_predict` hoặc sinh trước.
-- Không ghi hình (`exam_recordings` chỉ dùng cho audio đã có), không xuất Excel — nằm ngoài phần việc 6.
+### Đo được sau khi làm xong (15/10/2026)
+
+| Mục | Trước | Sau |
+|---|---|---|
+| Test .NET | 227 | **355**, pass hết |
+| Test JavaScript | 13 | **21**, pass hết |
+| Build Debug/Release | sạch | sạch, 0 warning |
+
+### Những gì đã chạy được
+
+| Đầu việc trong bảng phân công | Chỗ cài đặt |
+|---|---|
+| Phân tích transcript, sinh câu hỏi tiếp | `IFollowUpAnalyzer` + `OllamaFollowUpAnalyzer`, cắm vào `VoiceRoomService` |
+| Giới hạn lượt / thời gian | `FollowUpTurnRules` (dùng lại `VivaBudgetRules` của nhóm) |
+| Đánh giá theo rubric | `IAnswerGrader` + `OllamaAnswerGrader`, luật ở `RubricScoring` |
+| Lưu điểm từng tiêu chí và nhận xét | `ai_evaluations` + `ai_evaluation_criteria` |
+| Trang kết quả sang Razor Pages | `Pages/ExamResults/*`, URL giữ nguyên |
+| Giảng viên sửa điểm có dấu vết | `ResultReviewService` + `final_results` + `exam_logs` (`result.adjusted`) |
+| Thông báo tiến độ qua SignalR | `SignalRGradingNotifier`, nhóm `exam:{id}` |
+
+### Quyết định đáng chú ý
+
+- **AI không bao giờ quyết định điểm.** Giảng viên nhập điểm là điểm đó thắng, và chấm lại
+  sau này cũng không ghi đè lên nó.
+- **AI hỏng không làm hỏng bài thi.** Ollama tắt, timeout, trả JSON sai đều ra cùng một kết
+  quả: không hỏi xoáy, không chấm, bài thi chạy tiếp. Có 4 test riêng cho trường hợp này.
+- **Không bao giờ ghi điểm 0 thay cho "chưa chấm".** Câu không có rubric, sinh viên không
+  nói gì, hoặc model không đọc được đều được báo là *chưa chấm* để giảng viên tự xử lý.
+- **Câu tiếp theo không mở khi AI đang nghĩ**, nếu không đồng hồ của nó chạy trong lúc sinh
+  viên ngồi chờ. Quá 25 giây không có quyết định thì tự mở.
+- **Câu hỏi xoáy dùng thời gian còn lại của chính câu nó hỏi xoáy**, không cộng thêm giờ.
+
+### Lỗi phát hiện trong lúc làm
+
+| # | Vấn đề | Xử lý |
+|---|---|---|
+| 1 | Lượt thi do giảng viên **chốt ca hết giờ** không ai đưa vào hàng đợi chấm, phải đợi khởi động lại app mới được quét | Đã sửa: `CloseOverdueSlotsAsync` đẩy vào hàng đợi |
+| 2 | Thẻ `<a>` ghi cả `asp-page` lẫn `asp-controller` thì ASP.NET Core ném lỗi, kể cả khi giá trị rỗng | Tách thành hai nhánh markup trong `_DataTable` |
+| 3 | `id` của câu hỏi xoáy trả về client bằng 0 ở giao dịch tạo ra nó, nên client không trả lời được | Đọc lại trạng thái ở giao dịch riêng sau khi lưu |
+| 4 | `AddRazorPages()` gọi hai lần trong `Program.cs` | Đã bỏ một |
+| 5 | `bin-alt/` bị commit, clone trên Windows cần `core.longpaths` | Đã gỡ khỏi Git, ghi chú trong README |
+
+---
+
+## 9. Giới hạn — cần biết trước khi demo
+
+- **Chưa chạy với Ollama thật.** Toàn bộ test dùng model giả lập. Chất lượng câu hỏi xoáy và
+  điểm số của `qwen2.5:3b` trên tiếng Việt chuyên ngành **chưa được đo**.
+- **Chưa chạy script `20261016_ai_evaluation_criteria.sql` trên database chung.** Chạy nó
+  trước khi demo, nếu không phần chấm điểm sẽ lỗi khi ghi.
+- **Chưa thử trên trình duyệt thật** với microphone và ca thi còn hiệu lực.
+- Thêm một lượt gọi model giữa hai câu hỏi làm tăng độ trễ. Ngân sách đang đặt 20 giây; cần
+  đo thực tế và có thể phải hạ `num_predict` hoặc dùng model nhỏ hơn.
+- **Bản thu của câu hỏi xoáy chưa tải lại được** từ trang lịch sử: `DownloadAsync` mới đọc
+  audio của câu chính. Dữ liệu vẫn được lưu, chỉ thiếu đường tải.
+- Chấm chạy **tuần tự một lượt thi một lúc**, vì model cục bộ cấu hình một request. Lớp đông
+  thì hàng đợi dài; cần đo trước khi dùng thật.
+- Không ghi hình, không xuất Excel — nằm ngoài phần việc 6.
+- `exam_recordings` vẫn chưa có entity: phần việc 6 không dùng tới nó.

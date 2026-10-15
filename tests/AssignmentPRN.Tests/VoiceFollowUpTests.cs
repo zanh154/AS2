@@ -148,7 +148,7 @@ public sealed class VoiceFollowUpTests
         // A second probe reads the reply to the first, and is told not to repeat it.
         Assert.Equal(2, analyzer.Calls);
         Assert.Equal("Trả lời câu hỏi thêm.", analyzer.Seen[1].Transcript);
-        Assert.Equal([Probe.Question], analyzer.Seen[1].PreviousProbes);
+        Assert.Equal([Probe.Question!], analyzer.Seen[1].PreviousProbes);
     }
 
     [Fact]

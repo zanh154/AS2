@@ -315,6 +315,37 @@ public sealed class GradingServiceTests
     }
 
     [Fact]
+    public async Task A_slot_the_lecturer_closes_is_queued_for_marking()
+    {
+        // Nobody handed this one in, so nothing queued it when it finished. Without the
+        // close doing it, the slot would wait for the next restart to be swept up.
+        await using var db = await SeedAsync(completed: false);
+        var candidate = await db.ExamCandidates.SingleAsync();
+        candidate.Status = AssignmentPRN.DataAccess.Enums.CandidateStatus.InProgress;
+        candidate.ScheduledTime = DateTime.Now.AddHours(-2);
+        var exam = await db.ExamSessions.SingleAsync();
+        exam.StartTime = candidate.ScheduledTime.Value;
+        exam.EndTime = DateTime.Now.AddHours(-1);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var queue = new AssignmentPRN.Business.GradingQueue();
+        var service = new ExamResultService(new ExamResultRepository(db, new ExamStatePolicy()),
+            new QuestionRepository(db, new ExamStatePolicy()), null, null, queue);
+
+        var closed = await service.CloseOverdueSlotsAsync(1, lecturerId: null);
+
+        Assert.True(closed.Success, closed.Error);
+        Assert.Equal(1, closed.Data!.Completed);
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await foreach (var queued in queue.DequeueAsync(cancel.Token))
+        {
+            Assert.Equal(1, queued);
+            break;
+        }
+    }
+
+    [Fact]
     public async Task A_finished_slot_that_was_never_marked_is_found_again()
     {
         await using var db = await SeedAsync();
