@@ -1,0 +1,222 @@
+# AI hỏi xoáy, chấm điểm và kết quả (ASM2 — phần 6)
+
+Trạng thái: **đang lập kế hoạch, chưa code.** Nhánh dự kiến: `TriDev`, cắt từ `GiaThuan` (`200f5c0`).
+Ngày: 2026-10-15.
+
+Tài liệu này chỉ mô tả phần việc số 6 trong bảng phân công ASM2. Các phần đã có nằm ở
+[README](../README.md); không chép lại nội dung của chúng ở đây.
+
+---
+
+## 1. Phần việc theo bảng phân công
+
+| # | Đầu việc | Diễn giải |
+|---|---|---|
+| 1 | Phân tích transcript để phát hiện thiếu ý / mơ hồ / mâu thuẫn và sinh câu hỏi tiếp | AI đọc transcript câu trả lời bằng giọng nói, quyết định có hỏi xoáy không và hỏi gì |
+| 2 | Tuân thủ giới hạn lượt / thời gian | Không vượt `exam_viva_settings.max_follow_ups_per_question`, không vượt deadline câu và giờ kết thúc ca |
+| 3 | Đánh giá theo rubric | Đối chiếu transcript với `rubrics` / `rubric_criteria` của câu hỏi |
+| 4 | Lưu điểm từng tiêu chí và nhận xét | Điểm + nhận xét theo từng tiêu chí, kèm điểm mạnh / điểm yếu / ý còn thiếu |
+| 5 | Chuyển trang kết quả sang Razor Pages | `ExamResultsController` (MVC) → `Pages/ExamResults/*` |
+| 6 | Cho giảng viên xem và điều chỉnh điểm, có lưu dấu vết | Human-in-the-loop: AI đề xuất, giảng viên chốt; mọi lần sửa đều ghi log |
+| 7 | Thông báo tiến độ / kết quả qua SignalR | Tiến độ chấm AI và kết quả chốt đẩy realtime |
+
+---
+
+## 2. Hiện trạng làm nền
+
+| Thành phần | Có sẵn | Nguồn |
+|---|---|---|
+| Phòng thi giọng nói, TTS/STT, transcript, audio riêng tư | ✅ | `VoiceRoomService`, `Pages/VoiceRoom`, `VoiceRoomHub` (GiaThuan) |
+| Cấu hình thời gian/câu và số lượt hỏi xoáy | ✅ | `exam_viva_settings`, `Pages/ExamSessions/Settings` |
+| Quy tắc ngân sách hỏi xoáy (thuần, test được) | ✅ nhưng **chưa ai gọi** | `VivaBudgetRules.CanAskFollowUp` |
+| Rubric + tiêu chí + trang soạn rubric | ✅ | `Rubric`, `RubricCriteria`, `RubricService`, `Pages/Rubrics` |
+| AI cục bộ (Ollama, structured output) | ✅ | `DocumentService.CallOllamaGenerateAsync`, `OllamaOptions` |
+| Kết quả phiên thi + bài làm + chốt ca hết giờ | ✅ nhưng **MVC và chỉ cho trắc nghiệm** | `ExamResultService`, `Controllers/ExamResultsController` |
+| Hỏi xoáy | ⚠️ chỉ là **trắc nghiệm 2 vòng** chọn từ ngân hàng, không đọc transcript | `QuestionService.PlanFollowUps` |
+| Chấm điểm | ⚠️ chỉ đếm đáp án trắc nghiệm đúng/sai | `ExamScoring` |
+| Bảng `follow_up_questions`, `ai_evaluations`, `final_results`, `exam_recordings` | ❌ có trong DB, **không có entity, không ai dùng** | `database/dump/aives_20261002.sql` |
+
+---
+
+## 3. Khoảng cách so với mục tiêu đề tài
+
+| # | Khoảng cách | Mức |
+|---|---|---|
+| G1 | Hỏi xoáy hiện không dựa trên câu trả lời: chọn câu trắc nghiệm có sẵn theo đúng/sai và độ khó, không đọc transcript | Cao |
+| G2 | Không có chấm điểm theo rubric. `ExamScoring` chỉ cộng câu đúng; rubric soạn xong không được dùng ở đâu | Cao |
+| G3 | Không có điểm AI, nhận xét, điểm mạnh/yếu, ý còn thiếu cho câu trả lời nói | Cao |
+| G4 | Không có vòng human-in-the-loop: không có nơi giảng viên sửa điểm, không có dấu vết sửa | Cao |
+| G5 | Trang kết quả còn ở MVC, trong khi ASM2 yêu cầu Razor Pages | Trung bình |
+| G6 | Phòng thi giọng nói chỉ hỏi hết các câu đã phát rồi kết thúc; `MaxFollowUpsPerQuestion` không có tác dụng | Cao |
+| G7 | Không có thông báo realtime cho tiến độ chấm / kết quả | Trung bình |
+| G8 | Sinh viên chưa xem được báo cáo sau thi (điểm từng câu, nhận xét) | Trung bình |
+
+### Lỗi kỹ thuật phát hiện khi khảo sát (ngoài phạm vi phần 6, cần báo nhóm)
+
+| # | Vấn đề | Bằng chứng | Mức |
+|---|---|---|---|
+| B1 | Thư mục output `bin-alt/` bị commit; Web SDK nhận các file `*.json` trong đó làm `Content` rồi copy vào `bin/Debug/net10.0/bin-alt/Debug/net10.0/...`, **nhân đôi độ sâu đường dẫn**. Ở thư mục sâu thì vượt 260 ký tự của Windows → 4 lỗi `MSB3030`; ở thư mục bình thường thì build sạch | Build lỗi ở thư mục tạm dài; build **thành công 0 lỗi 0 warning** tại `PRN222/AS2` | Trung bình |
+| B2 | 181 file nhị phân (`*.dll`, `*.exe`, `*.pdb`, runtime của sass) bị commit từ `9a93575`, có mặt cả trên `main` | `git ls-files \| grep bin-alt` | Cao |
+| B3 | Đường dẫn trong `bin-alt/.../runtimes/linux-arm64/...` vượt giới hạn 260 ký tự của Windows → `git clone` thất bại nếu chưa bật `core.longpaths` | Lần clone đầu báo `Filename too long` | Cao |
+| B4 | `builder.Services.AddRazorPages()` bị gọi hai lần trong `Program.cs` | `Program.cs:15` và `Program.cs:33` | Thấp |
+| B5 | `database/` có 4 script rời và 1 dump; `docs/asm2-integration` ghi nhận các migration ASM2 **chưa chạy trên DB dùng chung** | `database/README.md` | Trung bình |
+
+---
+
+## 4. Thiết kế đề xuất
+
+### 4.1 Nguyên tắc
+
+- Giữ nguyên 3 tầng Presentation → Business → DataAccess; luật nghiệp vụ nằm ở lớp static thuần để test không cần DB, theo đúng cách `FollowUpPlanner` / `ExamScoring` / `OverdueSlotRules` đang làm.
+- **Không sửa lại phòng thi giọng nói của GiaThuan**: chỉ cắm thêm bước "hỏi xoáy" vào sau khi một câu được chốt.
+- AI là **đề xuất**, không bao giờ là điểm cuối. Điểm cuối luôn do giảng viên chốt (`final_results`).
+- AI hỏng (Ollama tắt, timeout, JSON sai) **không được làm hỏng bài thi**: bỏ qua hỏi xoáy, chấm để trạng thái "chờ chấm", ghi log.
+- Không ghi dữ liệu giả vào `ai_evaluations` / `follow_up_questions`.
+
+### 4.2 Database
+
+| Loại | Nội dung | Lý do |
+|---|---|---|
+| Dùng lại | `follow_up_questions` | Mỗi câu hỏi xoáy là 1 dòng gắn với `answer_id`, có `question_text`, `answer_transcript`, `audio_path`, `reason`, `order_no`, `asked_at`, `answered_at` — vừa đủ |
+| Dùng lại | `ai_evaluations` | Điểm AI tổng của 1 answer + feedback/strengths/weaknesses/missing_points |
+| Dùng lại | `final_results` | `ai_score`, `lecturer_score`, `final_score`, `lecturer_comment`, `finalized_by`, `finalized_at` |
+| Dùng lại | `exam_logs` | Dấu vết sửa điểm (`action = 'result.adjusted'`) |
+| **Thêm mới** | `ai_evaluation_criteria(evaluation_id, criteria_id, score, comment)` | `ai_evaluations` chỉ có điểm tổng, đề bài yêu cầu **điểm từng tiêu chí** |
+
+Script mới: `database/20261016_ai_evaluation_criteria.sql`, additive, `CREATE TABLE IF NOT EXISTS`, không sửa/xoá bảng cũ.
+
+### 4.3 Luồng hỏi xoáy (cắm vào phòng thi giọng nói)
+
+```
+Sinh viên nộp câu N (transcript đã lưu)
+        │
+        ▼
+VivaBudgetRules.CanAskFollowUp(đã hỏi cho câu N, đã hỏi trong ca, còn giờ?)
+        │ không ──► sang câu N+1 như hiện nay
+        ▼ có
+FollowUpAnalyzer (Ollama, structured output)
+   vào: câu hỏi gốc + expected_answer + rubric + transcript
+   ra:  { needsFollowUp, reason: Thiếu ý|Mơ hồ|Mâu thuẫn|Đủ, question }
+        │ needsFollowUp = false, hoặc AI lỗi/timeout ──► sang câu N+1
+        ▼ true
+Ghi follow_up_questions (asked_at) ──► TTS đọc ──► sinh viên trả lời ──► answer_transcript
+        │
+        └──► lặp lại tối đa MaxFollowUpsPerQuestion lần, rồi sang câu N+1
+```
+
+### 4.4 Luồng chấm điểm
+
+```
+Lượt thi chuyển Completed
+        │
+        ▼ hàng đợi nền (BackgroundService, giống DocumentProcessingBackgroundService)
+Với mỗi answer:  rubric của câu hỏi + transcript chính + transcript các câu hỏi xoáy
+        │
+        ▼ Ollama structured output
+{ criteria: [{criteriaId, score, comment}], strengths, weaknesses, missingPoints, confidence }
+        │
+        ▼ RubricScoring (static, thuần)
+  - kẹp score vào [0, max_score] của tiêu chí
+  - tiêu chí thiếu trong phản hồi AI = 0 điểm, ghi chú "AI không đánh giá"
+  - điểm answer = Σ score / Σ max_score × 10
+  - điểm lượt thi = trung bình có trọng số: câu chính 1, câu hỏi xoáy 0,5 (giữ đúng ExamScoring hiện có)
+        │
+        ▼
+ai_evaluations + ai_evaluation_criteria + final_results.ai_score
+        │
+        ▼ SignalR "grading-progress" / "grading-done" tới giảng viên
+```
+
+### 4.5 Human-in-the-loop và dấu vết
+
+- Trang bài làm của giảng viên hiện điểm AI từng tiêu chí + nhận xét, và ô nhập điểm của giảng viên.
+- Lưu: `final_results.lecturer_score`, `lecturer_comment`, `finalized_by`, `finalized_at`; `final_score = lecturer_score ?? ai_score`.
+- Mỗi lần lưu ghi `exam_logs`: ai sửa, điểm cũ → điểm mới, lúc nào. Không xoá bản ghi cũ.
+- Chỉ giảng viên phụ trách phiên hoặc admin được sửa (kiểm tra ở tầng Business như `ExamResultService` đang làm).
+
+### 4.6 Presentation
+
+| Từ | Sang |
+|---|---|
+| `Controllers/ExamResultsController.cs` + `Views/ExamResults/*` | `Pages/ExamResults/Index.cshtml(.cs)`, `Pages/ExamResults/Candidate.cshtml(.cs)` |
+| — | `Pages/ExamResults/MyResult.cshtml` — sinh viên xem báo cáo sau thi |
+| — | Hub `ExamUpdatesHub` thêm nhóm chấm điểm, hoặc `GradingHub` riêng |
+
+Route cũ `/ExamResults/Index/{id}` giữ redirect sang Razor Page để không gãy link của đồng đội.
+
+---
+
+## 5. Roadmap và danh sách task
+
+Mỗi task = 1 commit lên `TriDev`. Tổng 14 commit.
+
+| # | Task | Phụ thuộc | Kết quả |
+|---|---|---|---|
+| T0 | Dọn B1–B3: gỡ `bin-alt` khỏi Git, bổ sung `.gitignore`, ghi chú `core.longpaths` trong README | — | Clone nhẹ hơn, build được cả ở thư mục sâu |
+| T1 | Script `20261016_ai_evaluation_criteria.sql` + entity + mapping cho 4 bảng chưa map | — | DB sẵn sàng |
+| T2 | `IFollowUpAnalyzer` + `OllamaFollowUpAnalyzer` (phân tích thiếu ý/mơ hồ/mâu thuẫn) + fallback khi AI lỗi | T1 | Có contract AI, test bằng fake |
+| T3 | `FollowUpTurnRules` (static, thuần): ngân sách lượt + thời gian, dùng `VivaBudgetRules` | T1 | Unit test đầy đủ |
+| T4 | Cắm hỏi xoáy vào `VoiceRoomService` + repository + contract trạng thái | T2, T3 | Phòng thi hỏi xoáy được |
+| T5 | UI phòng thi: hiện câu hỏi xoáy, nhãn "Hỏi thêm", TTS đọc, đồng hồ riêng | T4 | Sinh viên trả lời được |
+| T6 | `RubricScoring` (static, thuần): kẹp điểm, tiêu chí thiếu, quy đổi thang 10 | T1 | Unit test đầy đủ |
+| T7 | `IAnswerGrader` + `OllamaAnswerGrader` + lưu `ai_evaluations` / `ai_evaluation_criteria` | T6 | Chấm được 1 answer |
+| T8 | `GradingBackgroundService` + hàng đợi + `final_results.ai_score` | T7 | Chấm cả lượt thi |
+| T9 | SignalR tiến độ/kết quả chấm | T8 | Giảng viên thấy realtime |
+| T10 | Chuyển `ExamResults` sang Razor Pages (giữ redirect route cũ) | — | Đúng yêu cầu ASM2 |
+| T11 | Màn hình giảng viên: xem điểm AI từng tiêu chí, sửa điểm, lưu `final_results` + `exam_logs` | T10, T8 | Human-in-the-loop |
+| T12 | Trang kết quả của sinh viên (điểm từng câu, nhận xét AI, không lộ `expected_answer`) | T11 | Nhóm chức năng 6 |
+| T13 | Kiểm thử end-to-end + rà soát toàn hệ thống + cập nhật tài liệu | tất cả | Báo cáo cuối |
+
+### Task đầu tiên và lý do ưu tiên
+
+**T1 — script `ai_evaluation_criteria` + entity/mapping cho 4 bảng chưa map.** Lý do: mọi task AI
+(T2, T4, T7, T8, T11, T12) đều đọc/ghi `follow_up_questions`, `ai_evaluations`, `final_results`,
+`exam_recordings` — có sẵn trong DB nhưng **không có entity nào**. Task này độc lập, không đụng code
+của đồng đội, dễ review và dễ hoàn tác.
+
+**T0 không còn là việc chặn.** Đo thực tế 15/10/2026 tại `PRN222/AS2`: `dotnet build AssignmentPRN.slnx`
+→ **thành công, 0 lỗi 0 warning**; `dotnet test` → **227/227 pass**. `bin-alt` chỉ gây lỗi khi project
+nằm dưới thư mục sâu, và `git clone` vẫn cần `core.longpaths` trên Windows. Vì vậy T0 hạ thành việc
+dọn dẹp, làm kèm hoặc bỏ nếu nhóm chưa muốn đụng file chung.
+
+---
+
+## 6. Tiêu chí nghiệm thu
+
+| # | Tiêu chí |
+|---|---|
+| A1 | Clone sạch `TriDev` → `dotnet build` và `dotnet test` đều pass (nền hiện tại: 227/227), không cần thao tác tay nào ngoài `appsettings.json` |
+| A2 | Khi `max_follow_ups_per_question > 0` và transcript thiếu ý, hệ thống đọc **câu hỏi xoáy do AI sinh**, gắn đúng `answer_id`, có `reason` |
+| A3 | Không bao giờ vượt `max_follow_ups_per_question`, không bao giờ vượt deadline câu hoặc giờ kết thúc ca |
+| A4 | Tắt Ollama: bài thi vẫn chạy trọn vẹn, chỉ không có hỏi xoáy; có log, không có dòng rác trong DB |
+| A5 | Mỗi answer có `ai_evaluations` + 1 dòng `ai_evaluation_criteria` cho **mỗi tiêu chí** của rubric; Σ điểm ≤ Σ `max_score` |
+| A6 | Giảng viên sửa điểm → `final_results` cập nhật, `exam_logs` có đúng 1 dòng ghi điểm cũ → mới + người sửa |
+| A7 | Giảng viên A không mở được kết quả phiên của giảng viên B; sinh viên mở `/ExamResults` → AccessDenied |
+| A8 | Sinh viên xem được điểm từng câu và nhận xét của mình, **không** thấy `expected_answer` và không thấy bài người khác |
+| A9 | Trang kết quả chạy trên Razor Pages; route MVC cũ redirect, không 404 |
+| A10 | SignalR báo tiến độ chấm; mất kết nối thì polling vẫn ra đúng trạng thái |
+| A11 | Giao diện 375px dùng lại token/`_DataTable`/`metric-card` sẵn có, không hard-code màu |
+
+## 7. Kế hoạch kiểm thử
+
+**Unit (xUnit, không cần DB)** — mục tiêu ≥ 40 test mới:
+
+| Nhóm | Ca kiểm thử |
+|---|---|
+| `FollowUpTurnRules` | hết lượt; hết giờ câu; hết giờ ca; `MaxFollowUps = 0`; AI trả `needsFollowUp = false`; AI timeout; AI trả JSON sai; câu hỏi rỗng/quá dài |
+| `RubricScoring` | điểm vượt `max_score` bị kẹp; điểm âm bị kẹp; thiếu tiêu chí = 0; thừa `criteriaId` lạ bị bỏ; rubric rỗng; quy đổi thang 10; trọng số câu chính/hỏi xoáy; làm tròn 1 chữ số |
+| `ResultAdjustmentRules` | `final_score` theo `lecturer_score`; chưa chấm; điểm ngoài [0,10]; không phải chủ phiên |
+
+**Integration (SQLite riêng, như `VoiceRoomHttpTests` đang làm)**: nộp câu → sinh hỏi xoáy (fake analyzer) → trả lời → chấm (fake grader) → giảng viên sửa điểm → log; CSRF; phân quyền chéo; nhóm SignalR trái quyền.
+
+**Thủ công trên trình duyệt**: 1 ca thi thật với Ollama bật, 1 ca với Ollama tắt, kiểm tra A2–A4, A8, A11.
+
+**Điều kiện hoàn thành**: toàn bộ test cũ (227 .NET + 13 JS) vẫn pass, test mới pass, A1–A11 đạt, tài liệu này cập nhật kết quả thực đo.
+
+---
+
+## 8. Giới hạn đã biết trước
+
+- Chất lượng câu hỏi xoáy và điểm AI phụ thuộc model cục bộ (`qwen2.5:3b`); không cam kết độ chính xác tiếng Việt chuyên ngành.
+- Thêm một lượt gọi Ollama giữa hai câu hỏi làm tăng độ trễ; cần đo thực tế và có thể phải hạ `num_predict` hoặc sinh trước.
+- Không ghi hình (`exam_recordings` chỉ dùng cho audio đã có), không xuất Excel — nằm ngoài phần việc 6.
