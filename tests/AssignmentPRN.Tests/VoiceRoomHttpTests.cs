@@ -33,7 +33,7 @@ public sealed class VoiceRoomHttpTests
         await seed.SaveChangesAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
             ApplicationName = typeof(AssignmentPRN.Presentation.Pages.VoiceRoom.IndexModel).Assembly.GetName().Name,
-            WebRootPath = Path.GetFullPath("../../../../../src/AssignmentPRN.Presentation/wwwroot", AppContext.BaseDirectory),
+            WebRootPath = PresentationWebRoot(),
             EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -137,6 +137,7 @@ public sealed class VoiceRoomHttpTests
             var browserScript = Environment.GetEnvironmentVariable("AIVES_BROWSER_CHECK_SCRIPT");
             if (!string.IsNullOrWhiteSpace(browserScript))
             {
+                clock.At = clock.At.AddSeconds(10);
                 var start = new ProcessStartInfo("node") { UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = true, RedirectStandardError = true };
                 start.ArgumentList.Add(browserScript);
@@ -163,6 +164,9 @@ public sealed class VoiceRoomHttpTests
         Assert.True(match.Success, "Missing antiforgery token");
         return WebUtility.HtmlDecode(match.Groups[1].Value);
     }
+
+    private static string PresentationWebRoot([System.Runtime.CompilerServices.CallerFilePath] string source = "") =>
+        Path.GetFullPath("../../src/AssignmentPRN.Presentation/wwwroot", Path.GetDirectoryName(source)!);
 
     private static Task Send(ClientWebSocket socket, string message) =>
         socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message + "\u001e")), WebSocketMessageType.Text, true, default);

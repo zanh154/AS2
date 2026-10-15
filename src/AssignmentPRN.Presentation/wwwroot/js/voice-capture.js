@@ -38,10 +38,17 @@
   const active = () => recorder?.state === "recording" || requesting || stopping;
   const release = () => { stream?.getTracks().forEach(track => { track.onended = null; track.stop(); }); stream = null; };
   const buttons = () => {
+    root.dataset.captureState = uploading ? "saving" : stopping ? "processing" : recorder?.state === "recording" ? "recording" : requesting ? "permission" : reading ? "reading" : "ready";
+    text.readOnly = active();
     record.disabled = !question || active() || reading || uploading || pending?.id === question.examQuestionId;
-    read.disabled = !question || active() || reading || uploading;
-    stop.disabled = !active();
+    read.disabled = !question || active() || uploading;
+    read.textContent = reading ? "Dừng đọc" : "Đọc câu hỏi";
+    stop.disabled = !active() || requesting || stopping;
     retry.disabled = !pending || uploading;
+    const speechRetry = byId("voice-stt-retry");
+    if (speechRetry) speechRetry.disabled = recorder?.state !== "recording" || stopping;
+    const badge = byId("voice-record-state");
+    if (badge) badge.textContent = ({ recording: "Đang thu âm", saving: "Đang lưu", processing: "Đang xử lý", permission: "Chờ quyền mic", reading: "Đang đọc câu hỏi", ready: "Sẵn sàng" })[root.dataset.captureState];
   };
   const upload = async () => {
     if (!pending || uploading) return;
@@ -70,8 +77,11 @@
   const stopRecording = async (save = true) => {
     const targetId = question?.examQuestionId;
     if (requesting) throw new Error("Đang chờ quyền microphone.");
-    if (recorder?.state === "recording") { stopping = true; adapter.stop(); recorder.stop(); }
+    const speechStopped = Promise.resolve(adapter.stop());
+    if (recorder?.state === "recording") { stopping = true; recorder.stop(); buttons(); }
     if (stopping) await stopPromise;
+    await speechStopped;
+    root.dispatchEvent(new CustomEvent("voice-draft-ready", { detail: { questionId: targetId } }));
     if (save && pending?.id === targetId) {
       await upload();
       if (failure || pending?.id === targetId) throw failure || new Error("Bản thu chưa lưu. Hãy thử lưu lại.");
@@ -79,6 +89,7 @@
   };
   const stopReading = () => { window.speechSynthesis?.cancel(); reading = false; buttons(); };
   read.addEventListener("click", () => {
+    if (reading) { stopReading(); return; }
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { status.textContent = "Trình duyệt chưa hỗ trợ đọc tự động; hãy đọc câu hỏi trên màn hình."; return; }
     if (!question || active()) return;
     const utterance = new SpeechSynthesisUtterance(question.text);
@@ -86,7 +97,8 @@
     const voice = speechSynthesis.getVoices().find(item => item.lang.toLowerCase().startsWith("vi"));
     if (voice) utterance.voice = voice;
     reading = true; buttons();
-    utterance.onend = utterance.onerror = () => { reading = false; buttons(); };
+    utterance.onend = () => { reading = false; buttons(); };
+    utterance.onerror = () => { reading = false; status.textContent = "Không đọc được tự động. Bạn có thể đọc câu hỏi trên màn hình."; buttons(); };
     speechSynthesis.speak(utterance);
   });
   record.addEventListener("click", async () => {
@@ -113,8 +125,8 @@
         if (chunks.reduce((sum, chunk) => sum + chunk.size, 0) >= 11 * 1024 * 1024) stopRecording().catch(error => { status.textContent = error.message; });
       };
       recorder.onstop = async () => {
-        adapter.stop();
         const duration = Math.max(0.01, (performance.now() - started) / 1000);
+        await Promise.resolve(adapter.stop());
         const blob = new Blob(chunks, { type: mime });
         pending = blob.size ? { id, duration, blob, recoveryId } : null;
         if (blob.size) {
@@ -130,11 +142,7 @@
       recorder.onerror = () => { status.textContent = "Thiết bị thu âm gặp lỗi; hãy kiểm tra microphone."; stopRecording().catch(() => {}); };
       stream.getTracks().forEach(track => track.onended = () => { status.textContent = "Microphone bị ngắt; đang lưu phần đã thu."; stopRecording().catch(() => {}); });
       recorder.start(1000);
-      const prefix = text.value.trim();
-      adapter.start({ onText: value => {
-        if (question?.examQuestionId !== id) return;
-        text.value = [prefix, value].filter(Boolean).join(" ").slice(0, 16000); text.dispatchEvent(new Event("input")); },
-        onError: message => { byId("voice-stt-status").textContent = message; } });
+      startSpeech(id);
       status.textContent = "Đang thu âm. Bấm Dừng để lưu hoặc Nộp để kết thúc câu trả lời.";
     } catch (error) {
       release();
@@ -142,12 +150,37 @@
         NotFoundError: "Không tìm thấy microphone.", NotReadableError: "Microphone đang bận hoặc không đọc được." })[error.name] || error.message;
     } finally { requesting = false; buttons(); }
   });
+  const startSpeech = id => {
+      const prefix = text.value.trim();
+      adapter.start({ onText: value => {
+        if (question?.examQuestionId !== id) return;
+        text.value = [prefix, value].filter(Boolean).join(" ").slice(0, 16000); text.dispatchEvent(new Event("input")); },
+        onError: message => { if (question?.examQuestionId === id) byId("voice-stt-status").textContent = message; },
+        onState: (state, message) => {
+          if (question?.examQuestionId !== id) return;
+          root.dataset.speechState = state;
+          byId("voice-stt-status").textContent = message;
+          const label = byId("voice-stt-badge");
+          if (label) label.textContent = ({ starting: "Đang kết nối", listening: "Đang nghe", recognized: "Đã nhận văn bản", processing: "Đang hoàn tất", ready: "Đã nhận văn bản", empty: "Chưa có văn bản", error: "Cần kiểm tra", unsupported: "Chưa hỗ trợ", reconnecting: "Đang nối lại" })[state];
+        } });
+  };
+  byId("voice-stt-retry")?.addEventListener("click", async () => {
+    if (recorder?.state !== "recording" || stopping) return;
+    const id = question.examQuestionId;
+    await Promise.resolve(adapter.stop());
+    if (question?.examQuestionId === id && recorder?.state === "recording") startSpeech(id);
+  });
   stop.addEventListener("click", () => stopRecording().catch(error => { status.textContent = error.message; }));
   retry.addEventListener("click", upload);
   window.addEventListener("online", upload);
   window.addEventListener("beforeunload", event => { if (active() || pending) { event.preventDefault(); event.returnValue = ""; } });
   window.addEventListener("pagehide", () => { adapter.stop(); release(); stopReading(); });
   setInterval(() => {
+    const elapsed = byId("voice-record-time");
+    if (elapsed && recorder?.state === "recording") {
+      const seconds = Math.floor((performance.now() - started) / 1000);
+      elapsed.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    }
     if (question && recorder?.state === "recording" && Date.now() >= question.captureDeadline)
       stopRecording().catch(error => { status.textContent = error.message; });
   }, 200);

@@ -123,7 +123,13 @@
     finally { submitting = false; document.getElementById("voice-submit").disabled = false; }
   });
   root.addEventListener("voice-audio-saved", () => { saved.textContent = "Đã lưu bản thu trên máy chủ."; });
-  document.getElementById("voice-save").addEventListener("click", () => save(false));
+  root.addEventListener("voice-draft-ready", event => {
+    if (state?.question?.examQuestionId === event.detail.questionId && !submitting) save(false);
+  });
+  document.getElementById("voice-save").addEventListener("click", async () => {
+    try { await window.voiceCapture?.beforeSubmit(); await save(false); }
+    catch (error) { status.textContent = error.message; }
+  });
   document.getElementById("voice-retry").addEventListener("click", poll);
   window.addEventListener("online", poll);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });

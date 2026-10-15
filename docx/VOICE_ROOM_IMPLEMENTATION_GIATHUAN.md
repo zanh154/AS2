@@ -111,3 +111,12 @@ dotnet test tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj --no-restore --
 ```
 
 Test dùng tài khoản tổng hợp trong fixture SQLite; source không chứa thông tin đăng nhập của người dùng. Ảnh và kết quả smoke được ghi vào thư mục tạm `aives-voice-browser`.
+
+## Sửa STT và lưu nháp audio/transcript
+
+- STT hiện là Web Speech của trình duyệt. Đã thử Chrome với WAV tổng hợp và quan sát sự kiện nhận dạng trả về văn bản tiếng Việt thực. Mẫu dùng voice tiếng Anh đọc chữ Việt không dấu nên không dùng kết quả này để đánh giá độ chính xác tiếng Việt hoặc microphone vật lý.
+- Sửa `stop()` thành bất đồng bộ: chờ kết quả nhận dạng cuối trước khi lưu/nộp, có giới hạn chờ để không treo khi dịch vụ STT lỗi. Tham khảo [MDN SpeechRecognition.stop](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/stop).
+- Giữ transcript qua các lần dịch vụ tự ngắt/nghe lại; không báo STT thành công khi bị lỗi network/quyền truy cập. Hiển thị trạng thái đang kết nối/đang nghe/đã có văn bản/không nhận được văn bản và hỗ trợ thử lại.
+- Dừng thu tự lưu transcript cuối và upload audio. Nút Lưu tạm cũng dừng, lưu audio và transcript; vẫn giữ bản nháp/chunk ở IndexedDB để khôi phục nếu mạng lỗi.
+- Browser smoke có hai phần tách biệt: probe dịch vụ STT thật; sau đó dùng sự kiện STT xác định sẵn để kiểm tra chính xác kết quả cuối, audio/transcript lưu tạm ở server và IndexedDB, F5 rồi nộp. Không dùng fixture STT để tuyên bố nhận dạng giọng thật thành công.
+- Build/test dùng `--artifacts-path "$env:TEMP/aives-voice-validation"` để tránh khóa executable của ứng dụng người dùng đang chạy. Không mở instance web lâu dài sau kiểm thử.
