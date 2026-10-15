@@ -21,3 +21,5 @@ coverage/
 
 src/AssignmentPRN.DataAccess/Storage/
 src/AssignmentPRN.Presentation/wwwroot/materials/
+# RAG document uploads are written at runtime (DocumentStorage:BasePath).
+src/AssignmentPRN.Presentation/App_Data/
