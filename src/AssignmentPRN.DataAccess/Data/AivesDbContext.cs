@@ -40,6 +40,14 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
     public DbSet<GeneratedQuestion> GeneratedQuestions => Set<GeneratedQuestion>();
 
+    public DbSet<FollowUpQuestion> FollowUpQuestions => Set<FollowUpQuestion>();
+
+    public DbSet<AiEvaluation> AiEvaluations => Set<AiEvaluation>();
+
+    public DbSet<AiEvaluationCriteria> AiEvaluationCriteria => Set<AiEvaluationCriteria>();
+
+    public DbSet<FinalResult> FinalResults => Set<FinalResult>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ExamLog>(entity => {
@@ -54,6 +62,7 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
             entity.Property(x => x.Timestamp).HasColumnName("timestamp");
         });
         ConfigureDocuments(modelBuilder);
+        ConfigureGrading(modelBuilder);
         modelBuilder.Entity<ExamVivaSettings>(entity => {
             entity.ToTable("exam_viva_settings");
             entity.HasKey(x => x.ExamId);
@@ -638,6 +647,169 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
             entity.HasOne(criteria => criteria.Rubric)
                 .WithMany(rubric => rubric.Criteria)
                 .HasForeignKey(criteria => criteria.RubricId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    /// <summary>
+    /// The AI examiner's side: the probes it asked on an answer, what it suggested for
+    /// that answer, and the mark the lecturer finally decided. Every table here already
+    /// existed in the schema except ai_evaluation_criteria, which carries the per-criterion
+    /// marks the rubric needs (database/20261016_ai_evaluation_criteria.sql).
+    /// </summary>
+    private static void ConfigureGrading(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FollowUpQuestion>(entity =>
+        {
+            entity.ToTable("follow_up_questions");
+            entity.HasKey(followUp => followUp.FollowUpId);
+
+            entity.Property(followUp => followUp.FollowUpId)
+                .HasColumnName("follow_up_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(followUp => followUp.AnswerId)
+                .HasColumnName("answer_id")
+                .IsRequired();
+            entity.Property(followUp => followUp.QuestionText)
+                .HasColumnName("question_text")
+                .IsRequired();
+            entity.Property(followUp => followUp.AnswerTranscript)
+                .HasColumnName("answer_transcript");
+            entity.Property(followUp => followUp.AudioPath)
+                .HasColumnName("audio_path")
+                .HasMaxLength(1000);
+            entity.Property(followUp => followUp.Reason)
+                .HasColumnName("reason")
+                .HasMaxLength(1000);
+            entity.Property(followUp => followUp.OrderNo)
+                .HasColumnName("order_no")
+                .HasDefaultValue(1);
+            entity.Property(followUp => followUp.AskedAt)
+                .HasColumnName("asked_at");
+            entity.Property(followUp => followUp.AnsweredAt)
+                .HasColumnName("answered_at");
+
+            entity.HasIndex(followUp => followUp.AnswerId);
+
+            entity.HasOne(followUp => followUp.Answer)
+                .WithMany()
+                .HasForeignKey(followUp => followUp.AnswerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AiEvaluation>(entity =>
+        {
+            entity.ToTable("ai_evaluations");
+            entity.HasKey(evaluation => evaluation.EvaluationId);
+
+            entity.Property(evaluation => evaluation.EvaluationId)
+                .HasColumnName("evaluation_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(evaluation => evaluation.AnswerId)
+                .HasColumnName("answer_id")
+                .IsRequired();
+            entity.Property(evaluation => evaluation.AiScore)
+                .HasColumnName("ai_score")
+                .HasPrecision(5, 2);
+            entity.Property(evaluation => evaluation.Confidence)
+                .HasColumnName("confidence")
+                .HasPrecision(5, 4);
+            entity.Property(evaluation => evaluation.Feedback)
+                .HasColumnName("feedback");
+            entity.Property(evaluation => evaluation.Strengths)
+                .HasColumnName("strengths");
+            entity.Property(evaluation => evaluation.Weaknesses)
+                .HasColumnName("weaknesses");
+            entity.Property(evaluation => evaluation.MissingPoints)
+                .HasColumnName("missing_points");
+            entity.Property(evaluation => evaluation.EvaluatedAt)
+                .HasColumnName("evaluated_at");
+
+            // One evaluation per answer (unique key in DB).
+            entity.HasIndex(evaluation => evaluation.AnswerId).IsUnique();
+
+            entity.HasOne(evaluation => evaluation.Answer)
+                .WithMany()
+                .HasForeignKey(evaluation => evaluation.AnswerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AiEvaluationCriteria>(entity =>
+        {
+            entity.ToTable("ai_evaluation_criteria");
+            entity.HasKey(mark => mark.EvaluationCriteriaId);
+
+            entity.Property(mark => mark.EvaluationCriteriaId)
+                .HasColumnName("evaluation_criteria_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(mark => mark.EvaluationId)
+                .HasColumnName("evaluation_id")
+                .IsRequired();
+            entity.Property(mark => mark.CriteriaId)
+                .HasColumnName("criteria_id")
+                .IsRequired();
+            entity.Property(mark => mark.Score)
+                .HasColumnName("score")
+                .HasPrecision(5, 2);
+            entity.Property(mark => mark.Comment)
+                .HasColumnName("comment")
+                .HasMaxLength(1000);
+
+            // A criterion is marked once per evaluation; grading again overwrites it.
+            entity.HasIndex(mark => new { mark.EvaluationId, mark.CriteriaId }).IsUnique();
+
+            entity.HasOne(mark => mark.Evaluation)
+                .WithMany(evaluation => evaluation.Criteria)
+                .HasForeignKey(mark => mark.EvaluationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(mark => mark.Criteria)
+                .WithMany()
+                .HasForeignKey(mark => mark.CriteriaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FinalResult>(entity =>
+        {
+            entity.ToTable("final_results");
+            entity.HasKey(result => result.ResultId);
+
+            entity.Property(result => result.ResultId)
+                .HasColumnName("result_id")
+                .ValueGeneratedOnAdd();
+            entity.Property(result => result.ExamId)
+                .HasColumnName("exam_id")
+                .IsRequired();
+            entity.Property(result => result.CandidateId)
+                .HasColumnName("candidate_id")
+                .IsRequired();
+            entity.Property(result => result.AiScore)
+                .HasColumnName("ai_score")
+                .HasPrecision(5, 2);
+            entity.Property(result => result.LecturerScore)
+                .HasColumnName("lecturer_score")
+                .HasPrecision(5, 2);
+            entity.Property(result => result.FinalScore)
+                .HasColumnName("final_score")
+                .HasPrecision(5, 2);
+            entity.Property(result => result.LecturerComment)
+                .HasColumnName("lecturer_comment");
+            entity.Property(result => result.FinalizedBy)
+                .HasColumnName("finalized_by");
+            entity.Property(result => result.FinalizedAt)
+                .HasColumnName("finalized_at");
+
+            // One row per candidate per exam (unique key in DB).
+            entity.HasIndex(result => new { result.ExamId, result.CandidateId }).IsUnique();
+
+            entity.HasOne(result => result.Session)
+                .WithMany()
+                .HasForeignKey(result => result.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(result => result.Candidate)
+                .WithMany()
+                .HasForeignKey(result => result.CandidateId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

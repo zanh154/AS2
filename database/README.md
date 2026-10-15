@@ -95,6 +95,8 @@ Chạy lần lượt bằng SQL Editor trong DBeaver (Execute SQL Script):
 2. `20261015_exam_viva_settings.sql`
 3. `20261015_documents_rag.sql`
 4. `20261015_rubrics.sql`
+5. `20261016_ai_evaluation_criteria.sql` — điểm AI theo từng tiêu chí rubric; cần chạy sau
+   script rubric vì nó tham chiếu `rubric_criteria`.
 
 Các script bổ sung schema và có kiểm tra phần đã tồn tại. Không import lại dump hoặc chạy seed để cập nhật database chung đang sử dụng. Hai script có stored procedure dùng `DELIMITER`; cần chạy toàn bộ script, không tách tại từng dấu chấm phẩy.
 
