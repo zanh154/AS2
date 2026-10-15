@@ -14,9 +14,11 @@ namespace AssignmentPRN.Presentation.Controllers;
 /// session never depends on the lecturer remembering to hand questions out beforehand.
 /// </summary>
 [SessionAuthorize(RoleNames.Student)]
-public class ExamRoomController(IQuestionService questionService) : Controller
+public class ExamRoomController(IQuestionService questionService, IVoiceRoomService voiceRoom) : Controller
 {
     private int CurrentUserId => HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
+    private async Task<bool> IsVoiceAsync(int id, CancellationToken ct) =>
+        await voiceRoom.IsVoiceAsync(id, CurrentUserId, ct);
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveDraft(int id, [FromForm] Dictionary<int, int?> answers, CancellationToken ct)
@@ -34,6 +36,7 @@ public class ExamRoomController(IQuestionService questionService) : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Enter(int id, CancellationToken ct)
     {
+        if (await IsVoiceAsync(id, ct)) return RedirectToPage("/VoiceRoom/Index", new { id });
         var result = await questionService.EnterExamAsync(id, CurrentUserId, ct);
         if (!result.Success || result.Data is null)
         {
@@ -48,6 +51,7 @@ public class ExamRoomController(IQuestionService questionService) : Controller
     [HttpGet]
     public async Task<IActionResult> Index(int id, CancellationToken ct)
     {
+        if (await IsVoiceAsync(id, ct)) return RedirectToPage("/VoiceRoom/Index", new { id });
         var result = await questionService.GetExamRoomAsync(id, CurrentUserId, ct);
         if (!result.Success || result.Data is null)
         {
@@ -74,6 +78,7 @@ public class ExamRoomController(IQuestionService questionService) : Controller
     [HttpGet]
     public async Task<IActionResult> Result(int id, CancellationToken ct)
     {
+        if (await IsVoiceAsync(id, ct)) return RedirectToPage("/VoiceRoom/Index", new { id });
         var result = await questionService.GetExamResultAsync(id, CurrentUserId, ct);
         if (!result.Success || result.Data is null)
         {

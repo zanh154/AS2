@@ -21,11 +21,16 @@ builder.Services.AddRazorPages();
 var storageRoot = builder.Configuration["MaterialStorage:RootPath"]
     ?? "../AssignmentPRN.DataAccess/Storage";
 storageRoot = Path.GetFullPath(storageRoot, builder.Environment.ContentRootPath);
+var publicStorageRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+if (storageRoot.Equals(publicStorageRoot, StringComparison.OrdinalIgnoreCase)
+    || storageRoot.StartsWith(publicStorageRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("MaterialStorage:RootPath must be outside wwwroot to protect private recordings.");
 
 builder.Services.AddBusiness(connectionString, storageRoot);
-builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
+builder.Services.AddSingleton<AssignmentPRN.Business.Services.IGradingNotifier, SignalRGradingNotifier>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
 builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
@@ -52,6 +57,7 @@ app.UseSession();
 
 app.MapRazorPages();
 app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
+app.MapHub<VoiceRoomHub>("/hubs/voice-room");
 app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
 app.MapDefaultControllerRoute();
 

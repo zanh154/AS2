@@ -148,11 +148,19 @@ public interface IQuestionRepository
 
 public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy) : IQuestionRepository
 {
+    private async Task EnsureNotVoiceRoomAsync(int candidateId, CancellationToken ct)
+    {
+        if (await context.Set<ExamLog>().AnyAsync(x => x.CandidateId == candidateId
+                && x.Action == VoiceRoomRepository.StartedAction, ct))
+            throw new ArgumentException("Lượt thi đang ở chế độ giọng nói. Hãy tiếp tục phòng thi giọng nói từ lịch thi.");
+    }
+
     public async Task SaveDraftAsync(int candidateId, Func<ExamDraftState?, IReadOnlyDictionary<int, int?>> validate,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(validate);
         await using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        await EnsureNotVoiceRoomAsync(candidateId, cancellationToken);
         var candidate = await context.ExamCandidates.AsNoTracking().Include(x => x.Session)
             .SingleOrDefaultAsync(x => x.CandidateId == candidateId, cancellationToken);
         var slots = await context.ExamQuestions.AsNoTracking().Include(x => x.Question).ThenInclude(x => x.Options)
@@ -876,6 +884,7 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         ArgumentNullException.ThrowIfNull(followUps);
 
         await using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        await EnsureNotVoiceRoomAsync(candidateId, cancellationToken);
         var currentCandidate = await context.ExamCandidates.SingleAsync(x => x.CandidateId == candidateId, cancellationToken);
         if (currentCandidate.Status != CandidateStatus.InProgress)
             throw new ArgumentException("Lượt thi không còn nhận bài nộp.");
@@ -985,6 +994,7 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         CancellationToken cancellationToken = default)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        await EnsureNotVoiceRoomAsync(candidateId, cancellationToken);
         var candidate = await context.ExamCandidates.Include(x => x.Session)
             .FirstOrDefaultAsync(item => item.CandidateId == candidateId, cancellationToken)
             ?? throw new KeyNotFoundException("Không tìm thấy lượt thi.");

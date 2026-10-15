@@ -1,0 +1,132 @@
+@page "{id:int}"
+@model AssignmentPRN.Presentation.Pages.VoiceRoom.IndexModel
+@{
+    ViewData["Title"] = "Phòng thi giọng nói";
+}
+<link rel="stylesheet" href="~/css/voice-exam.css" asp-append-version="true" />
+<section class="voice-room" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })"
+         data-upload="@Url.Page(null, "Upload", new { id = Model.CandidateId })"
+         data-audio="@Url.Page(null, "Audio", new { id = Model.CandidateId })">
+    <span id="voice-identity" hidden data-user="@Model.RecoveryUserId" data-candidate="@Model.CandidateId"></span>
+    <header class="voice-room__header">
+        <div>
+            <span class="eyebrow">AIVES · VẤN ĐÁP TRỰC TUYẾN</span>
+            <h1>Thi vấn đáp</h1>
+            <p id="voice-exam-name">Một câu hỏi mỗi lần. Tự tin trả lời theo cách của bạn.</p>
+        </div>
+        <div class="voice-room__connection">
+            <span class="voice-connection-dot" aria-hidden="true"></span>
+            <p id="voice-connection" role="status" aria-live="polite">Đang kết nối phòng thi…</p>
+            <button type="button" class="btn btn-outline-secondary" id="voice-retry" title="Tải lại trạng thái phòng thi">Đồng bộ lại</button>
+        </div>
+    </header>
+    <ol class="voice-steps" aria-label="Các bước trả lời" hidden>
+        <li><span>01</span><strong>Đọc câu hỏi</strong><small>Hiểu nội dung cần trả lời</small></li>
+        <li><span>02</span><strong>Thu âm &amp; nhận dạng</strong><small>Nói rõ, giữ nhịp tự nhiên</small></li>
+        <li><span>03</span><strong>Kiểm tra &amp; nộp</strong><small>Xem lại audio và văn bản</small></li>
+    </ol>
+    <div class="voice-room__progress">
+        <p id="voice-status" role="status" aria-live="polite">Đang tải lượt thi…</p>
+        <progress id="voice-progress" value="0" max="100" aria-label="Tiến độ hoàn thành bài thi"></progress>
+    </div>
+    <div class="voice-room__grid">
+    <div class="voice-room__main">
+    <section class="content-card voice-question-panel" aria-labelledby="voice-question">
+        <div class="voice-panel-heading">
+            <span class="eyebrow" id="voice-question-number">CÂU HỎI CỦA BẠN</span>
+            <div class="voice-clockbox">
+                <span>Thời gian còn lại</span>
+                <strong id="voice-clock" role="timer">--:--</strong>
+            </div>
+        </div>
+        <h2 id="voice-question">Đang chuẩn bị câu hỏi…</h2>
+        <p class="voice-followup-reason" id="voice-followup-reason" role="status" aria-live="polite" hidden></p>
+        <p class="voice-awaiting" id="voice-awaiting" role="status" aria-live="polite" hidden>
+            Giám khảo đang xem câu trả lời vừa nộp. Có thể sẽ có một câu hỏi thêm; nếu không, câu tiếp theo sẽ mở ngay.
+        </p>
+        <div class="voice-question-footer">
+            <p>Đọc kỹ câu hỏi hoặc nghe trước khi bắt đầu trả lời.</p>
+            <button type="button" class="btn btn-outline-primary" id="voice-read">Nghe câu hỏi</button>
+        </div>
+    </section>
+    <form class="content-card voice-transcript-panel" id="voice-answer">
+        @Html.AntiForgeryToken()
+        <div class="voice-panel-heading">
+            <div><span class="eyebrow">CÂU TRẢ LỜI</span><h2><label for="voice-transcript">Văn bản nhận dạng</label></h2></div>
+            <span class="voice-status-pill" id="voice-stt-badge">Sẵn sàng nhận dạng</span>
+        </div>
+        <p class="voice-field-note" id="voice-transcript-hint">Lời nói sẽ hiện tại đây. Bạn có thể chỉnh sửa sau khi dừng thu âm.</p>
+        <textarea id="voice-transcript" class="form-control" rows="5" maxlength="16000" aria-describedby="voice-transcript-hint"
+                  placeholder="Bắt đầu thu âm và nói câu trả lời của bạn…"></textarea>
+        <div class="voice-transcript-meta"><span>Tự lưu trong quá trình trả lời</span><span id="voice-transcript-count">0 / 16.000 ký tự</span></div>
+        <p id="voice-save-status" role="status" aria-live="polite"></p>
+        <div class="voice-form-actions">
+            <button class="btn btn-outline-secondary" type="button" id="voice-save">Lưu tạm</button>
+            <button class="btn btn-primary" type="submit" id="voice-submit">Nộp câu trả lời <span aria-hidden="true">→</span></button>
+        </div>
+    </form>
+    </div>
+    <aside class="voice-room__aside" aria-label="Thu âm và lưu bài">
+    <section class="content-card voice-recorder" id="voice-capture">
+        <div class="voice-panel-heading"><h2>Ghi âm trả lời</h2><span class="voice-status-pill" id="voice-record-state" role="status" aria-live="polite">Sẵn sàng</span></div>
+        <div class="voice-recorder__stage">
+            <div class="voice-recorder__orb" aria-hidden="true">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>
+                </svg>
+            </div>
+            <strong id="voice-record-time">00:00</strong>
+            <p>Microphone chỉ bật khi bạn cho phép.</p>
+        </div>
+        <div class="voice-recorder__controls">
+            <button type="button" class="btn btn-primary" id="voice-record">Cho phép mic và thu âm</button>
+            <button type="button" class="btn btn-outline-secondary" id="voice-stop" disabled>Dừng thu và lưu</button>
+        </div>
+        <p id="voice-capture-status" role="status" aria-live="polite"></p>
+        <div class="voice-speech-note">
+            <span class="voice-speech-note__dot" aria-hidden="true"></span>
+            <div><strong>Nhận dạng tiếng Việt</strong><p id="voice-stt-status" role="status" aria-live="polite">Sẵn sàng chuyển lời nói thành văn bản khi bạn bắt đầu thu. Cần kết nối mạng.</p></div>
+        </div>
+        <button type="button" class="btn btn-outline-secondary voice-speech-retry" id="voice-stt-retry" disabled>Thử nhận dạng lại</button>
+        <audio id="voice-preview" controls preload="none" hidden aria-label="Nghe lại bản thu"></audio>
+        <div class="voice-audio-links">
+            <a id="voice-download-local" hidden>Tải bản thu về máy</a>
+            <a id="voice-stored-audio" hidden target="_blank" rel="noopener">Nghe bản đã lưu</a>
+        </div>
+        <button type="button" class="btn btn-outline-secondary voice-upload-retry" id="voice-upload" disabled>Thử lưu lại bản thu</button>
+        <details class="voice-backups" hidden>
+            <summary>Bản thu dự phòng <span id="voice-backup-count">0</span></summary>
+            <div id="voice-local-recordings" aria-label="Bản thu giữ trên trình duyệt"></div>
+        </details>
+    </section>
+    <details class="voice-storage-details">
+    <summary id="voice-draft-summary" aria-live="polite">Đang tải bản nháp…</summary>
+    <section class="content-card voice-storage" aria-label="Trạng thái lưu tạm">
+        <div class="voice-panel-heading"><h2>Trạng thái lưu tạm</h2><span class="voice-storage__check" aria-hidden="true">✓</span></div>
+        <dl>
+            <div><dt>Bản thu âm</dt><dd id="voice-audio-badge">Chưa có bản thu</dd></div>
+            <div><dt>Văn bản</dt><dd id="voice-text-badge">Chưa có nội dung</dd></div>
+            <div><dt>Bản dự phòng</dt><dd id="voice-local-badge">Đang chuẩn bị</dd></div>
+        </dl>
+        <p id="voice-local-status" role="status" aria-live="polite">Giữ lại audio và văn bản để tiếp tục khi tải lại trang hoặc mất kết nối.</p>
+    </section>
+    </details>
+    </aside>
+    </div>
+    <details class="voice-history-details">
+    <summary>Các câu đã nộp</summary>
+    <section class="content-card voice-history-panel" aria-label="Các câu đã nộp">
+        <div class="voice-panel-heading"><div><span class="eyebrow">LỊCH SỬ TRẢ LỜI</span><h2>Các câu đã nộp</h2></div><span class="voice-history-caption">Xem lại văn bản và bản thu của bạn</span></div>
+        <p id="voice-history-empty">Chưa có câu trả lời đã nộp. Hoàn thành từng câu để xem lại tại đây.</p>
+        <div id="voice-history"></div>
+    </section>
+    </details>
+    <a class="back-link voice-room__back" asp-controller="StudentSchedule" asp-action="Mine"><span aria-hidden="true">←</span> Về lịch thi</a>
+</section>
+@section Scripts {
+    <script src="~/js/voice-recovery.js" asp-append-version="true"></script>
+    <script src="~/js/voice-speech.js" asp-append-version="true"></script>
+    <script src="~/js/voice-capture.js" asp-append-version="true"></script>
+    <script src="~/js/voice-room.js" asp-append-version="true"></script>
+    <script src="~/js/voice-room-ui.js" asp-append-version="true"></script>
+}

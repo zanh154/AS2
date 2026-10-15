@@ -52,23 +52,51 @@
                                     {
                                         if (action.IsPost)
                                         {
-                                            <form method="post" data-confirm="@action.Confirm"
-                                                  asp-controller="@(action.Controller ?? currentController)" asp-action="@action.Action"
-                                                  asp-all-route-data="@RouteDataFor(action)">
-                                                <button type="submit" class="btn btn-outline-@action.Tone btn-sm btn-icon"
-                                                        title="@action.Label" aria-label="@action.Label">
-                                                    <partial name="_Icon" model="@action.Icon" />
-                                                </button>
-                                            </form>
+                                            @* A page and a controller action cannot both be written on
+                                               one tag: an empty attribute still counts as set, so the
+                                               two targets get their own markup. *@
+                                            @if (action.Page is not null)
+                                            {
+                                                <form method="post" data-confirm="@action.Confirm"
+                                                      asp-page="@action.Page" asp-page-handler="@action.Action"
+                                                      asp-all-route-data="@RouteDataFor(action)">
+                                                    <button type="submit" class="btn btn-outline-@action.Tone btn-sm btn-icon"
+                                                            title="@action.Label" aria-label="@action.Label">
+                                                        <partial name="_Icon" model="@action.Icon" />
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form method="post" data-confirm="@action.Confirm"
+                                                      asp-controller="@(action.Controller ?? currentController)" asp-action="@action.Action"
+                                                      asp-all-route-data="@RouteDataFor(action)">
+                                                    <button type="submit" class="btn btn-outline-@action.Tone btn-sm btn-icon"
+                                                            title="@action.Label" aria-label="@action.Label">
+                                                        <partial name="_Icon" model="@action.Icon" />
+                                                    </button>
+                                                </form>
+                                            }
                                         }
                                         else
                                         {
-                                            <a class="btn btn-outline-@action.Tone btn-sm btn-icon"
-                                               title="@action.Label" aria-label="@action.Label"
-                                               asp-controller="@(action.Controller ?? currentController)" asp-action="@action.Action"
-                                               asp-all-route-data="@RouteDataFor(action)">
-                                                <partial name="_Icon" model="@action.Icon" />
-                                            </a>
+                                            @if (action.Page is not null)
+                                            {
+                                                <a class="btn btn-outline-@action.Tone btn-sm btn-icon"
+                                                   title="@action.Label" aria-label="@action.Label"
+                                                   asp-page="@action.Page" asp-all-route-data="@RouteDataFor(action)">
+                                                    <partial name="_Icon" model="@action.Icon" />
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a class="btn btn-outline-@action.Tone btn-sm btn-icon"
+                                                   title="@action.Label" aria-label="@action.Label"
+                                                   asp-controller="@(action.Controller ?? currentController)" asp-action="@action.Action"
+                                                   asp-all-route-data="@RouteDataFor(action)">
+                                                    <partial name="_Icon" model="@action.Icon" />
+                                                </a>
+                                            }
                                         }
                                     }
                                 </div>

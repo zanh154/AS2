@@ -41,6 +41,10 @@ public sealed record ActionsCell(IReadOnlyList<TableAction> Actions) : TableCell
 /// <param name="Tone">Bootstrap outline tone: secondary, primary or danger.</param>
 /// <param name="IsPost">Renders a POST form (with antiforgery) instead of a link.</param>
 /// <param name="Confirm">Message for the shared confirm dialog; POST actions only.</param>
+/// <param name="Page">
+/// Razor Page path, for a screen that has moved off MVC. When set it is used instead of
+/// <paramref name="Controller"/> and <paramref name="Action"/>, which a page has none of.
+/// </param>
 public sealed record TableAction(
     string Label,
     string Icon,
@@ -49,4 +53,5 @@ public sealed record TableAction(
     string? Controller = null,
     string Tone = "secondary",
     bool IsPost = false,
-    string? Confirm = null);
+    string? Confirm = null,
+    string? Page = null);

@@ -73,10 +73,10 @@ public class IssuedPaperEditTests
         ExamId = 1, CourseId = course ? 2 : 1, MainQuestionCount = count ? 2 : 1,
         ExamName = "Changed", StartTime = Start, TimePerStudent = 10 };
 
-    internal static async Task<AivesDbContext> OpenAsync()
+    internal static async Task<AivesDbContext> OpenAsync(string connectionString = "Data Source=:memory:")
     {
         var db = new AivesDbContext(new DbContextOptionsBuilder<AivesDbContext>()
-            .UseSqlite("Data Source=:memory:").Options);
+            .UseSqlite(connectionString).Options);
         await db.Database.OpenConnectionAsync();
         await db.Database.EnsureCreatedAsync();
         db.Roles.Add(new Role { RoleId = 1, RoleName = "Lecturer" });

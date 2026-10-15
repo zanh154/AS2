@@ -55,6 +55,9 @@ mysql -u <user> -p <ten_db> < database/seed_test_flow.sql
   ảnh hưởng dữ liệu thật.
 - Mật khẩu chung cho mọi tài khoản thử: `Test@1234`. Danh sách tài khoản và dữ liệu sinh ra
   nằm ở phần chú thích đầu file.
+- Muốn thử **AI hỏi xoáy và chấm điểm**, chạy thêm `seed_test_rubrics.sql` ngay sau seed:
+  seed không tạo rubric, và AI chỉ chấm câu có rubric. Mỗi lần chạy lại seed thì chạy lại
+  file này (rubric cũ bị xoá theo câu hỏi).
 - Hai tài liệu PDF mà script tham chiếu không nằm trong Git. Chép từ `docs/samples/` vào
   thư mục lưu trữ trước khi test phần tài liệu:
 
@@ -95,7 +98,9 @@ Chạy lần lượt bằng SQL Editor trong DBeaver (Execute SQL Script):
 2. `20261015_exam_viva_settings.sql`
 3. `20261015_documents_rag.sql`
 4. `20261015_rubrics.sql`
+5. `20261016_ai_evaluation_criteria.sql` — điểm AI theo từng tiêu chí rubric; cần chạy sau
+   script rubric vì nó tham chiếu `rubric_criteria`.
 
 Các script bổ sung schema và có kiểm tra phần đã tồn tại. Không import lại dump hoặc chạy seed để cập nhật database chung đang sử dụng. Hai script có stored procedure dùng `DELIMITER`; cần chạy toàn bộ script, không tách tại từng dấu chấm phẩy.
 
-Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu hình tại máy này. Không cần chạy lại để dùng web. Xem `docs/local-runtime.md` để khởi động AI và ứng dụng.
+Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu hình tại máy này. Script số 5 (`ai_evaluation_criteria`) cũng đã được áp dụng trên Aiven và trên MySQL local cùng ngày. Không cần chạy lại để dùng web. Xem `docs/local-runtime.md` để khởi động AI và ứng dụng.
