@@ -1,6 +1,6 @@
 # AI hỏi xoáy, chấm điểm và kết quả (ASM2 — phần 6)
 
-Trạng thái: **đã code xong, đã test, chưa chạy thử trên database chung.**
+Trạng thái: **đã code xong, đã test, đã chạy thử với Ollama thật trên database cục bộ; chưa chạy trên database chung.**
 Nhánh: `TriDev`, cắt từ `GiaThuan` (`200f5c0`). Ngày cập nhật: 2026-10-15.
 
 Tài liệu này chỉ mô tả phần việc số 6 trong bảng phân công ASM2. Các phần đã có nằm ở
@@ -263,19 +263,94 @@ dọn dẹp, làm kèm hoặc bỏ nếu nhóm chưa muốn đụng file chung.
 
 ---
 
-## 9. Giới hạn — cần biết trước khi demo
+## 9. Đo thật với Ollama (15/10/2026)
 
-- **Chưa chạy với Ollama thật.** Toàn bộ test dùng model giả lập. Chất lượng câu hỏi xoáy và
-  điểm số của `qwen2.5:3b` trên tiếng Việt chuyên ngành **chưa được đo**.
-- ~~Chưa chạy script `20261016_ai_evaluation_criteria.sql` trên database chung.~~ **Đã chạy
-  ngày 15/10/2026** trên Aiven (`defaultdb`) và trên MySQL local; cấu trúc bảng đã đối chiếu
-  khớp với mapping EF. Dùng `scripts/apply-migration.ps1 -WhatIf` để kiểm tra lại bất cứ lúc nào.
-- **Chưa thử trên trình duyệt thật** với microphone và ca thi còn hiệu lực.
-- Thêm một lượt gọi model giữa hai câu hỏi làm tăng độ trễ. Ngân sách đang đặt 20 giây; cần
-  đo thực tế và có thể phải hạ `num_predict` hoặc dùng model nhỏ hơn.
+Chạy thật một lần trên máy cá nhân, không dùng database chung: MySQL 8.4.9 cục bộ (dump
+ASM1 + cả 5 migration + `seed_test_flow.sql`), Ollama 0.40.4, `qwen2.5:3b`, Chromium.
+Máy: i7-13620H, 32 GB RAM, **RTX 4060 Laptop — model nạp trọn 36/36 lớp lên GPU**, nên các
+số dưới đây là *cận tốt*; máy chỉ có CPU sẽ chậm hơn nhiều.
+
+Cách thi: hai lượt thi giọng nói thật trên trình duyệt (SV1, SV2 của phiên `[TFLOW-1]`,
+`seconds_per_question` 300, `max_follow_ups_per_question` 2, rubric 3 tiêu chí / 10 điểm cho
+cả 12 câu Chính của môn TEST). Transcript nhập bằng tay vào ô "Văn bản nhận dạng" — ô này
+cho sửa, nên không cần microphone; phần nhận dạng giọng nói của trình duyệt vẫn chưa được đo.
+
+### (a) Độ trễ từ lúc nộp câu tới lúc câu kế tiếp mở
+
+| Tình huống | Đo được |
+|---|---|
+| **Lần gọi đầu tiên sau khi bật máy** (model chưa nạp) | **33,4 s** — nạp model mất 32 s, vượt ngân sách 20 s của `OllamaFollowUpAnalyzer.Budget`, nên **không có câu hỏi xoáy nào** và câu kế tiếp chỉ mở sau khi hết giờ chờ |
+| Model đã nạp (mọi lượt sau) | **0,5 – 3,0 s** đo tại trình duyệt; bản thân model chỉ 0,55 – 1,76 s cho 26 – 200 token |
+
+Kết luận: **ngân sách 20 s là đủ khi model đã nạp, và chắc chắn không đủ cho lần gọi đầu.**
+Cần "làm nóng" model trước ca thi (một lần gọi `/api/generate` bất kỳ) — nếu không, câu đầu
+của phiên thi đầu tiên mỗi ngày luôn mất câu hỏi xoáy và sinh viên ngồi chờ hơn 30 giây.
+
+### (b) Chất lượng câu hỏi xoáy tiếng Việt — điểm yếu lớn nhất
+
+Trên **10 câu trả lời yếu được dựng có chủ ý** (mơ hồ, thiếu ý, tự mâu thuẫn, "em không
+biết"), gọi đúng prompt của `OllamaFollowUpAnalyzer`:
+
+- **0/10 lần sinh viên nhận được câu hỏi xoáy dùng được.**
+- 7/10 lần model trả `reason = "Sufficient"` cho câu trả lời rõ ràng là thiếu ý — kể cả
+  "Em không biết ạ." và "Vì IQueryable nhanh hơn ạ.".
+- 2/10 lần model nhận ra vấn đề (`Contradictory`) nhưng để `question` rỗng, hoặc đặt
+  `needsFollowUp: false` cùng lúc với một `reason` khác `Sufficient` → `Parse` loại bỏ,
+  đúng theo thiết kế.
+- 1/10 lần có `question`, nhưng **viết cho giảng viên chứ không hỏi sinh viên**: *"Sinh viên
+  đã nói rằng… Bạn có thể hỏi sinh viên về nguyên nhân của sự mâu thuẫn này không?"* — dài
+  hai câu, sai người nhận, không dùng được nếu đọc lên cho sinh viên.
+
+Phần luật (`Parse`, `FollowUpTurnRules`) chạy đúng: cái gì không dùng được đều bị loại và bài
+thi vẫn chạy trọn vẹn. Vấn đề nằm ở model: `qwen2.5:3b` quá nhỏ để làm giám khảo tiếng Việt.
+Trước demo nên **đổi model** (ví dụ `qwen2.5:7b-instruct`) và/hoặc sửa prompt để bắt model
+viết câu hỏi ở ngôi thứ hai, nói thẳng với sinh viên. **Chưa đổi gì trong code**: cả
+`Budget` và `num_predict` vẫn như cũ, vì độ trễ khi model đã nạp không phải là chỗ tắc.
+
+### (c) Chấm điểm theo rubric
+
+- Một lượt thi 3 câu, rubric 3 tiêu chí mỗi câu: **3,7 – 4,0 s model cho mỗi câu**
+  (315 – 344 token ra), **~11,5 s** cho cả lượt; tính cả nạp lại model và vòng quét là
+  20 – 25 s. Ngân sách 2 phút của `OllamaAnswerGrader` còn rất dư.
+- Điểm đưa ra hợp lý: câu đúng và gọn 8/10, câu mơ hồ 2/10 và 4/10, câu sai hẳn 0/10;
+  `confidence` 0,5 – 1,0. Nhận xét từng tiêu chí bằng tiếng Việt đọc được, có dẫn lại lời
+  sinh viên.
+- Ba điểm chưa ổn, giảng viên cần đọc lại trước khi chốt:
+  1. Có lần model **nói sinh viên đã nêu đúng khái niệm trong khi sinh viên không hề nói ra
+     từ khoá đó** ("nêu đúng khái niệm về kiểu dữ liệu int" cho câu trả lời không có chữ
+     "int"), tuy điểm vẫn chấm thấp 1/5.
+  2. Tiêu chí "Trình bày rõ ràng" nhiều lần được **2/2 dù nhận xét ngay bên cạnh ghi là lan
+     man**.
+  3. `missing_points` có lúc **lọt số id tiêu chí vào văn bản** cho giảng viên đọc: "mất
+     điểm ở tiêu chí 87 và 99".
+
+### Lỗi phát hiện khi chạy thật
+
+| # | Vấn đề | Trạng thái |
+|---|---|---|
+| 1 | **Nộp xong lượt thi không kích hoạt chấm.** Hai lượt thi đều ở `Completed` nhiều phút mà không có dòng nào trong `ai_evaluations`; chỉ khi khởi động lại app, vòng quét đầu của `GradingBackgroundService` mới chấm. Tức là hiện tại kết quả AI **không bao giờ xuất hiện trong ca thi đang diễn ra** | Chưa sửa — cần tìm trong đường `VoiceRoomService.SyncAsync` → `GradingQueue.QueueCandidateAsync` |
+| 2 | **Câu cuối của lượt thi không bao giờ được hỏi xoáy**: trả lời câu cuối làm lượt thi chuyển sang `Completed` nên không còn lượt nào để hỏi thêm | Chưa sửa — cần xác nhận đây là ý muốn hay thiếu sót |
+| 3 | `scripts/start-local-ai.ps1` lưu UTF-8 không BOM nên **Windows PowerShell 5.1 không parse được** (lỗi ở dòng có tiếng Việt). Phải tự chạy `ollama serve`. PowerShell 7 không bị | Chưa sửa — thêm BOM hoặc bỏ tiếng Việt trong script |
+
+---
+
+## 10. Giới hạn — cần biết trước khi demo
+
+- **Chất lượng câu hỏi xoáy của `qwen2.5:3b` chưa đạt**: 0/10 lần sinh ra câu hỏi dùng được
+  (xem mục 9b). Phần chấm điểm thì dùng được, chỉ cần giảng viên đọc lại.
+- **Phải làm nóng model trước ca thi**, nếu không câu đầu tiên mất hơn 30 giây và không có
+  câu hỏi xoáy (mục 9a).
+- **Kết quả AI chưa chạy trong ca thi**: hiện phải khởi động lại app mới chấm (mục 9, lỗi 1).
+- Script `20261016_ai_evaluation_criteria.sql` **đã chạy trên database chung** (Aiven) ngày
+  15/10/2026; lần đo này cũng chạy sạch trên MySQL 8.4.9 cục bộ. Kiểm tra lại bằng
+  `scripts/apply-migration.ps1 -WhatIf`.
+- **Chưa đo trên máy chỉ có CPU.** Mọi số ở mục 9 đo khi model nằm trọn trên RTX 4060; máy
+  không GPU sẽ chậm hơn nhiều và có thể vượt cả ngân sách 20 s khi model đã nạp.
+- **Chưa đo phần nhận dạng giọng nói của trình duyệt**: transcript được nhập tay vào ô cho
+  sửa, nên microphone và độ chính xác nhận dạng tiếng Việt vẫn chưa được thử.
 - **Bản thu của câu hỏi xoáy chưa tải lại được** từ trang lịch sử: `DownloadAsync` mới đọc
   audio của câu chính. Dữ liệu vẫn được lưu, chỉ thiếu đường tải.
-- Chấm chạy **tuần tự một lượt thi một lúc**, vì model cục bộ cấu hình một request. Lớp đông
-  thì hàng đợi dài; cần đo trước khi dùng thật.
+- Chấm chạy **tuần tự một lượt thi một lúc**, vì model cục bộ cấu hình một request. Với
+  ~4 s/câu thì một lớp 30 sinh viên × 3 câu mất khoảng 6 phút trên máy có GPU.
 - Không ghi hình, không xuất Excel — nằm ngoài phần việc 6.
 - `exam_recordings` vẫn chưa có entity: phần việc 6 không dùng tới nó.
