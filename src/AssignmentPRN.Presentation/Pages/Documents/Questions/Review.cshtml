@@ -31,6 +31,8 @@
             </div>
             <div class="card-body">
                 <form method="post">
+                    <div asp-validation-summary="All" class="text-danger"></div>
+                    <fieldset disabled="@(!Model.IsNew)">
                     <input type="hidden" name="questionId" value="@Model.Question.QuestionId" />
                     <input type="hidden" name="documentId" value="@Model.DocumentId" />
 
@@ -90,7 +92,7 @@
                                 @if (Model.Question.Status != AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus.PendingReview)
                                 {
                                     <span class="ms-2 text-muted">
-                                        Đã duyệt bởi @Model.Question.ReviewedByName vào @Model.Question.ReviewedAt?.ToString("dd/MM/yyyy HH:mm")
+                                        Đã duyệt bởi @Model.Question.ReviewedByName vào @Model.Question.ReviewedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                     </span>
                                 }
                             </div>
@@ -121,6 +123,7 @@
                         </button>
                         <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-secondary">Hủy</a>
                     </div>
+                    </fieldset>
                 </form>
             </div>
         </div>
@@ -140,7 +143,7 @@
                     <dd class="col-sm-8">@Model.Question.DocumentId</dd>
 
                     <dt class="col-sm-4">Ngày tạo</dt>
-                    <dd class="col-sm-8">@Model.Question.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+                    <dd class="col-sm-8">@Model.Question.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
 
                     <dt class="col-sm-4">Trạng thái</dt>
                     <dd class="col-sm-8">

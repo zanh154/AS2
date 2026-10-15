@@ -48,6 +48,14 @@ public class DetailsModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnGetStatusAsync(int id, CancellationToken ct)
+    {
+        var response = await _documentService.GetAsync(id, ct);
+        return response.Success && response.Data is not null
+            ? new JsonResult(new { documentId = response.Data.DocumentId, status = response.Data.Status.ToString() })
+            : NotFound();
+    }
+
     public async Task<IActionResult> OnPostGenerateQuestionsAsync(
         int documentId,
         int count,

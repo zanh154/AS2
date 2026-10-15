@@ -40,7 +40,7 @@
                         <dd class="col-sm-9">@Model.Document.UploadedByName</dd>
 
                         <dt class="col-sm-3">Ngày tải lên</dt>
-                        <dd class="col-sm-9">@Model.Document.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+                        <dd class="col-sm-9">@Model.Document.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
                     </dl>
                 </div>
             </div>
@@ -79,7 +79,7 @@
                         @if (Model.Document.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Completed)
                         {
                             <dt class="col-sm-4">Hoàn tất lúc</dt>
-                            <dd class="col-sm-8">@Model.Document.ProcessedAt?.ToString("dd/MM/yyyy HH:mm")</dd>
+                            <dd class="col-sm-8">@Model.Document.ProcessedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
                             <dt class="col-sm-4">Số chunks</dt>
                             <dd class="col-sm-8">@Model.Document.ChunkCount</dd>
                             <dt class="col-sm-4">Số câu hỏi đã sinh</dt>
@@ -133,7 +133,7 @@
                                         <td>@(q.Topic ?? "-")</td>
                                         <td><span class="badge @Model.GetQuestionStatusBadgeClass(q.Status)">@Model.GetQuestionStatusText(q.Status)</span></td>
                                         <td>
-                                            <a asp-page="Questions/Review" asp-route-id="@q.QuestionId" class="btn btn-sm btn-outline-primary">Xem/Duyệt</a>
+                                            <a asp-page="Questions/Review" asp-route-id="@q.QuestionId" asp-route-documentId="@Model.Document.DocumentId" class="btn btn-sm btn-outline-primary">Xem/Duyệt</a>
                                         </td>
                                     </tr>
                                 }
