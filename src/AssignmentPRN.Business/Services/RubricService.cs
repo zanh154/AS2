@@ -10,7 +10,8 @@ namespace AssignmentPRN.Business.Services;
 /// </summary>
 public class RubricService(
     IQuestionRepository questionRepository,
-    ICatalogRepository catalogRepository) : IRubricService
+    ICatalogRepository catalogRepository,
+    IExamRealtimeNotifier? realtime = null) : IRubricService
 {
     public Task<ServiceResponse<IReadOnlyList<RubricListItemResponse>>> ListAsync(
         int? lecturerId,
@@ -113,6 +114,9 @@ public class RubricService(
                     throw new BusinessValidationException($"Thứ tự hiển thị bị trùng: {string.Join(", ", duplicateOrders)}.");
                 }
 
+                var question = await questionRepository.GetDetailAsync(request.QuestionId, cancellationToken)
+                    ?? throw new BusinessValidationException("Không tìm thấy câu hỏi.");
+
                 // Ensure question is visible
                 await EnsureCourseVisibleAsync(request.QuestionId, lecturerId, cancellationToken);
 
@@ -134,6 +138,7 @@ public class RubricService(
                 };
 
                 var detail = await questionRepository.SaveRubricAsync(input, cancellationToken);
+                await NotifyCourseChangedAsync(question.CourseId, lecturerId, cancellationToken);
                 return MapDetail(detail);
             },
             "Không thể lưu bộ tiêu chí.");
@@ -153,6 +158,7 @@ public class RubricService(
                 await EnsureCourseVisibleAsync(questionAndCourse.QuestionId, lecturerId, cancellationToken);
 
                 await questionRepository.DeleteRubricAsync(rubricId, cancellationToken);
+                await NotifyCourseChangedAsync(questionAndCourse.CourseId, lecturerId, cancellationToken);
             },
             "Không thể xoá bộ tiêu chí.");
     }
@@ -206,6 +212,30 @@ public class RubricService(
         {
             throw new BusinessValidationException("Bạn không có quyền thao tác bộ tiêu chí của môn học này.");
         }
+    }
+
+    private async Task NotifyCourseChangedAsync(
+        int courseId,
+        int? actorLecturerId,
+        CancellationToken cancellationToken)
+    {
+        if (realtime is null || courseId <= 0)
+        {
+            return;
+        }
+
+        var lecturerId = actorLecturerId is > 0
+            ? actorLecturerId.Value
+            : (await catalogRepository.ListActiveCoursesAsync(cancellationToken))
+                .FirstOrDefault(course => course.CourseId == courseId)?.LecturerId ?? 0;
+        if (lecturerId <= 0)
+        {
+            return;
+        }
+
+        await realtime.ChangedAsync(
+            new ExamChange(0, lecturerId, Array.Empty<int>(), "rubrics") { CourseId = courseId },
+            cancellationToken);
     }
 
     /// <summary>Validates rubric criteria for the SaveAsync method. Exposed as static for unit testing.</summary>
