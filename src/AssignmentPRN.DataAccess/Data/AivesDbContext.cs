@@ -42,6 +42,17 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ExamLog>(entity => {
+            entity.ToTable("exam_logs");
+            entity.HasKey(x => x.LogId);
+            entity.Property(x => x.LogId).HasColumnName("log_id");
+            entity.Property(x => x.ExamId).HasColumnName("exam_id");
+            entity.Property(x => x.CandidateId).HasColumnName("candidate_id");
+            entity.Property(x => x.UserId).HasColumnName("user_id");
+            entity.Property(x => x.Action).HasColumnName("action").HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Description).HasColumnName("description").HasMaxLength(2000);
+            entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+        });
         ConfigureDocuments(modelBuilder);
         modelBuilder.Entity<ExamVivaSettings>(entity => {
             entity.ToTable("exam_viva_settings");

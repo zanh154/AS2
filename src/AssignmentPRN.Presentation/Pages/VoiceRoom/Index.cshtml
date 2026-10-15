@@ -1,0 +1,24 @@
+@page "{id:int}"
+@model AssignmentPRN.Presentation.Pages.VoiceRoom.IndexModel
+@{
+    ViewData["Title"] = "Phòng thi giọng nói";
+}
+<section class="content-card" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })">
+    <h1>Phòng thi giọng nói</h1>
+    <p id="voice-status" role="status" aria-live="polite">Đang tải lượt thi…</p>
+    <p>Thời gian câu hỏi: <strong id="voice-clock" role="timer">--:--</strong></p>
+    <h2 id="voice-question"></h2>
+    <form id="voice-answer">
+        @Html.AntiForgeryToken()
+        <label for="voice-transcript">Nội dung trả lời</label>
+        <textarea id="voice-transcript" class="form-control" rows="6" maxlength="16000"></textarea>
+        <p id="voice-save-status" role="status" aria-live="polite"></p>
+        <button class="btn btn-secondary" type="button" id="voice-save">Lưu tạm</button>
+        <button class="btn btn-primary" type="submit" id="voice-submit">Nộp câu trả lời</button>
+    </form>
+    <button type="button" class="btn btn-outline-secondary" id="voice-retry">Đồng bộ lại</button>
+    <a asp-controller="StudentSchedule" asp-action="Mine">Về lịch thi</a>
+</section>
+@section Scripts {
+    <script src="~/js/voice-room.js" asp-append-version="true"></script>
+}

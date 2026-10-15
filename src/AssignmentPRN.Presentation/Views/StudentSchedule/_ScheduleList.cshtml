@@ -59,6 +59,10 @@ else if (Model.Schedule is not null)
                         <partial name="_ScheduleItem" model="item" />
                         @if (canSit)
                         {
+                            <form method="post" asp-page="/VoiceRoom/Index" asp-page-handler="Enter"
+                                  asp-route-id="@item.CandidateId" class="student-schedule-item__action">
+                                <button class="btn btn-outline-primary" type="submit">Thi giọng nói</button>
+                            </form>
                             <form method="post" asp-controller="ExamRoom" asp-action="Enter"
                                   asp-route-id="@item.CandidateId" class="student-schedule-item__action">
                                 <button class="btn btn-primary" type="submit">

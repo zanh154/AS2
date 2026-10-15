@@ -23,6 +23,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<IAcademicClassService, AcademicClassService>();
         services.AddScoped<IQuestionService, QuestionService>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IVoiceRoomService, VoiceRoomService>();
         services.AddScoped<IQuestionReviewService, QuestionReviewService>();
         services.AddScoped<ICourseMaterialService, CourseMaterialService>();
         services.AddScoped<ICatalogService, CatalogService>();

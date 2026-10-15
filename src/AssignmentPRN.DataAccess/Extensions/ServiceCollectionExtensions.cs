@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IExamSessionRepository, ExamSessionRepository>();
         services.AddScoped<IExamVivaSettingsRepository, ExamVivaSettingsRepository>();
         services.AddScoped<IQuestionRepository, QuestionRepository>();
+        services.AddScoped<IVoiceRoomRepository, VoiceRoomRepository>();
         services.AddScoped<ICourseMaterialRepository, CourseMaterialRepository>();
         services.AddScoped<IExamResultRepository, ExamResultRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
