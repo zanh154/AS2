@@ -55,6 +55,9 @@ mysql -u <user> -p <ten_db> < database/seed_test_flow.sql
   ảnh hưởng dữ liệu thật.
 - Mật khẩu chung cho mọi tài khoản thử: `Test@1234`. Danh sách tài khoản và dữ liệu sinh ra
   nằm ở phần chú thích đầu file.
+- Muốn thử **AI hỏi xoáy và chấm điểm**, chạy thêm `seed_test_rubrics.sql` ngay sau seed:
+  seed không tạo rubric, và AI chỉ chấm câu có rubric. Mỗi lần chạy lại seed thì chạy lại
+  file này (rubric cũ bị xoá theo câu hỏi).
 - Hai tài liệu PDF mà script tham chiếu không nằm trong Git. Chép từ `docs/samples/` vào
   thư mục lưu trữ trước khi test phần tài liệu:
 
