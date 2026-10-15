@@ -151,3 +151,50 @@
   .voice-history-caption { display: none; }
   .voice-form-actions { .btn { flex: 1; padding-inline: $space-3; } .btn-primary { flex: 1.5; } }
 }
+
+// Compact exam workspace. Existing informational components remain available.
+.voice-room {
+  max-width: 1120px;
+  h1 { display: inline; margin: 0; font-size: $font-size-lg; letter-spacing: normal; }
+  .btn:focus-visible, summary:focus-visible, a:focus-visible { @include focus-ring; }
+  .content-card { padding: $space-4; }
+  textarea { min-height: 140px; line-height: 1.65; }
+  #voice-exam-name { display: inline; margin-left: $space-2; color: $color-heading; overflow-wrap: anywhere; }
+  .voice-room__header { flex-wrap: wrap; margin-bottom: $space-4; gap: $space-3; }
+  .voice-room__header > div:first-child { flex: 1; min-width: 0; }
+  .voice-room__header .eyebrow, #voice-question-number, #voice-stt-badge,
+  .voice-question-footer p, .voice-transcript-panel .eyebrow,
+  .voice-transcript-meta > span:first-child, #voice-save-status,
+  .voice-storage .voice-panel-heading, .voice-history-panel .voice-panel-heading { display: none; }
+  .voice-room__metadata { display: flex; align-items: center; gap: $space-5; }
+  .voice-room__progress { margin: 0; flex-direction: column; gap: $space-1; align-items: flex-start; progress { width: 80px; } }
+  .voice-clockbox strong { font-size: 1.6rem; }
+  .voice-room__connection { flex-basis: 100%; max-width: none; grid-template-columns: 7px minmax(0, 1fr) auto; .btn { grid-column: 3; grid-row: 1; } }
+  .voice-room__grid { grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: $space-3; }
+  .voice-room__main, .voice-room__aside { display: none; }
+  .voice-question-panel { grid-column: 1; grid-row: 1; order: initial; #voice-question { margin: 0 0 $space-3; font-size: $font-size-lg; } }
+  .voice-question-footer { padding-top: 0; border: 0; align-items: flex-start; }
+  .voice-transcript-panel { grid-column: 1; grid-row: 2; order: initial; }
+  .voice-field-note { margin-bottom: $space-3; }
+  .voice-transcript-meta { justify-content: flex-end; }
+  .voice-recorder { grid-column: 2; grid-row: 1 / span 2; order: initial; }
+  .voice-recorder__stage { padding: $space-4; margin: $space-3 0; > strong { margin-top: $space-3; } p { display: none; } }
+  .voice-recorder__orb { width: 44px; height: 44px; box-shadow: none; svg { width: 26px; height: 26px; } }
+  .voice-form-actions { grid-column: 2; grid-row: 3; margin: 0; padding: 0; border: 0; flex-wrap: nowrap; .btn { flex: 1; } }
+  .voice-storage-details { grid-column: 1; grid-row: 3; min-width: 0; }
+  .voice-storage-details summary, .voice-history-details > summary { cursor: pointer; padding: $space-2 0; font-size: $font-size-xs; color: $color-text; overflow-wrap: anywhere; }
+  .voice-storage { margin-top: $space-2; dl { margin: 0; } }
+  .voice-history-details { margin-top: $space-4; border-top: 1px solid $color-border; }
+  .voice-history-panel { margin-top: $space-2 !important; }
+  .voice-room__back { margin-top: $space-3; }
+  @include respond-below($breakpoint-lg) {
+    .voice-room__grid { grid-template-columns: minmax(0, 1fr); }
+    .voice-question-panel, .voice-recorder, .voice-transcript-panel, .voice-form-actions, .voice-storage-details { grid-column: 1; grid-row: auto; }
+    .voice-room__header { flex-direction: row; align-items: center; }
+    .voice-room__header > div:first-child { flex-basis: 100%; }
+    .voice-room__metadata { flex: 1; justify-content: space-between; }
+    .voice-recorder__stage { display: flex; align-items: center; justify-content: center; gap: $space-4; > strong { margin: 0; } }
+    .voice-recorder__orb { margin: 0; }
+    .voice-form-actions { .btn { min-width: 0; white-space: normal; } }
+  }
+}
