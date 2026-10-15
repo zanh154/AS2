@@ -1,4 +1,5 @@
 **/bin/
+**/bin-alt/
 **/obj/
 .vs/
 .vscode/

@@ -15,6 +15,13 @@ mysql -u <user> -p -e "CREATE DATABASE aives CHARACTER SET utf8mb4 COLLATE utf8m
 mysql -u <user> -p aives < database/dump/aives_20261002.sql
 ```
 
+> **Windows:** bật đường dẫn dài trước khi clone, nếu không `git clone` dừng giữa chừng
+> với `Filename too long`:
+>
+> ```bash
+> git config --global core.longpaths true
+> ```
+
 Sau đó chép `src/AssignmentPRN.Presentation/appsettings.json.example` thành
 `appsettings.json` và điền chuỗi kết nối của bạn, rồi:
 
