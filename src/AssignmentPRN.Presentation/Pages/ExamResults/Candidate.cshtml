@@ -16,4 +16,18 @@
         };
     }
 }
-<partial name="/Pages/Shared/ExamResultsCandidate.cshtml" model="Model.Data" />
+@if (Model.Data is CandidateResultViewModel { Candidate: var live })
+{
+    @* data-exam-id cho exam-realtime.js vào nhóm SignalR của phiên (hub kiểm tra quyền);
+       data-candidate-id để trang chỉ phản ứng với đúng bài này. *@
+    <div data-live-page="ExamResults" data-exam-id="@live.ExamId" data-candidate-id="@live.Paper.CandidateId">
+        <partial name="/Pages/Shared/ExamResultsCandidate.cshtml" model="Model.Data" />
+    </div>
+}
+else
+{
+    <partial name="/Pages/Shared/ExamResultsCandidate.cshtml" model="Model.Data" />
+}
+@section Scripts {
+    <script src="~/js/grading-live.js" asp-append-version="true"></script>
+}

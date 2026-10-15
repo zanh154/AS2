@@ -237,7 +237,7 @@ dọn dẹp, làm kèm hoặc bỏ nếu nhóm chưa muốn đụng file chung.
 | Lưu điểm từng tiêu chí và nhận xét | `ai_evaluations` + `ai_evaluation_criteria` |
 | Trang kết quả sang Razor Pages | `Pages/ExamResults/*`, URL giữ nguyên |
 | Giảng viên sửa điểm có dấu vết | `ResultReviewService` + `final_results` + `exam_logs` (`result.adjusted`) |
-| Thông báo tiến độ qua SignalR | `SignalRGradingNotifier`, nhóm `exam:{id}` |
+| Thông báo tiến độ qua SignalR | Server: `SignalRGradingNotifier`, nhóm `exam:{id}`. Trình duyệt: `wwwroot/js/grading-live.js` — trang bài làm hiện "AI đang chấm x/y câu" rồi tự tải lại khi xong; bảng điểm tự tải lại khi một bài trong phiên chấm xong; đang gõ dở điểm/nhận xét thì chỉ báo, không tải lại |
 
 ### Quyết định đáng chú ý
 
@@ -437,6 +437,7 @@ viên duyệt lại được thiết kế để bắt — và trong lần chạy
 | C | **Hai trang kết quả của giảng viên mất tiêu đề tab (" · AIVES") và mất breadcrumb** — lỗi do việc chuyển sang Razor Pages: tiêu đề đặt trong partial, mà `<partial>` nhận bản sao `ViewData` | **Đã sửa**: đặt ở trang. Test HTTP kiểm tra cả hai (đỏ trên code cũ) |
 | D | **`_Breadcrumb` ném lỗi 500 với mọi liên kết tới trang Courses / ExamSessions / ExamResults** — `asp-page` và `asp-controller` đặt cùng lúc bằng ternary; tag helper coi chúng loại trừ nhau kể cả khi giá trị null. Lỗi bị che vì chưa trang nào truyền breadcrumb tới được layout (lỗi C) | **Đã sửa**: tách hai nhánh markup, như đã làm với `_DataTable` |
 | E | Trang bài làm của giảng viên có ô **"ĐIỂM 0,0"** (điểm trắc nghiệm cũ của ASM1, luôn 0 với bài thi giọng nói) nằm cạnh **"AI ĐỀ XUẤT 1,0"** — hai con số "điểm" mâu thuẫn trên cùng màn hình | **Chưa sửa** — cần nhóm thống nhất: ẩn ô cũ với bài giọng nói, hay đổi tên |
+| G | **Thông báo SignalR chỉ có nửa server**: `SignalRGradingNotifier` gửi `GradingChanged` nhưng không trang nào nghe, và hai trang kết quả còn chưa vào nhóm SignalR của phiên — giảng viên phải tự F5 | **Đã sửa**: `grading-live.js` + `data-exam-id` trên hai trang. Chạy thật: SV2 nộp 00:02:33, trang giảng viên hiện 1/3 → 2/3 → 3/3 rồi tự tải lại lúc 00:02:51, không ai bấm gì. 8 test trình duyệt + kiểm HTTP |
 | F | **Các trang Courses / ExamSessions (phần của thành viên khác) cũng đặt breadcrumb trong partial**, nên cũng không có breadcrumb; tiêu đề tab là chuỗi tạm như "ExamSessions · Details" | **Không sửa** — ngoài phần 6, báo nhóm. Sửa giống lỗi C; lỗi D đã sửa nên chuyển lên sẽ không còn 500 |
 
 ## 10. Giới hạn — cần biết trước khi demo
@@ -451,6 +452,12 @@ viên duyệt lại được thiết kế để bắt — và trong lần chạy
 - **Model chấm điểm vẫn có thể nhận xét sai** (mục 9c, lỗi 1 và 2): nói sinh viên đã nêu một
   từ khoá họ không nói, hoặc cho điểm trình bày lệch với nhận xét ngay bên cạnh. Điểm AI là
   **đề xuất**; giảng viên phải đọc lại trước khi chốt. Đây là lý do module có bước duyệt tay.
+- **Mất kết nối SignalR thì trang kết quả không tự bắt kịp**: sự kiện chấm xong trong lúc
+  mất kết nối bị lỡ, giảng viên phải F5. Trang không có polling dự phòng (tiêu chí A10 mới
+  đạt phần realtime).
+- **Sinh viên trong phiên cũng nhận sự kiện chấm điểm của bạn cùng phiên**, vì nhóm SignalR
+  của phiên gồm cả sinh viên. Sự kiện không có điểm hay transcript, chỉ có mã lượt thi và số
+  câu đã chấm; nếu cần kín hơn thì gửi riêng cho giảng viên và admin.
 - **Câu hỏi xoáy có thể lộ đáp án** (mục 9.3) với model nhỏ. Prompt cấm nhưng code chưa chặn.
 - **Model chấm có thể bỏ qua phần sinh viên tự sửa ở câu hỏi xoáy** (mục 9.3) — giảng viên
   cần đọc phần "Câu hỏi thêm" trước khi chốt.

@@ -15,4 +15,16 @@
         };
     }
 }
-<partial name="/Pages/Shared/ExamResultsIndex.cshtml" model="Model.Data" />
+@if (Model.Data is SessionResultViewModel { Session: var live })
+{
+    <div data-live-page="ExamResults" data-exam-id="@live.ExamId">
+        <partial name="/Pages/Shared/ExamResultsIndex.cshtml" model="Model.Data" />
+    </div>
+}
+else
+{
+    <partial name="/Pages/Shared/ExamResultsIndex.cshtml" model="Model.Data" />
+}
+@section Scripts {
+    <script src="~/js/grading-live.js" asp-append-version="true"></script>
+}

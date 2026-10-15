@@ -31,6 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const notice = document.getElementById("realtime-notice");
     if (notice && !/^\/(ExamSessions|Courses)(\/Index)?\/?$/i.test(location.pathname)) { notice.hidden = false; document.getElementById("realtime-notice-message").textContent = "Phiên thi vừa thay đổi. Cập nhật để xem dữ liệu mới."; }
   });
+  // AI chấm xong hoặc đang chấm một bài: grading-live.js quyết định tải lại hay chỉ báo.
+  connection.on("GradingChanged", event => window.aivesGradingLive?.apply(event, root, dirty));
   connection.on("ExamListChanged", () => {
     const notice = document.getElementById("realtime-notice");
     if (notice) { notice.hidden = false; document.getElementById("realtime-notice-message").textContent = "Danh sách lớp vừa thay đổi."; }

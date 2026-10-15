@@ -148,7 +148,13 @@ public class RazorModuleTwoHttpTests
             {
                 Assert.DoesNotContain("<title> · AIVES</title>", page);
                 Assert.Contains("breadcrumb-trail", page);
+                // Vào nhóm SignalR của phiên để tự cập nhật khi AI chấm xong.
+                Assert.Contains("data-live-page=\"ExamResults\" data-exam-id=\"1\"", page);
+                Assert.Contains("/js/grading-live.js", page);
             }
+            // Bài làm chỉ phản ứng với đúng bài của nó.
+            Assert.Contains("data-candidate-id=\"1\"", paper);
+            Assert.Contains("id=\"grading-live-status\"", paper);
             // Razor Pages drops the Index segment, so the way back is /ExamResults/1;
             // both spellings have to reach the same screen.
             Assert.Contains("href=\"/ExamResults/1\"", paper);
