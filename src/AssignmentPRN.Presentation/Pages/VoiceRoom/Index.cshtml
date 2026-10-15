@@ -6,8 +6,11 @@
 <section class="content-card" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })"
          data-upload="@Url.Page(null, "Upload", new { id = Model.CandidateId })"
          data-audio="@Url.Page(null, "Audio", new { id = Model.CandidateId })">
+    <span id="voice-identity" hidden data-user="@Model.RecoveryUserId" data-candidate="@Model.CandidateId"></span>
     <h1>Phòng thi giọng nói</h1>
     <p id="voice-status" role="status" aria-live="polite">Đang tải lượt thi…</p>
+    <p id="voice-connection" role="status" aria-live="polite"></p>
+    <p id="voice-local-status" role="status" aria-live="polite"></p>
     <p>Thời gian câu hỏi: <strong id="voice-clock" role="timer">--:--</strong></p>
     <h2 id="voice-question"></h2>
     <div id="voice-capture">
@@ -20,6 +23,7 @@
         <audio id="voice-preview" controls hidden aria-label="Nghe lại bản thu"></audio>
         <a id="voice-download-local" hidden>Tải bản thu về máy</a>
         <a id="voice-stored-audio" hidden target="_blank" rel="noopener">Nghe bản đã lưu</a>
+        <div id="voice-local-recordings" aria-label="Bản thu giữ trên trình duyệt"></div>
     </div>
     <form id="voice-answer">
         @Html.AntiForgeryToken()
@@ -33,6 +37,7 @@
     <a asp-controller="StudentSchedule" asp-action="Mine">Về lịch thi</a>
 </section>
 @section Scripts {
+    <script src="~/js/voice-recovery.js" asp-append-version="true"></script>
     <script src="~/js/voice-speech.js" asp-append-version="true"></script>
     <script src="~/js/voice-capture.js" asp-append-version="true"></script>
     <script src="~/js/voice-room.js" asp-append-version="true"></script>

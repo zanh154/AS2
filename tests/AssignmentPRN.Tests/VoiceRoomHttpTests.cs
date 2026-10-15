@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.WebSockets;
+using System.Text;
 using System.Text.RegularExpressions;
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
@@ -44,11 +46,13 @@ public sealed class VoiceRoomHttpTests
         builder.Services.AddDbContext<AivesDbContext>(o => o.UseSqlite(seed.Database.GetDbConnection()));
         builder.Services.AddSingleton<TimeProvider>(clock);
         builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+        builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
         builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
         await using var app = builder.Build();
         app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute();
+        app.MapHub<VoiceRoomHub>("/hubs/voice-room");
         await app.StartAsync();
         try
         {
@@ -83,6 +87,24 @@ public sealed class VoiceRoomHttpTests
             Assert.Equal(wav, await download.Content.ReadAsByteArrayAsync());
             Assert.True(download.Headers.CacheControl!.NoStore);
             Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/VoiceRoom/999?handler=Sync", (object?)null)).StatusCode);
+            using var socket = new ClientWebSocket();
+            socket.Options.Cookies = handler.CookieContainer;
+            await socket.ConnectAsync(new Uri(address.Replace("http://", "ws://") + "/hubs/voice-room"), default);
+            await Send(socket, "{\"protocol\":\"json\",\"version\":1}");
+            Assert.Contains("{}", await Receive(socket));
+            await Send(socket, "{\"type\":1,\"invocationId\":\"1\",\"target\":\"Join\",\"arguments\":[999]}");
+            Assert.Contains("error", await Receive(socket));
+            await Send(socket, "{\"type\":1,\"invocationId\":\"2\",\"target\":\"Join\",\"arguments\":[1]}");
+            Assert.DoesNotContain("error", await Receive(socket));
+            var submitted = await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", new VoiceAnswerRequest(id, "final", true));
+            Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+            var next = (await submitted.Content.ReadFromJsonAsync<VoiceRoomState>())!;
+            Assert.Equal(2, next.Question!.OrderNo);
+            var notification = await Receive(socket);
+            Assert.Contains("VoiceRoomChanged", notification);
+            Assert.DoesNotContain("final", notification);
+            var retried = await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", new VoiceAnswerRequest(id, "late duplicate", true));
+            Assert.Equal(next.Question.Deadline, (await retried.Content.ReadFromJsonAsync<VoiceRoomState>())!.Question!.Deadline);
             using var anonymous = new HttpClient { BaseAddress = client.BaseAddress };
             Assert.Equal(HttpStatusCode.Forbidden, (await anonymous.GetAsync($"/VoiceRoom/1?handler=Audio&questionId={id}")).StatusCode);
         }
@@ -94,5 +116,16 @@ public sealed class VoiceRoomHttpTests
         var match = Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
         Assert.True(match.Success, "Missing antiforgery token");
         return WebUtility.HtmlDecode(match.Groups[1].Value);
+    }
+
+    private static Task Send(ClientWebSocket socket, string message) =>
+        socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message + "\u001e")), WebSocketMessageType.Text, true, default);
+
+    private static async Task<string> Receive(ClientWebSocket socket)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var buffer = new byte[8192];
+        var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), timeout.Token);
+        return Encoding.UTF8.GetString(buffer, 0, result.Count);
     }
 }

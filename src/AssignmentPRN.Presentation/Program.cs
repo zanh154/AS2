@@ -30,6 +30,7 @@ builder.Services.AddBusiness(connectionString, storageRoot);
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
 builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
@@ -56,6 +57,7 @@ app.UseSession();
 
 app.MapRazorPages();
 app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
+app.MapHub<VoiceRoomHub>("/hubs/voice-room");
 app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
 app.MapDefaultControllerRoute();
 

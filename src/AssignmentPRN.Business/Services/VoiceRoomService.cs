@@ -8,8 +8,15 @@ using CandidateStatus = AssignmentPRN.DataAccess.Enums.CandidateStatus;
 namespace AssignmentPRN.Business.Services;
 
 public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionService questions,
-    TimeProvider clock, IVoiceAudioStore? audioStore = null) : IVoiceRoomService
+    TimeProvider clock, IVoiceAudioStore? audioStore = null, IVoiceRoomNotifier? notifier = null) : IVoiceRoomService
 {
+    public Task<ServiceResponse<bool>> CanSubscribeAsync(int candidateId, int studentId, CancellationToken ct = default) =>
+        ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
+            ValidateOwner(a);
+            if (a.Logs.Count == 0) throw new BusinessValidationException("Lượt thi chưa mở chế độ giọng nói.");
+            return true;
+        }, ct), "Không thể đăng ký phòng thi.");
+
     public Task<ServiceResponse<VoiceRoomState>> UploadAsync(int candidateId, int studentId, int questionId,
         string contentType, long length, double durationSeconds, Stream content, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () => {
@@ -88,10 +95,25 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         }, ct), "Không thể vào phòng thi giọng nói.");
     }
 
-    public Task<ServiceResponse<VoiceRoomState>> SyncAsync(int candidateId, int studentId,
-        VoiceAnswerRequest? answer = null, CancellationToken ct = default) =>
-        ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => Apply(a, answer), ct),
-            "Không thể đồng bộ phòng thi. Hãy thử lại.");
+    public async Task<ServiceResponse<VoiceRoomState>> SyncAsync(int candidateId, int studentId,
+        VoiceAnswerRequest? answer = null, CancellationToken ct = default)
+    {
+        var changed = false;
+        var result = await ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
+            var before = (a.Candidate.Status, Completed: a.Questions.Count(x => x.IsCompleted));
+            var state = Apply(a, answer);
+            changed = before != (a.Candidate.Status, a.Questions.Count(x => x.IsCompleted));
+            return state;
+        }, ct), "Không thể đồng bộ phòng thi. Hãy thử lại.");
+        if (result.Success && changed && notifier != null)
+        {
+            // The transaction is committed before a best-effort invalidation is sent.
+            // Polling/reconnect still works when delivery fails.
+            try { await notifier.ChangedAsync(candidateId, studentId, ct); }
+            catch (Exception) { /* A notification failure cannot undo an accepted answer. */ }
+        }
+        return result;
+    }
 
     private DateTime Now => clock.GetLocalNow().DateTime;
 

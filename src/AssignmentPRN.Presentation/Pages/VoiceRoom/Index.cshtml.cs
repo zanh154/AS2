@@ -10,10 +10,12 @@ namespace AssignmentPRN.Presentation.Pages.VoiceRoom;
 public sealed class IndexModel(IVoiceRoomService service) : PageModel
 {
     private int UserId => HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
+    public int RecoveryUserId => UserId;
     private bool IsStudent => UserId > 0 && HttpContext.Session.GetString(SessionKeys.Role) == RoleNames.Student;
     public int CandidateId { get; private set; }
     public IActionResult OnGet(int id)
     {
+        Response.Headers.CacheControl = "private, no-store";
         if (!IsStudent) return RedirectToPage("/Account/Login");
         CandidateId = id;
         return Page();
@@ -30,6 +32,7 @@ public sealed class IndexModel(IVoiceRoomService service) : PageModel
 
     public async Task<IActionResult> OnPostSyncAsync(int id, [FromBody] VoiceAnswerRequest? answer, CancellationToken ct)
     {
+        Response.Headers.CacheControl = "private, no-store";
         if (!IsStudent) return StatusCode(403);
         if (!ModelState.IsValid) return BadRequest();
         var result = await service.SyncAsync(id, UserId, answer, ct);

@@ -9,10 +9,36 @@
   let question, recorder, stream, chunks = [], pending, previewUrl, started, stopPromise, stopResolve;
   let reading = false, requesting = false, uploading = false, failure;
   let stopping = false;
+  let recoveryId, recovered = false, stateVersion = 0;
+  const recordings = new Map();
+  const renderRecovery = item => {
+    recordings.set(item.id, item);
+    let row = document.getElementById(`recovery-${item.id}`);
+    if (!row) {
+      row = document.createElement("p"); row.id = `recovery-${item.id}`;
+      byId("voice-local-recordings").append(row);
+    }
+    if (row.dataset.url) URL.revokeObjectURL(row.dataset.url);
+    row.replaceChildren();
+    const url = URL.createObjectURL(item.blob); row.dataset.url = url;
+    const download = document.createElement("a"); download.href = url; download.download = `voice-${item.questionId}`;
+    download.textContent = `Tải bản thu câu ${item.questionId}${item.synced ? " (đã lưu máy chủ)" : " (chưa xác nhận lưu)"}`;
+    row.append(download);
+    if (!item.synced) {
+      const button = document.createElement("button"); button.type = "button"; button.className = "btn btn-outline-secondary";
+      button.textContent = "Thử gửi bản thu này";
+      button.addEventListener("click", () => {
+        if (active() || uploading) return;
+        pending = { id: item.questionId, blob: item.blob, duration: item.duration, recoveryId: item.id };
+        upload();
+      });
+      row.append(button);
+    }
+  };
   const active = () => recorder?.state === "recording" || requesting || stopping;
   const release = () => { stream?.getTracks().forEach(track => { track.onended = null; track.stop(); }); stream = null; };
   const buttons = () => {
-    record.disabled = !question || active() || reading || uploading || !!pending;
+    record.disabled = !question || active() || reading || uploading || pending?.id === question.examQuestionId;
     read.disabled = !question || active() || reading || uploading;
     stop.disabled = !active();
     retry.disabled = !pending || uploading;
@@ -32,6 +58,9 @@
         signal: AbortSignal.timeout(30000) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Lưu âm thanh thất bại.");
+      const acknowledged = { id: snapshot.recoveryId, questionId: snapshot.id, kind: "audio",
+        blob: snapshot.blob, duration: snapshot.duration, synced: true };
+      if (snapshot.recoveryId) { await window.voiceRecovery?.put(acknowledged); renderRecovery(acknowledged); }
       if (pending === snapshot) pending = null;
       status.textContent = "Đã lưu bản thu trên máy chủ.";
       root.dispatchEvent(new CustomEvent("voice-audio-saved", { detail: result }));
@@ -39,11 +68,14 @@
     finally { uploading = false; buttons(); }
   };
   const stopRecording = async (save = true) => {
+    const targetId = question?.examQuestionId;
     if (requesting) throw new Error("Đang chờ quyền microphone.");
     if (recorder?.state === "recording") { stopping = true; adapter.stop(); recorder.stop(); }
     if (stopping) await stopPromise;
-    if (save) await upload();
-    if (failure || (save && pending)) throw failure || new Error("Bản thu chưa lưu. Hãy thử lưu lại.");
+    if (save && pending?.id === targetId) {
+      await upload();
+      if (failure || pending?.id === targetId) throw failure || new Error("Bản thu chưa lưu. Hãy thử lưu lại.");
+    }
   };
   const stopReading = () => { window.speechSynthesis?.cancel(); reading = false; buttons(); };
   read.addEventListener("click", () => {
@@ -58,7 +90,7 @@
     speechSynthesis.speak(utterance);
   });
   record.addEventListener("click", async () => {
-    if (!question || active() || pending) return;
+    if (!question || active() || pending?.id === question.examQuestionId) return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { status.textContent = "Cần HTTPS/localhost và trình duyệt hỗ trợ MediaRecorder. Bạn vẫn có thể nhập nội dung trả lời."; return; }
     const id = question.examQuestionId;
     requesting = true; buttons(); stopReading();
@@ -69,17 +101,26 @@
       const mime = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find(t => MediaRecorder.isTypeSupported(t));
       if (!mime) throw new Error("Trình duyệt không có định dạng thu âm phù hợp.");
       chunks = []; started = performance.now(); failure = null;
+      recoveryId = `audio/${id}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
       recorder = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 });
       stopPromise = new Promise(resolve => { stopResolve = resolve; });
       recorder.ondataavailable = event => {
         if (event.data.size) chunks.push(event.data);
+        const local = { id: recoveryId, questionId: id, kind: "audio", blob: new Blob(chunks, { type: mime }),
+          duration: Math.max(0.01, (performance.now() - started) / 1000), synced: false };
+        recordings.set(local.id, local);
+        window.voiceRecovery?.put(local);
         if (chunks.reduce((sum, chunk) => sum + chunk.size, 0) >= 11 * 1024 * 1024) stopRecording().catch(error => { status.textContent = error.message; });
       };
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         adapter.stop();
         const duration = Math.max(0.01, (performance.now() - started) / 1000);
         const blob = new Blob(chunks, { type: mime });
-        pending = blob.size ? { id, duration, blob } : null;
+        pending = blob.size ? { id, duration, blob, recoveryId } : null;
+        if (blob.size) {
+          const local = { id: recoveryId, questionId: id, kind: "audio", blob, duration, synced: false };
+          await window.voiceRecovery?.put(local); renderRecovery(local);
+        }
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         previewUrl = URL.createObjectURL(blob); preview.src = previewUrl; preview.hidden = false;
         const download = byId("voice-download-local");
@@ -90,7 +131,9 @@
       stream.getTracks().forEach(track => track.onended = () => { status.textContent = "Microphone bị ngắt; đang lưu phần đã thu."; stopRecording().catch(() => {}); });
       recorder.start(1000);
       const prefix = text.value.trim();
-      adapter.start({ onText: value => { text.value = [prefix, value].filter(Boolean).join(" ").slice(0, 16000); text.dispatchEvent(new Event("input")); },
+      adapter.start({ onText: value => {
+        if (question?.examQuestionId !== id) return;
+        text.value = [prefix, value].filter(Boolean).join(" ").slice(0, 16000); text.dispatchEvent(new Event("input")); },
         onError: message => { byId("voice-stt-status").textContent = message; } });
       status.textContent = "Đang thu âm. Bấm Dừng để lưu hoặc Nộp để kết thúc câu trả lời.";
     } catch (error) {
@@ -111,7 +154,18 @@
   window.voiceCapture = {
     beforeSubmit: () => stopRecording(true),
     get busy() { return active() || uploading; },
-    setState(state) {
+    async setState(state) {
+      const snapshotVersion = ++stateVersion;
+      if (!recovered) {
+        recovered = true;
+        for (const item of await window.voiceRecovery?.list() || []) {
+          if (item.kind !== "audio" || !item.blob?.size) continue;
+          renderRecovery(item);
+          if (!item.synced && item.questionId === state.question?.examQuestionId)
+            pending = { id: item.questionId, blob: item.blob, duration: item.duration, recoveryId: item.id };
+        }
+      }
+      if (snapshotVersion !== stateVersion) return;
       if (question?.examQuestionId !== state.question?.examQuestionId) {
         stopReading(); adapter.stop();
         if (active()) stopRecording(false).catch(() => {});
@@ -121,7 +175,7 @@
       const link = byId("voice-stored-audio");
       link.hidden = !question?.hasAudio;
       if (question?.hasAudio) { const url = new URL(root.dataset.audio, location.href); url.searchParams.set("questionId", question.examQuestionId); link.href = url; }
-      byId("voice-capture").hidden = state.completed && !pending;
+      byId("voice-capture").hidden = state.completed && !pending && !recordings.size;
       buttons();
     }
   };
