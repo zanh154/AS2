@@ -20,7 +20,8 @@ namespace AssignmentPRN.Business.Services;
 public class QuestionService(
     IQuestionRepository questionRepository,
     ICatalogRepository catalogRepository,
-    ICourseMaterialRepository courseMaterialRepository, IExamRealtimeNotifier? realtime = null, IExamSessionRepository? sessionRepository = null) : IQuestionService
+    ICourseMaterialRepository courseMaterialRepository, IExamRealtimeNotifier? realtime = null, IExamSessionRepository? sessionRepository = null,
+    GradingQueue? grading = null) : IQuestionService
 {
     public Task<ServiceResponse> SaveDraftAsync(int candidateId, int studentId, IReadOnlyDictionary<int, int?> answers, CancellationToken cancellationToken = default) =>
         ServiceExecutor.RunAsync(async () => {
@@ -614,6 +615,15 @@ public class QuestionService(
 
                 var submitted = await questionRepository.GetExamRoomCandidateAsync(candidateId, cancellationToken)
                     ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
+
+                // Nộp bài xong là lượt thi đóng, và chấm điểm phải chạy ngay trong ca thi
+                // thay vì đợi vòng quét lúc khởi động app. Đẩy vào hàng đợi, không chấm
+                // ở đây: mỗi câu là một lời gọi model, lâu hơn hẳn một request.
+                if (grading is not null && submitted.CandidateStatus == DataAccess.Enums.CandidateStatus.Completed)
+                {
+                    try { await grading.QueueCandidateAsync(candidateId, cancellationToken); }
+                    catch (Exception) { /* Vòng quét định kỳ vẫn gom các lượt chưa chấm. */ }
+                }
 
                 return MapRoom(
                     submitted,

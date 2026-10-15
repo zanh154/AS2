@@ -23,6 +23,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<IAcademicClassService, AcademicClassService>();
         services.AddScoped<IQuestionService, QuestionService>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IVoiceRoomService, VoiceRoomService>();
+        services.AddSingleton<AssignmentPRN.DataAccess.Services.IVoiceAudioStore>(
+            new AssignmentPRN.DataAccess.Services.LocalVoiceAudioStore(Path.Combine(storageRootPath, "voice-audio")));
         services.AddScoped<IQuestionReviewService, QuestionReviewService>();
         services.AddScoped<ICourseMaterialService, CourseMaterialService>();
         services.AddScoped<ICatalogService, CatalogService>();
@@ -31,6 +35,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRubricService, RubricService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IDocumentService, DocumentService>();
+
+        // The AI examiner. Both adapters swallow model failures, so a viva still runs
+        // end to end with nothing listening on the Ollama port.
+        services.AddSingleton<OllamaJsonClient>();
+        services.AddScoped<IFollowUpAnalyzer, OllamaFollowUpAnalyzer>();
+        services.AddScoped<IAnswerGrader, OllamaAnswerGrader>();
+        services.AddScoped<AssignmentPRN.DataAccess.Repositories.IGradingRepository,
+            AssignmentPRN.DataAccess.Repositories.GradingRepository>();
+        services.AddScoped<IGradingService, GradingService>();
+        services.AddScoped<IResultReviewService, ResultReviewService>();
+        services.AddSingleton<GradingQueue>();
+        services.AddHostedService<GradingBackgroundService>();
+
+        // Nạp sẵn model lúc khởi động: lần gọi đầu tiên mất hơn 30 giây vì phải nạp
+        // model, và không được để sinh viên đầu tiên trong ngày trả giá đó.
+        services.AddHostedService<OllamaWarmUpService>();
 
         // Document processing
         services.AddSingleton<DocumentProcessingQueue>();

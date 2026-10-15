@@ -13,6 +13,10 @@ public class ExamDraftTests
 {
     private static BSvc.QuestionService Service(AivesDbContext db) => new(new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db), null!);
 
+    private static BSvc.QuestionService Service(AivesDbContext db, AssignmentPRN.Business.GradingQueue queue) =>
+        new(new QuestionRepository(db, new AssignmentPRN.Business.Policies.ExamStatePolicy()), new CatalogRepository(db),
+            null!, null, null, queue);
+
     [Fact]
     public async Task Draft_survives_reload_without_finishing_exam_and_can_be_changed()
     {
@@ -144,5 +148,36 @@ public class ExamDraftTests
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
         return db;
+    }
+
+    [Fact]
+    public async Task Handing_in_the_paper_queues_the_slot_for_grading()
+    {
+        // Lỗi đo được ngày 15/10/2026: lượt thi đóng rồi mà không ai đưa vào hàng đợi, nên
+        // kết quả AI chỉ xuất hiện sau khi khởi động lại app.
+        await using var db = await SeedAsync();
+        var queue = new AssignmentPRN.Business.GradingQueue();
+        var id = (await db.ExamQuestions.SingleAsync()).ExamQuestionId;
+
+        var result = await Service(db, queue).SubmitExamAsync(1, 1, new Dictionary<int, int?> { [id] = 1 });
+
+        Assert.Equal(B.CandidateStatus.Completed, result.Data!.CandidateStatus);
+        Assert.Equal([1], await GradingQueueTests.DrainAsync(queue));
+    }
+
+    [Fact]
+    public async Task A_paper_that_is_refused_is_never_queued()
+    {
+        // Nộp bài không thành thì lượt thi chưa đóng; đưa vào hàng đợi lúc này là chấm
+        // một bài chưa nộp.
+        await using var db = await SeedAsync();
+        var queue = new AssignmentPRN.Business.GradingQueue();
+        var id = (await db.ExamQuestions.SingleAsync()).ExamQuestionId;
+
+        // Sinh viên 2 không phải chủ lượt thi này.
+        var result = await Service(db, queue).SubmitExamAsync(1, 2, new Dictionary<int, int?> { [id] = 1 });
+
+        Assert.False(result.Success);
+        Assert.Empty(await GradingQueueTests.DrainAsync(queue));
     }
 }

@@ -170,10 +170,47 @@ public class RazorModuleTwoHttpTests
                 var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
                 Assert.True(await db.ExamSessions.AnyAsync(x => x.ExamName == "Created via page"));
             }
+            // The results screens moved off MVC; the old URLs are now Razor Pages and
+            // still have to render, still have to check ownership, and still have to
+            // keep students out.
+            var scoreSheet = await client.GetStringAsync("/ExamResults/Index/1");
+            Assert.Contains("Bảng điểm", scoreSheet);
+            Assert.Contains("Own exam", scoreSheet);
+            Assert.Contains("/ExamResults/Candidate/1", scoreSheet);
+            var paper = await client.GetStringAsync("/ExamResults/Candidate/1");
+            Assert.Contains("Test 3", paper);
+            // Tiêu đề và breadcrumb phải tới được layout. Đặt chúng trong partial thì mất,
+            // vì <partial> nhận bản sao ViewData — lỗi thấy được khi chạy thật 15/10/2026:
+            // tab trình duyệt chỉ còn " · AIVES".
+            foreach (var page in new[] { scoreSheet, paper })
+            {
+                Assert.DoesNotContain("<title> · AIVES</title>", page);
+                Assert.Contains("breadcrumb-trail", page);
+                // Vào nhóm SignalR của phiên để tự cập nhật khi AI chấm xong.
+                Assert.Contains("data-live-page=\"ExamResults\" data-exam-id=\"1\"", page);
+                Assert.Contains("/js/grading-live.js", page);
+            }
+            // Bài làm chỉ phản ứng với đúng bài của nó.
+            Assert.Contains("data-candidate-id=\"1\"", paper);
+            Assert.Contains("id=\"grading-live-status\"", paper);
+            // Razor Pages drops the Index segment, so the way back is /ExamResults/1;
+            // both spellings have to reach the same screen.
+            Assert.Contains("href=\"/ExamResults/1\"", paper);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/ExamResults/1")).StatusCode);
+            // Someone else's session is turned away rather than rendered.
+            Assert.Equal(HttpStatusCode.Redirect, (await client.GetAsync("/ExamResults/Index/2")).StatusCode);
+
             using var student = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, CookieContainer = new CookieContainer() }) { BaseAddress = new Uri(address) };
             var studentLogin = await student.GetStringAsync("/Account/Login");
             await Post(student, "/Account/Login", studentLogin, new() { ["Input.Email"] = "test3@example.test", ["Input.Password"] = "Test@123" });
             Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamSessions")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamResults/Index/1")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/ExamResults/Candidate/1")).StatusCode);
+            // A student's own report is for students; the lecturer reads the paper instead.
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/MyResults/1")).StatusCode);
+            // The slot has not been sat yet, so the student is sent back with a message
+            // rather than shown an empty report.
+            Assert.Equal(HttpStatusCode.Redirect, (await student.GetAsync("/MyResults/1")).StatusCode);
         } finally {
             await app.StopAsync();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

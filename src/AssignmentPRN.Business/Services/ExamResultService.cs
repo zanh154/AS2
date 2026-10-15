@@ -13,7 +13,8 @@ namespace AssignmentPRN.Business.Services;
 /// </summary>
 public class ExamResultService(
     IExamResultRepository resultRepository,
-    IQuestionRepository questionRepository, IExamRealtimeNotifier? realtime = null, IExamSessionRepository? sessions = null) : IExamResultService
+    IQuestionRepository questionRepository, IExamRealtimeNotifier? realtime = null, IExamSessionRepository? sessions = null,
+    GradingQueue? grading = null) : IExamResultService
 {
     public Task<ServiceResponse<SessionResultResponse>> GetSessionResultsAsync(
         int examId,
@@ -112,6 +113,17 @@ public class ExamResultService(
                     changes.ToDictionary(item => item.Key, item => item.Value.ToDataAccess()),
                     now,
                     cancellationToken);
+                // A slot the lecturer closes was never handed in by the student, so
+                // nothing queued it for marking. Without this it would wait for the
+                // next restart to be swept up.
+                if (grading is not null)
+                {
+                    foreach (var closed in changes.Where(x => x.Value == CandidateStatus.Completed))
+                    {
+                        try { await grading.QueueCandidateAsync(closed.Key, cancellationToken); }
+                        catch (Exception) { /* The startup sweep still finds it. */ }
+                    }
+                }
                 if (realtime is not null && sessions is not null) {
                     var updated = await sessions.GetDetailAsync(examId, cancellationToken);
                     if (updated is not null) await realtime.ChangedAsync(new(examId, updated.Lecturer.UserId, updated.Candidates.Select(x => x.StudentId).ToArray(), "closed-overdue"), cancellationToken);

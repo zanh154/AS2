@@ -15,6 +15,13 @@ mysql -u <user> -p -e "CREATE DATABASE aives CHARACTER SET utf8mb4 COLLATE utf8m
 mysql -u <user> -p aives < database/dump/aives_20261002.sql
 ```
 
+> **Windows:** bật đường dẫn dài trước khi clone, nếu không `git clone` dừng giữa chừng
+> với `Filename too long`:
+>
+> ```bash
+> git config --global core.longpaths true
+> ```
+
 Sau đó chép `src/AssignmentPRN.Presentation/appsettings.json.example` thành
 `appsettings.json` và điền chuỗi kết nối của bạn, rồi:
 
@@ -35,6 +42,7 @@ Thứ tự chạy đầy đủ, cách nâng cấp schema đã có, cách xuất 
 | Môn học và phiên thi — luồng toàn hệ thống và kết quả kiểm thử | [docs/kiem-thu-mon-hoc-va-phien-thi.md](docs/kiem-thu-mon-hoc-va-phien-thi.md) |
 | Bộ câu hỏi (ngân hàng câu hỏi, import CSV, phát đề) | [docs/bo-cau-hoi.md](docs/bo-cau-hoi.md) |
 | Câu hỏi đào sâu và kết quả thi | [docs/cau-hoi-dao-sau-va-ket-qua.md](docs/cau-hoi-dao-sau-va-ket-qua.md) |
+| AI hỏi xoáy, chấm điểm theo rubric và kết quả (ASM2 — phần 6) | Tổng kết: [docs/phan-6-tong-ket.md](docs/phan-6-tong-ket.md) · Nhật ký làm việc: [docs/ai-hoi-xoay-cham-diem-ket-qua.md](docs/ai-hoi-xoay-cham-diem-ket-qua.md) |
 | Lưu tạm đáp án | [docs/exam-answer-drafts.md](docs/exam-answer-drafts.md) |
 | Trạng thái phiên thi | [docs/exam-session-lifecycle.md](docs/exam-session-lifecycle.md) |
 | Quy tắc phiên thi dùng chung | [docs/shared-exam-session-rules.md](docs/shared-exam-session-rules.md) |

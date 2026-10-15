@@ -75,6 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // AI chấm xong hoặc đang chấm một bài: grading-live.js quyết định tải lại hay chỉ báo.
+  connection.on("GradingChanged", event => window.aivesGradingLive?.apply(event, root, dirty));
+
   connection.on("ExamListChanged", () => showNotice("Danh sách lớp vừa thay đổi."));
 
   const join = async () => {

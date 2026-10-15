@@ -1,10 +1,10 @@
 # Kết quả sửa và kiểm thử sâu task 3 — 16/10/2026
 
-Bản sửa tiếp nối nền code `e7c4fd9`, dành cho pull request từ ThaiBranch vào main. Phạm vi là tài liệu/RAG/sinh và duyệt câu hỏi; không triển khai thêm phòng thi giọng nói.
+Bản sửa tiếp nối nền code `e7c4fd9`, đã tích hợp `as2/main` tại `82722b2` để tạo pull request từ ThaiBranch vào main. Phạm vi là tài liệu/RAG/sinh và duyệt câu hỏi; không triển khai thêm phòng thi giọng nói.
 
 ## Kết quả cuối
 
-- **253/253 test tự động đạt**, 0 failed, 0 skipped.
+- **253/253 test tự động đạt** trước khi tích hợp main; sau khi tích hợp main `82722b2`, **421/421 test .NET đạt**, 0 failed, 0 skipped, và **29/29 test JavaScript đạt**.
 - Luồng trình duyệt Edge headless với MySQL Aiven và Ollama thật: **đạt**.
 - Upload và xử lý DOCX, PDF có văn bản, PPTX có text: **đạt**.
 - Upload DOCX 32.01 MB, lớn hơn giới hạn request mặc định khoảng 30 MB trước đây: **đạt** sau khi đồng bộ cấu hình.
@@ -59,7 +59,7 @@ Chạy lại:
 dotnet test tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj
 ```
 
-Dừng web trước khi build để tránh DLL đang được sử dụng. Kết quả chi tiết lưu trong `.runtime/test-results/task3-fixed-full.trx` (Git bỏ qua).
+Dừng web trước khi build để tránh DLL đang được sử dụng. Kết quả chi tiết trước tích hợp lưu trong `.runtime/test-results/task3-fixed-full.trx`; kết quả sau tích hợp main lưu trong `.runtime/test-results/task3-pr-merged.trx` (Git bỏ qua). Test JavaScript: `node --test tests/browser/*.test.cjs`.
 
 ## Luồng trình duyệt thật đã chạy
 

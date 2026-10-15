@@ -21,6 +21,10 @@ builder.Services.AddRazorPages();
 var storageRoot = builder.Configuration["MaterialStorage:RootPath"]
     ?? "../AssignmentPRN.DataAccess/Storage";
 storageRoot = Path.GetFullPath(storageRoot, builder.Environment.ContentRootPath);
+var publicStorageRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+if (storageRoot.Equals(publicStorageRoot, StringComparison.OrdinalIgnoreCase)
+    || storageRoot.StartsWith(publicStorageRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("MaterialStorage:RootPath must be outside wwwroot to protect private recordings.");
 
 builder.Services.AddBusiness(connectionString, storageRoot);
 // Allow a configured-size file plus multipart overhead; Business validates the file itself.
@@ -29,9 +33,10 @@ if (uploadLimit is < 1 or > 1024) throw new InvalidOperationException("Document 
 var requestLimit = uploadLimit * 1024L * 1024L + 1024L * 1024L;
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Math.Max(30_000_000L, requestLimit));
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o => o.MultipartBodyLengthLimit = requestLimit);
-builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
+builder.Services.AddSingleton<AssignmentPRN.Business.Services.IGradingNotifier, SignalRGradingNotifier>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
 builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
@@ -58,6 +63,7 @@ app.UseSession();
 
 app.MapRazorPages();
 app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
+app.MapHub<VoiceRoomHub>("/hubs/voice-room");
 app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
 app.MapDefaultControllerRoute();
 

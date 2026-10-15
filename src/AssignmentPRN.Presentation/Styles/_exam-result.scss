@@ -56,3 +56,23 @@
     white-space: pre-line;
   }
 }
+
+// The AI panel is a suggestion the examiner reads before deciding, so it sits apart
+// from the paper itself rather than inside it. Colours come from the tokens only.
+.exam-result-ai {
+  .exam-result-adjust {
+    display: grid; gap: $space-4; margin: $space-5 0;
+    .form-row { display: grid; gap: $space-2; max-width: 32rem; }
+    .btn { justify-self: start; }
+  }
+  .exam-result-ai-answers {
+    display: grid; gap: $space-5; margin: 0; padding-left: $space-5;
+    h3 { margin: 0 0 $space-2; font-size: $font-size-sm; }
+    h4 { margin: $space-4 0 $space-2; font-size: $font-size-xs; color: $color-muted; }
+    table { margin: $space-3 0; }
+  }
+  .exam-result-trail {
+    display: grid; gap: $space-2; margin: $space-3 0 0; padding-left: $space-5;
+    font-size: $font-size-xs;
+  }
+}

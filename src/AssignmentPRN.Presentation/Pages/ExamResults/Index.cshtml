@@ -1,0 +1,30 @@
+@page "{id:int?}"
+@model AssignmentPRN.Presentation.Pages.ExamResults.IndexModel
+@using AssignmentPRN.Presentation.ViewModels
+@{
+    // Đặt ở trang, không ở partial: <partial> nhận một bản sao ViewData, nên tiêu đề và
+    // breadcrumb mà partial ghi vào không bao giờ tới được layout.
+    if (Model.Data is SessionResultViewModel { Session: var session })
+    {
+        ViewData["Title"] = $"Kết quả · {session.ExamName}";
+        ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+        {
+            new("Lịch thi", "ExamSessions", "Index"),
+            new(session.ExamName, "ExamSessions", "Details", new { id = session.ExamId }),
+            new("Kết quả")
+        };
+    }
+}
+@if (Model.Data is SessionResultViewModel { Session: var live })
+{
+    <div data-live-page="ExamResults" data-exam-id="@live.ExamId">
+        <partial name="/Pages/Shared/ExamResultsIndex.cshtml" model="Model.Data" />
+    </div>
+}
+else
+{
+    <partial name="/Pages/Shared/ExamResultsIndex.cshtml" model="Model.Data" />
+}
+@section Scripts {
+    <script src="~/js/grading-live.js" asp-append-version="true"></script>
+}

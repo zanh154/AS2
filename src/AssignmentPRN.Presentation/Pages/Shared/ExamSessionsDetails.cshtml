@@ -147,7 +147,7 @@
                 @session.MaxFollowUpCount câu đào sâu mỗi người. Chốt ca đã hết giờ để ghi nhận vắng thi.
             </p>
         </div>
-        <a class="btn btn-outline-primary" asp-controller="ExamResults" asp-action="Index" asp-route-id="@session.ExamId">
+        <a class="btn btn-outline-primary" asp-page="/ExamResults/Index" asp-route-id="@session.ExamId">
             Xem kết quả
         </a>
     </div>
