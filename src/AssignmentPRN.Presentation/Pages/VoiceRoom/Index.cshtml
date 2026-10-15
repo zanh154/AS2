@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Phòng thi giọng nói";
 }
+<link rel="stylesheet" href="~/css/voice-exam.css" asp-append-version="true" />
 <section class="voice-room" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })"
          data-upload="@Url.Page(null, "Upload", new { id = Model.CandidateId })"
          data-audio="@Url.Page(null, "Audio", new { id = Model.CandidateId })">
