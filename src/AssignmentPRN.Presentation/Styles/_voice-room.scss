@@ -65,6 +65,19 @@
   display: inline-flex; align-items: center; padding: $space-1 $space-2; color: $color-accent; background: $color-accent-soft;
   border-radius: $radius-pill; font-size: 0.65rem; font-weight: $font-weight-semibold; line-height: 1.7; text-align: center;
 }
+// A probe is still the examiner speaking, so it reads as a note on the question rather
+// than as a warning: the student has done nothing wrong by being asked.
+.voice-followup-reason, .voice-awaiting {
+  margin: 0 0 $space-5; padding: $space-3 $space-4; border-radius: $radius-md;
+  font-size: $font-size-xs; line-height: 1.6;
+}
+.voice-followup-reason {
+  color: $color-warning; background: $color-warning-soft; border: 1px solid $color-warning-border;
+}
+.voice-awaiting { color: $color-accent; background: $color-accent-soft; }
+// The question card marks a probe so the student can see at a glance that the turn
+// has not moved on.
+.voice-room[data-follow-up="true"] .voice-question-panel { border-top-color: $color-warning; }
 .voice-field-note { margin: $space-2 0 $space-4; font-size: $font-size-xs; color: $color-muted; }
 .voice-transcript-meta { display: flex; justify-content: space-between; gap: $space-2; margin-top: $space-2; color: $color-muted; font-size: 0.65rem; }
 #voice-save-status { margin: $space-3 0 0; color: $color-accent; font-size: $font-size-xs; &:empty { display: none; } }

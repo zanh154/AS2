@@ -11,8 +11,13 @@
   let state, offset = 0, dirty = false, version = 0, pendingSubmit, submitting = false;
   let queue = Promise.resolve(), queued = 0, hub, startingHub = false, closed = false;
   form.hidden = true;
-  const localDraft = (questionId, value, synced, submit = false) => window.voiceRecovery?.put({
-    id: `text/${questionId}`, questionId, kind: "text", value, synced, submit });
+  // An open item is either a dealt question or a probe the AI examiner asked on top of
+  // it. Both post the same examQuestionId, so the probe id is what tells them apart.
+  const itemKey = question => question ? `${question.examQuestionId}:${question.followUpId || 0}` : null;
+  const reasonLabels = { 1: "Thiếu ý", 2: "Chưa rõ", 3: "Chưa nhất quán",
+    MissingPoint: "Thiếu ý", Vague: "Chưa rõ", Contradictory: "Chưa nhất quán" };
+  const localDraft = (item, value, synced, submit = false) => window.voiceRecovery?.put({
+    id: `text/${itemKey(item)}`, questionId: item?.examQuestionId, kind: "text", value, synced, submit });
   const paintDraft = () => {
     const count = document.getElementById("voice-transcript-count");
     if (count) count.textContent = `${transcript.value.length.toLocaleString("vi-VN")} / 16.000 ký tự`;
@@ -44,33 +49,55 @@
         }
         const next = await response.json();
         offset = Date.parse(next.serverNow) - (sent + Date.now()) / 2;
-        if (state?.question?.examQuestionId !== next.question?.examQuestionId) {
+        if (itemKey(state?.question) !== itemKey(next.question)) {
           const initial = !state;
           transcript.value = next.question?.transcript || "";
           dirty = false; version++;
           if (initial && next.question) {
-            const recovered = (await window.voiceRecovery?.list() || []).find(x => x.id === `text/${next.question.examQuestionId}`);
+            // A draft saved before probes existed is keyed by the question alone; still
+            // honour it, so an update mid-exam does not throw away what was typed.
+            const stored = await window.voiceRecovery?.list() || [];
+            const recovered = stored.find(x => x.id === `text/${itemKey(next.question)}`)
+              ?? (next.question.followUpId ? undefined : stored.find(x => x.id === `text/${next.question.examQuestionId}`));
             if (recovered && !recovered.synced) {
               transcript.value = recovered.value; dirty = true;
               saved.textContent = "Đã khôi phục nội dung chưa gửi từ trình duyệt. Kiểm tra rồi lưu/nộp lại.";
-              if (recovered.submit) pendingSubmit = { examQuestionId: next.question.examQuestionId, transcript: recovered.value, submit: true };
+              if (recovered.submit) pendingSubmit = { examQuestionId: next.question.examQuestionId,
+                followUpId: next.question.followUpId ?? null, transcript: recovered.value, submit: true };
             }
           }
         } else if (answer && sentVersion === version) {
           dirty = false; saved.textContent = "Đã lưu trên máy chủ.";
-          await localDraft(answer.examQuestionId, answer.transcript, true);
+          await localDraft(answer, answer.transcript, true);
         }
-        if (answer?.submit && pendingSubmit?.examQuestionId === answer.examQuestionId) pendingSubmit = null;
+        if (answer?.submit && itemKey(pendingSubmit) === itemKey(answer)) pendingSubmit = null;
         state = next;
         root.dataset.completed = String(next.completed);
         window.voiceCapture?.setState(next);
         paintDraft(); paintClock();
         const examName = document.getElementById("voice-exam-name"); if (examName && next.examName) examName.textContent = next.examName;
+        const probe = next.question?.followUpId ? next.question : null;
+        root.dataset.followUp = String(!!probe);
         const questionNumber = document.getElementById("voice-question-number");
-        if (questionNumber) questionNumber.textContent = next.completed ? "ĐÃ HOÀN THÀNH" : `CÂU HỎI ${String(next.question?.orderNo || next.completedCount + 1).padStart(2, "0")}`;
+        if (questionNumber) questionNumber.textContent = next.completed ? "ĐÃ HOÀN THÀNH"
+          : probe ? `HỎI THÊM · CÂU ${String(probe.orderNo).padStart(2, "0")}`
+          : `CÂU HỎI ${String(next.question?.orderNo || next.completedCount + 1).padStart(2, "0")}`;
+        const reason = document.getElementById("voice-followup-reason");
+        if (reason) {
+          reason.hidden = !probe;
+          reason.textContent = probe
+            ? `Giám khảo hỏi thêm vì câu trả lời ${(reasonLabels[probe.followUpReason] || "cần làm rõ").toLowerCase()}. Câu này vẫn tính trong thời gian của câu ${probe.orderNo}.`
+            : "";
+        }
+        const waiting = document.getElementById("voice-awaiting");
+        if (waiting) waiting.hidden = !next.awaitingFollowUp;
         const progress = document.getElementById("voice-progress"); if (progress) progress.value = next.totalCount ? Math.round(next.completedCount / next.totalCount * 100) : 0;
-        status.textContent = next.completed ? "Đã hoàn thành lượt thi." : `Câu ${next.completedCount + 1}/${next.totalCount}`;
-        document.getElementById("voice-question").textContent = next.question?.text || "Cảm ơn bạn đã hoàn thành bài thi.";
+        status.textContent = next.completed ? "Đã hoàn thành lượt thi."
+          : next.awaitingFollowUp ? "Giám khảo đang xem câu trả lời của bạn…"
+          : probe ? `Câu hỏi thêm cho câu ${probe.orderNo}`
+          : `Câu ${next.completedCount + 1}/${next.totalCount}`;
+        document.getElementById("voice-question").textContent = next.question?.text
+          || (next.awaitingFollowUp ? "Giám khảo đang xem câu trả lời của bạn…" : "Cảm ơn bạn đã hoàn thành bài thi.");
         const history = document.getElementById("voice-history");
         const historyEmpty = document.getElementById("voice-history-empty"); if (historyEmpty) historyEmpty.hidden = !!next.savedAnswers?.length;
         if (history && document.createElement) {
@@ -80,6 +107,12 @@
             title.textContent = `Câu ${answer.orderNo}: ${answer.text}`;
             body.textContent = answer.transcript || "Chưa có nội dung nhận dạng.";
             row.append(title, body);
+            for (const probe of answer.followUps || []) {
+              const probeTitle = document.createElement("h4"), probeBody = document.createElement("p");
+              probeTitle.textContent = `Hỏi thêm (${reasonLabels[probe.reason] || "cần làm rõ"}): ${probe.text}`;
+              probeBody.textContent = probe.transcript || "Chưa có nội dung nhận dạng.";
+              row.append(probeTitle, probeBody);
+            }
             if (answer.hasAudio) {
               const link = document.createElement("a"), url = new URL(root.dataset.audio, location.href);
               url.searchParams.set("questionId", answer.examQuestionId);
@@ -88,7 +121,7 @@
             history.append(row);
           }
         }
-        form.hidden = next.completed;
+        form.hidden = next.completed || next.awaitingFollowUp;
         if (next.completed) document.getElementById("voice-clock").textContent = "00:00";
         startRealtime();
         return true;
@@ -100,10 +133,11 @@
   };
   const save = async submit => {
     if (!state?.question) return false;
-    const answer = { examQuestionId: state.question.examQuestionId, transcript: transcript.value, submit };
+    const answer = { examQuestionId: state.question.examQuestionId,
+      followUpId: state.question.followUpId ?? null, transcript: transcript.value, submit };
     const requestVersion = version;
     if (submit) pendingSubmit = answer;
-    await localDraft(answer.examQuestionId, answer.transcript, false, submit);
+    await localDraft(answer, answer.transcript, false, submit);
     return sync(answer, requestVersion);
   };
   const poll = () => {
@@ -133,7 +167,7 @@
   transcript.addEventListener("input", () => {
     dirty = true; version++; saved.textContent = "Có nội dung chưa lưu lên máy chủ.";
     paintDraft();
-    if (state?.question) localDraft(state.question.examQuestionId, transcript.value, false);
+    if (state?.question) localDraft(state.question, transcript.value, false);
   });
   form.addEventListener("submit", async event => {
     event.preventDefault();
@@ -170,5 +204,8 @@
     else if (left <= 2 && dirty && !queued) save(false);
   }, 500);
   setInterval(() => { if (!state?.completed || pendingSubmit) poll(); }, 5000);
+  // The decision lands in a request of its own, so a room that is waiting asks again
+  // sooner than the five second heartbeat.
+  setInterval(() => { if (state?.awaitingFollowUp) poll(); }, 1500);
   sync();
 })();
