@@ -22,6 +22,8 @@ public interface IDocumentRepository
 
     Task<IReadOnlyList<DocumentChunk>> SearchSimilarChunksAsync(float[] embedding, int courseId, int topK, float threshold, CancellationToken cancellationToken = default, int? documentId = null);
 
+    Task CreateQuestionsAsync(IReadOnlyList<GeneratedQuestion> questions, CancellationToken cancellationToken = default);
+
     Task<GeneratedQuestion> CreateQuestionAsync(GeneratedQuestion question, CancellationToken cancellationToken = default);
 
     Task<GeneratedQuestion?> GetQuestionByIdAsync(int questionId, CancellationToken cancellationToken = default);
