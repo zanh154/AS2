@@ -25,7 +25,7 @@ if (-not (Test-Path -LiteralPath $sqlPath)) { throw "Không tìm thấy script S
 if (-not (Test-Path -LiteralPath $Config)) { throw "Không tìm thấy file cấu hình: $Config" }
 
 $runner = Join-Path ([System.IO.Path]::GetTempPath()) ("aives-apply-" + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Force -Path $runner | Out-Null
+New-Item -ItemType Directory -Force -Path $runner -WhatIf:$false | Out-Null
 try {
     $program = @'
 using System.Text.Json;
@@ -106,13 +106,13 @@ return 0;
 </Project>
 '@
 
-    Set-Content -Path (Join-Path $runner 'Program.cs') -Value $program -Encoding utf8
-    Set-Content -Path (Join-Path $runner 'runner.csproj') -Value $csproj -Encoding utf8
+    Set-Content -Path (Join-Path $runner 'Program.cs') -Value $program -Encoding utf8 -WhatIf:$false
+    Set-Content -Path (Join-Path $runner 'runner.csproj') -Value $csproj -Encoding utf8 -WhatIf:$false
 
-    $mode = if ($PSCmdlet.ShouldProcess($sqlPath, 'Chạy trên database dùng chung')) { 'apply' } else { 'check' }
+    $mode = if ($PSCmdlet.ShouldProcess($sqlPath, 'Chạy trên database mà file cấu hình trỏ tới')) { 'apply' } else { 'check' }
     dotnet run --project (Join-Path $runner 'runner.csproj') --verbosity quiet -- $Config $sqlPath $mode
     if ($LASTEXITCODE -ne 0) { throw "Không chạy được script (mã lỗi $LASTEXITCODE)." }
 }
 finally {
-    Remove-Item -Recurse -Force $runner -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force $runner -ErrorAction SilentlyContinue -WhatIf:$false
 }
