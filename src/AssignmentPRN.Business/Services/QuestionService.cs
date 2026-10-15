@@ -204,6 +204,8 @@ public class QuestionService(
                     lecturerId,
                     cancellationToken);
 
+                await NotifyCourseChangedAsync(saved.CourseId, lecturerId, "questions", cancellationToken);
+
                 return MapQuestion(saved);
             },
             "Không thể lưu câu hỏi.");
@@ -221,6 +223,7 @@ public class QuestionService(
                     ?? throw new BusinessValidationException("Không tìm thấy câu hỏi.");
                 await EnsureCourseVisibleAsync(detail.CourseId, lecturerId, cancellationToken);
                 await questionRepository.ArchiveAsync(questionId, cancellationToken);
+                await NotifyCourseChangedAsync(detail.CourseId, lecturerId, "questions", cancellationToken);
             },
             "Không thể ẩn câu hỏi.");
     }
@@ -278,6 +281,7 @@ public class QuestionService(
 
                 var errors = new List<string>();
                 var imported = 0;
+                var affectedCourseIds = new HashSet<int>();
 
                 // Loaded once and kept up to date as rows go in, so a file that repeats a
                 // question, or repeats itself, is caught without a query per line.
@@ -334,6 +338,7 @@ public class QuestionService(
                         });
 
                         imported++;
+                        affectedCourseIds.Add(saved.CourseId);
                     }
                     catch (Exception exception) when (exception is BusinessValidationException or ArgumentException
                         or KeyNotFoundException)
@@ -343,6 +348,11 @@ public class QuestionService(
                         // while parsing.
                         errors.Add($"Dòng {row.SourceLine}: {exception.Message}");
                     }
+                }
+
+                foreach (var affectedCourseId in affectedCourseIds)
+                {
+                    await NotifyCourseChangedAsync(affectedCourseId, lecturerId, "questions", cancellationToken);
                 }
 
                 return new QuestionImportResult
@@ -1165,6 +1175,35 @@ public class QuestionService(
             })
             .ToList()
     };
+
+    private async Task NotifyCourseChangedAsync(
+        int courseId,
+        int? actorLecturerId,
+        string kind,
+        CancellationToken cancellationToken)
+    {
+        if (realtime is null || courseId <= 0)
+        {
+            return;
+        }
+
+        var lecturerId = actorLecturerId is > 0
+            ? actorLecturerId.Value
+            : (await catalogRepository.ListActiveCoursesAsync(cancellationToken))
+                .FirstOrDefault(course => course.CourseId == courseId)?.LecturerId ?? 0;
+
+        // Do not fabricate an actor for an event. The admins group can still receive
+        // system-wide events, but course events need a real course owner/actor.
+        if (lecturerId <= 0)
+        {
+            return;
+        }
+
+        await realtime.ChangedAsync(
+            new ExamChange(0, lecturerId, Array.Empty<int>(), kind) { CourseId = courseId },
+            cancellationToken);
+    }
+
     private async Task NotifyProgressAsync(int examId, string kind, CancellationToken ct)
     {
         if (realtime is null || sessionRepository is null) return;

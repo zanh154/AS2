@@ -2,7 +2,7 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Presentation.Constants;
 using Microsoft.AspNetCore.SignalR;
 namespace AssignmentPRN.Presentation.Hubs;
-public sealed class ExamUpdatesHub(IExamSessionService sessions, IAuthService auth) : Hub
+public sealed class ExamUpdatesHub(IExamSessionService sessions, IAuthService auth, ICatalogService catalog) : Hub
 {
     public override async Task OnConnectedAsync()
     {
@@ -30,6 +30,34 @@ public sealed class ExamUpdatesHub(IExamSessionService sessions, IAuthService au
         await Groups.AddToGroupAsync(Context.ConnectionId, ExamGroups.Exam(examId));
     }
     public Task LeaveExam(int examId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, ExamGroups.Exam(examId));
+
+    public async Task JoinCourse(int courseId)
+    {
+        if (!await CanJoinCourse(courseId))
+            throw new HubException("Không có quyền truy cập môn học.");
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, ExamGroups.Course(courseId));
+    }
+
+    public Task LeaveCourse(int courseId) => Groups.RemoveFromGroupAsync(Context.ConnectionId, ExamGroups.Course(courseId));
+
+    private async Task<bool> CanJoinCourse(int courseId)
+    {
+        if (courseId <= 0 || Context.Items["userId"] is not int id || Context.Items["role"] is not string role)
+            return false;
+
+        var user = await auth.GetUserByIdAsync(id);
+        if (user is null || user.RoleName != role)
+            return false;
+
+        var courses = await catalog.ListActiveCoursesAsync(Context.ConnectionAborted);
+        var course = courses.Data?.FirstOrDefault(item => item.CourseId == courseId);
+        return course is not null && CanJoinCourse(role, id, course.LecturerId);
+    }
+
+    public static bool CanJoinCourse(string role, int id, int lecturerId) => id > 0 &&
+        (role == RoleNames.Admin || role == RoleNames.Lecturer && id == lecturerId);
+
     public static bool CanJoin(string role, int id, int lecturerId, IEnumerable<int> studentIds) => id > 0 &&
         (role == RoleNames.Admin || role == RoleNames.Lecturer && id == lecturerId
          || role == RoleNames.Student && studentIds.Contains(id));
