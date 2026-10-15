@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AssignmentPRN.Business.Interfaces;
 
 namespace AssignmentPRN.Business.Services;
@@ -11,7 +12,7 @@ namespace AssignmentPRN.Business.Services;
 /// store. Like the analyzer, a model that cannot be reached returns nothing rather than
 /// failing the caller.
 /// </summary>
-public sealed class OllamaAnswerGrader(OllamaJsonClient client) : IAnswerGrader
+public sealed partial class OllamaAnswerGrader(OllamaJsonClient client) : IAnswerGrader
 {
     /// <summary>
     /// Grading runs after the slot, not between two questions, so it can afford to wait
@@ -83,10 +84,31 @@ public sealed class OllamaAnswerGrader(OllamaJsonClient client) : IAnswerGrader
     private static string? ReadNote(JsonElement element, string name)
     {
         if (!element.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String) return null;
-        var text = value.GetString()?.Trim();
+        var text = Scrub(value.GetString()?.Trim());
         if (string.IsNullOrEmpty(text)) return null;
         return text.Length <= MaxNoteLength ? text : text[..MaxNoteLength];
     }
+
+    /// <summary>
+    /// Câu dẫn mà nhận xét không được mang theo: mã tiêu chí trong database.
+    /// </summary>
+    private const string CriteriaIdReference = "tiêu chí tương ứng";
+
+    /// <summary>
+    /// Mã tiêu chí được đưa vào prompt để model chấm đúng dòng rubric, nhưng nó là id
+    /// trong database và lọt vào nhận xét thì sinh viên đọc phải "mất điểm ở tiêu chí 87
+    /// và 99" — đúng câu đã đo được. Prompt đã dặn không nhắc mã, nhưng nhận xét này
+    /// hiển thị thẳng cho sinh viên nên không dựa vào việc model nghe lời.
+    /// </summary>
+    [GeneratedRegex(
+        @"(ti[êe]u\s*ch[íi]|criteria\s*id|criteriaid)[\s:#·]*\d+((\s*(,|và|hoặc|hay|and)\s*|\s*[,/-]\s*)#?\d+)*",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex CriteriaIdPattern();
+
+    /// <summary>Bỏ mọi chỗ nhắc mã tiêu chí trong một đoạn nhận xét.</summary>
+    internal static string? Scrub(string? text) => string.IsNullOrWhiteSpace(text)
+        ? text
+        : CriteriaIdPattern().Replace(text, CriteriaIdReference).Trim();
 
     /// <summary>
     /// Pins the reply to this rubric: the model is told which ids exist, so a mark for
@@ -130,6 +152,7 @@ public sealed class OllamaAnswerGrader(OllamaJsonClient client) : IAnswerGrader
         prompt.AppendLine("- Chấm TỪNG tiêu chí, cho điểm trong khoảng từ 0 đến điểm tối đa của tiêu chí đó.");
         prompt.AppendLine("- Dùng đúng criteriaId được liệt kê, không tự tạo tiêu chí mới, không bỏ sót tiêu chí nào.");
         prompt.AppendLine("- Nhận xét ngắn gọn bằng tiếng Việt, nêu căn cứ lấy từ lời của sinh viên.");
+        prompt.AppendLine("- Trong nhận xét, gọi tiêu chí bằng TÊN của nó; tuyệt đối không nhắc criteriaId hay số thứ tự, vì sinh viên sẽ đọc nhận xét này.");
         prompt.AppendLine("- Đây là bản ghi từ giọng nói: bỏ qua lỗi chính tả, chỉ chấm nội dung.");
         prompt.AppendLine("- confidence là mức độ chắc chắn của bạn, từ 0 đến 1.");
         prompt.AppendLine();

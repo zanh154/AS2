@@ -182,4 +182,30 @@ public class AnswerGraderTests
         public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId,
             TState state, Exception? exception, Func<TState, Exception?, string> formatter) { }
     }
+
+    [Theory]
+    // Đúng câu đã đo được từ model.
+    [InlineData("Em mất điểm ở tiêu chí 87 và 99.", "Em mất điểm ở tiêu chí tương ứng.")]
+    [InlineData("Chưa đạt criteriaId 12.", "Chưa đạt tiêu chí tương ứng.")]
+    [InlineData("Thiếu ý ở tiêu chí: 5, 6, 7.", "Thiếu ý ở tiêu chí tương ứng.")]
+    // Tên tiêu chí thì giữ nguyên; chỉ mã mới bị bỏ.
+    [InlineData("Đạt tiêu chí Đúng khái niệm.", "Đạt tiêu chí Đúng khái niệm.")]
+    [InlineData("Trả lời tốt, nêu được 3 ví dụ.", "Trả lời tốt, nêu được 3 ví dụ.")]
+    public void A_note_never_carries_a_criteria_id_to_the_reader(string note, string expected) =>
+        Assert.Equal(expected, OllamaAnswerGrader.Scrub(note));
+
+    [Fact]
+    public void The_criteria_id_is_scrubbed_from_every_note_the_model_writes()
+    {
+        var grade = Parse("""
+            {"criteria": [{"criteriaId": 1, "score": 2, "comment": "Mất điểm ở tiêu chí 87."}],
+             "strengths": "Tốt ở tiêu chí 87", "weaknesses": "Yếu ở criteriaId 99",
+             "missingPoints": "Thiếu ý tiêu chí 87 và 99", "confidence": 0.8}
+            """);
+
+        Assert.DoesNotContain("87", Assert.Single(grade.Marks).Comment);
+        Assert.DoesNotContain("87", grade.Strengths);
+        Assert.DoesNotContain("99", grade.Weaknesses);
+        Assert.DoesNotContain("99", grade.MissingPoints);
+    }
 }

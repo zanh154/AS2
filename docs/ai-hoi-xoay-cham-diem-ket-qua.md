@@ -303,9 +303,20 @@ biết"), gọi đúng prompt của `OllamaFollowUpAnalyzer`:
 
 Phần luật (`Parse`, `FollowUpTurnRules`) chạy đúng: cái gì không dùng được đều bị loại và bài
 thi vẫn chạy trọn vẹn. Vấn đề nằm ở model: `qwen2.5:3b` quá nhỏ để làm giám khảo tiếng Việt.
-Trước demo nên **đổi model** (ví dụ `qwen2.5:7b-instruct`) và/hoặc sửa prompt để bắt model
-viết câu hỏi ở ngôi thứ hai, nói thẳng với sinh viên. **Chưa đổi gì trong code**: cả
+**Đã sửa (15/10/2026)**, ba thay đổi cùng lúc:
+
+1. **Tách model cho vấn đáp**: `Ollama:VivaModel` mặc định `qwen2.5:7b-instruct`, dùng cho
+   hỏi xoáy và chấm điểm; `GenerationModel` (`qwen2.5:3b`) vẫn lo sinh câu hỏi từ tài liệu.
+   Để trống thì quay về model nhỏ, nên máy chưa tải bản 7b vẫn chạy được.
+2. **Viết lại prompt**: nêu rõ từng trường hợp chọn `reason` (nói không biết, nhắc lại từ
+   trong câu hỏi, nói chung chung… đều **không** phải `Sufficient`), mặc định là phải hỏi
+   thêm, và bắt `question` là lời nói trực tiếp với sinh viên ở ngôi thứ hai, mở đầu bằng
+   "Em".
+3. **Luật mới trong `Parse`**: câu không có dấu hỏi thì bị loại. Nó chặn đúng lỗi 1/10 ở
+   trên — một câu mô tả việc cần hỏi, dành cho giảng viên đọc.
+
 `Budget` và `num_predict` vẫn như cũ, vì độ trễ khi model đã nạp không phải là chỗ tắc.
+Chưa đo lại 10 câu đó với model 7b.
 
 ### (c) Chấm điểm theo rubric
 
@@ -322,7 +333,12 @@ viết câu hỏi ở ngôi thứ hai, nói thẳng với sinh viên. **Chưa đ
   2. Tiêu chí "Trình bày rõ ràng" nhiều lần được **2/2 dù nhận xét ngay bên cạnh ghi là lan
      man**.
   3. `missing_points` có lúc **lọt số id tiêu chí vào văn bản** cho giảng viên đọc: "mất
-     điểm ở tiêu chí 87 và 99".
+     điểm ở tiêu chí 87 và 99". **Đã sửa**: prompt dặn gọi tiêu chí bằng tên, và
+     `OllamaAnswerGrader.Scrub` bỏ mọi chỗ nhắc mã tiêu chí khỏi cả bốn ô nhận xét —
+     không dựa vào việc model nghe lời, vì sinh viên đọc trực tiếp những dòng này.
+
+  Hai lỗi 1 và 2 **không sửa**: đó là bản chất của model nhỏ, và thiết kế đã có giảng viên
+  duyệt lại trước khi chốt điểm (mục 6). Chúng nằm trong phần giới hạn ở mục 10.
 
 ### Lỗi phát hiện khi chạy thật
 
@@ -336,10 +352,16 @@ viết câu hỏi ở ngôi thứ hai, nói thẳng với sinh viên. **Chưa đ
 
 ## 10. Giới hạn — cần biết trước khi demo
 
-- **Chất lượng câu hỏi xoáy của `qwen2.5:3b` chưa đạt**: 0/10 lần sinh ra câu hỏi dùng được
-  (xem mục 9b). Phần chấm điểm thì dùng được, chỉ cần giảng viên đọc lại.
-- **Phải làm nóng model trước ca thi**, nếu không câu đầu tiên mất hơn 30 giây và không có
-  câu hỏi xoáy (mục 9a).
+- **Chất lượng câu hỏi xoáy phụ thuộc model**: với `qwen2.5:3b`, 0/10 lần sinh ra câu hỏi
+  dùng được (mục 9b). Đã đổi mặc định sang `qwen2.5:7b-instruct` và viết lại prompt, nhưng
+  **chưa đo lại** — phải chạy lại 10 câu ở mục 9b trước khi demo. Máy nào chưa
+  `ollama pull qwen2.5:7b-instruct` thì chức năng này coi như không có.
+- **Làm nóng model**: `OllamaWarmUpService` gọi model một lần lúc khởi động, nên 32 giây nạp
+  model được trả trước khi có ai thi (trước đây câu đầu tiên mỗi ngày mất hơn 30 giây và
+  không có câu hỏi xoáy — mục 9a). App phải được khởi động trước ca thi, không phải cùng lúc.
+- **Model chấm điểm vẫn có thể nhận xét sai** (mục 9c, lỗi 1 và 2): nói sinh viên đã nêu một
+  từ khoá họ không nói, hoặc cho điểm trình bày lệch với nhận xét ngay bên cạnh. Điểm AI là
+  **đề xuất**; giảng viên phải đọc lại trước khi chốt. Đây là lý do module có bước duyệt tay.
 - **Kết quả AI chưa chạy trong ca thi**: hiện phải khởi động lại app mới chấm (mục 9, lỗi 1).
 - Script `20261016_ai_evaluation_criteria.sql` **đã chạy trên database chung** (Aiven) ngày
   15/10/2026; lần đo này cũng chạy sạch trên MySQL 8.4.9 cục bộ. Kiểm tra lại bằng
