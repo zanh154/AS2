@@ -76,6 +76,12 @@ public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpA
             return FollowUpDecision.None;
         }
 
+        // Câu này sẽ được đọc thẳng cho sinh viên nghe. Đo thực tế cho thấy model đôi khi
+        // viết một câu mô tả việc cần hỏi, dành cho giảng viên đọc ("Giảng viên nên hỏi
+        // thêm về ...") thay vì hỏi sinh viên. Không có dấu hỏi thì đó không phải câu hỏi,
+        // và thà bỏ qua còn hơn đọc một câu lạc ngôi giữa buổi thi.
+        if (!question.Contains('?')) return FollowUpDecision.None;
+
         return new FollowUpDecision(reason, question);
     }
 
@@ -103,12 +109,20 @@ public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpA
     private static string BuildPrompt(FollowUpContext context)
     {
         var prompt = new StringBuilder();
-        prompt.AppendLine("Bạn là giám khảo vấn đáp. Hãy đọc câu trả lời của sinh viên và quyết định có hỏi thêm một câu không.");
+        prompt.AppendLine("Bạn là giám khảo vấn đáp, đang ngồi trước mặt sinh viên. Hãy đọc câu trả lời và quyết định có hỏi thêm một câu không.");
+        prompt.AppendLine();
+        prompt.AppendLine("Cách chọn reason — đọc lần lượt, gặp trường hợp nào trước thì chọn trường hợp đó:");
+        prompt.AppendLine("- \"MissingPoint\": câu trả lời bỏ sót một ý mà tiêu chí chấm đòi hỏi, hoặc sinh viên nói không biết, không nhớ, nói sang chuyện khác, hoặc chỉ nhắc lại đúng từ trong câu hỏi mà không giải thích.");
+        prompt.AppendLine("- \"Vague\": có nói đúng hướng nhưng chung chung, không nêu được định nghĩa, cơ chế hay ví dụ cụ thể, nên chưa đủ căn cứ để cho điểm.");
+        prompt.AppendLine("- \"Contradictory\": trong câu trả lời có hai chỗ ngược nhau, hoặc ngược với điều sinh viên vừa nói trước đó.");
+        prompt.AppendLine("- \"Sufficient\": CHỈ khi mọi tiêu chí đều đã có căn cứ rõ ràng trong lời sinh viên và bạn chấm được ngay, không cần hỏi gì nữa.");
         prompt.AppendLine();
         prompt.AppendLine("Quy tắc:");
-        prompt.AppendLine("- Chỉ hỏi thêm khi câu trả lời THIẾU Ý so với yêu cầu, nói MƠ HỒ không đủ để chấm, hoặc MÂU THUẪN với chính nó.");
-        prompt.AppendLine("- Nếu câu trả lời đã đủ để chấm, trả về reason = \"Sufficient\" và question = \"\".");
-        prompt.AppendLine("- Câu hỏi thêm phải là MỘT câu hỏi ngắn, cụ thể, bằng tiếng Việt, không quá 300 ký tự.");
+        prompt.AppendLine("- Mặc định là phải hỏi thêm. Chỉ chọn \"Sufficient\" khi câu trả lời thực sự đầy đủ; một câu trả lời ngắn, chung chung hoặc bỏ trống ý thì KHÔNG bao giờ là \"Sufficient\".");
+        prompt.AppendLine("- Nếu reason khác \"Sufficient\" thì BẮT BUỘC phải có question, không được để trống.");
+        prompt.AppendLine("- Nếu reason = \"Sufficient\" thì needsFollowUp = false và question = \"\".");
+        prompt.AppendLine("- question phải là lời bạn nói TRỰC TIẾP VỚI SINH VIÊN, ngôi thứ hai, mở đầu bằng \"Em\" — ví dụ \"Em giải thích rõ hơn ... được không?\". Tuyệt đối không viết câu dành cho giảng viên đọc, không mô tả việc cần hỏi, không nhận xét.");
+        prompt.AppendLine("- Chỉ MỘT câu hỏi, ngắn, cụ thể, bằng tiếng Việt, không quá 300 ký tự.");
         prompt.AppendLine("- Không hỏi lại điều sinh viên đã trả lời rõ, và không lặp lại các câu đã hỏi ở dưới.");
         prompt.AppendLine("- Không tiết lộ đáp án mong đợi trong câu hỏi.");
         prompt.AppendLine();

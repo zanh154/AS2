@@ -22,6 +22,14 @@ public sealed class OllamaJsonClient(
     private readonly OllamaOptions _options = options.Value;
 
     /// <summary>
+    /// Model mà mọi lời gọi ở đây dùng. Lớp này chỉ phục vụ phần vấn đáp, nên nó đi theo
+    /// <see cref="OllamaOptions.VivaModel"/>; cấu hình để trống thì quay về model chung.
+    /// </summary>
+    public string Model => string.IsNullOrWhiteSpace(_options.VivaModel)
+        ? _options.GenerationModel
+        : _options.VivaModel;
+
+    /// <summary>
     /// Asks the generation model for one JSON document matching <paramref name="format"/>
     /// (an Ollama structured-output schema). Returns null when there is nothing usable.
     /// </summary>
@@ -47,7 +55,7 @@ public sealed class OllamaJsonClient(
 
             var request = new
             {
-                model = _options.GenerationModel,
+                model = Model,
                 prompt,
                 stream = false,
                 format,

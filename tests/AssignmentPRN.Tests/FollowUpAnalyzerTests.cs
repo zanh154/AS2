@@ -90,7 +90,7 @@ public class FollowUpAnalyzerTests
     {
         // Past this length the model has stopped asking and started lecturing; reading
         // that aloud would eat the student's answering time.
-        var tooLong = new string('a', OllamaFollowUpAnalyzer.MaxQuestionLength + 1);
+        var tooLong = new string('a', OllamaFollowUpAnalyzer.MaxQuestionLength) + "?";
         var decision = Parse($$"""
             {"needsFollowUp": true, "reason": "Vague", "question": "{{tooLong}}"}
             """);
@@ -101,12 +101,24 @@ public class FollowUpAnalyzerTests
     [Fact]
     public void A_question_at_exactly_the_limit_is_kept()
     {
-        var exact = new string('a', OllamaFollowUpAnalyzer.MaxQuestionLength);
+        var exact = new string('a', OllamaFollowUpAnalyzer.MaxQuestionLength - 1) + "?";
         var decision = Parse($$"""
             {"needsFollowUp": true, "reason": "Vague", "question": "{{exact}}"}
             """);
 
         Assert.True(decision.NeedsFollowUp);
+    }
+
+    [Fact]
+    public void A_sentence_that_is_not_a_question_is_dropped()
+    {
+        // Lỗi thật đã đo được: model viết một câu dành cho giảng viên đọc, không phải
+        // câu hỏi cho sinh viên. Câu đó sẽ được đọc lên trong buổi thi, nên bỏ.
+        var decision = Parse("""
+            {"needsFollowUp": true, "reason": "Vague", "question": "Giảng viên nên hỏi thêm về cơ chế khoá."}
+            """);
+
+        Assert.False(decision.NeedsFollowUp);
     }
 
     [Fact]

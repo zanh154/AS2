@@ -26,7 +26,8 @@
   "Ollama": {
     "BaseUrl": "http://localhost:11434",
     "EmbeddingModel": "nomic-embed-text",
-    "GenerationModel": "qwen2.5:3b"
+    "GenerationModel": "qwen2.5:3b",
+    "VivaModel": "qwen2.5:7b-instruct"
   },
   "Rag": {
     "TopK": 5,

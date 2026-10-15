@@ -24,14 +24,21 @@ Lấy Ollama Windows portable từ https://docs.ollama.com/windows và giải n�
 $env:OLLAMA_MODELS = Join-Path (Get-Location).Path '.runtime/models'
 .\.runtime\ollama\ollama.exe pull nomic-embed-text
 .\.runtime\ollama\ollama.exe pull qwen2.5:3b
+.\.runtime\ollama\ollama.exe pull qwen2.5:7b-instruct
 ```
+
+Bản 7b dùng cho hỏi xoáy và chấm điểm vấn đáp; bản 3b dùng cho sinh câu hỏi từ tài liệu.
+Máy không tải được bản 7b thì để trống `Ollama:VivaModel`, phần vấn đáp sẽ chạy bằng model
+nhỏ — vẫn chạy, nhưng câu hỏi xoáy hầu như không dùng được (xem phần đo trong
+`docs/ai-hoi-xoay-cham-diem-ket-qua.md`).
 
 Dùng `appsettings.json.example` để cấu hình connection string riêng. Cấu hình đang sử dụng:
 
 - `DocumentStorage:BasePath`: `../AssignmentPRN.DataAccess/Storage/rag` (đường dẫn tương đối theo Presentation).
 - `Ollama:BaseUrl`: `http://localhost:11434`.
 - `Ollama:EmbeddingModel`: `nomic-embed-text`.
-- `Ollama:GenerationModel`: `qwen2.5:3b`.
+- `Ollama:GenerationModel`: `qwen2.5:3b` (sinh câu hỏi từ tài liệu).
+- `Ollama:VivaModel`: `qwen2.5:7b-instruct` (hỏi xoáy và chấm điểm vấn đáp).
 - `Rag:TopK`: 5; `Rag:SimilarityThreshold`: 0.3.
 
 Nếu dùng database ASM1 riêng, chạy migration theo `database/README.md`. Database Aiven hiện tại đã được cập nhật.
