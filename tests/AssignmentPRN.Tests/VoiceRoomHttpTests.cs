@@ -28,7 +28,8 @@ public sealed class VoiceRoomHttpTests
     public async Task Real_handlers_bind_json_uploads_and_enforce_csrf_and_audio_ownership()
     {
         var clock = new VoiceRoomTests.Clock();
-        await using var seed = await VoiceRoomTests.SeedAsync(clock);
+        var testConnectionString = $"Data Source=voice-http-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
+        await using var seed = await VoiceRoomTests.SeedAsync(clock, connectionString: testConnectionString);
         (await seed.Users.SingleAsync(x => x.UserId == 2)).PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test@123");
         await seed.SaveChangesAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
@@ -45,7 +46,8 @@ public sealed class VoiceRoomHttpTests
         builder.Services.RemoveAll<AivesDbContext>();
         builder.Services.RemoveAll<DbContextOptions<AivesDbContext>>();
         builder.Services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<AivesDbContext>>();
-        builder.Services.AddDbContext<AivesDbContext>(o => o.UseSqlite(seed.Database.GetDbConnection()));
+        // Each HTTP request needs its own connection when autosave and audio upload overlap.
+        builder.Services.AddDbContext<AivesDbContext>(o => o.UseSqlite(testConnectionString));
         builder.Services.AddSingleton<TimeProvider>(clock);
         builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
         builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
@@ -139,7 +141,8 @@ public sealed class VoiceRoomHttpTests
             {
                 clock.At = clock.At.AddSeconds(10);
                 var start = new ProcessStartInfo("node") { UseShellExecute = false, CreateNoWindow = true,
-                    RedirectStandardOutput = true, RedirectStandardError = true };
+                    RedirectStandardOutput = true, RedirectStandardError = true,
+                    StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
                 start.ArgumentList.Add(browserScript);
                 start.Environment["AIVES_TEST_URL"] = address;
                 start.Environment["AIVES_TEST_LOGIN"] = "student@example.test";

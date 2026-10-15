@@ -73,12 +73,12 @@ dotnet restore tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj
 dotnet build AssignmentPRN.slnx --no-restore
 dotnet build AssignmentPRN.slnx --configuration Release --no-restore
 dotnet test tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj --no-restore --verbosity quiet
-node --test tests/browser/voice-room.test.cjs tests/browser/voice-capture.test.cjs
+node --test tests/browser/voice-room.test.cjs tests/browser/voice-capture.test.cjs tests/browser/voice-speech.test.cjs
 ```
 
-- Kết quả cuối: build Debug/Release thành công, Release 0 warning/0 error; 227/227 test .NET và 7/7 test JavaScript đạt.
+- Kết quả mới nhất: build thành công bằng output tạm; 227/227 test .NET và 13/13 test JavaScript đạt. Browser smoke chạy Chrome desktop/mobile trên SQLite riêng.
 - Bộ .NET: 227 test; gồm 24 test voice, dùng SQLite local/in-memory, HTTP localhost và WebSocket thực để kiểm tra CSRF, JSON/multipart binding, group trái quyền, notification, audio ownership, deadline, idempotency, lifecycle và file dở. Không dùng DB cloud.
-- 7 test JavaScript dùng DOM/MediaRecorder/STT giả lập: submit trong autosave, IndexedDB ghi chậm, mất response, khôi phục nháp, TTS/record loại trừ nhau, mic bị từ chối và callback STT trễ. Đây không phải kiểm thử microphone thật hay full browser automation.
+- 13 test JavaScript dùng DOM/MediaRecorder/STT giả lập: submit trong autosave/upload, IndexedDB ghi chậm, mất response, khôi phục nháp, TTS/record loại trừ nhau, mic bị từ chối, callback trễ, chờ kết quả STT cuối, tự nối lại, lỗi network, thiếu hỗ trợ và timeout. Bộ test này tách biệt với browser smoke thật.
 - Chưa thử microphone/giọng TTS/STT trên thiết bị thực; chưa chạy integration/concurrency trên MySQL 8.4. MySQL repository dùng transaction Serializable và khóa candidate trước khi đọc; cần xác minh tải thực trên môi trường test của nhóm.
 - Web Speech không có ở mọi trình duyệt, có thể cần mạng/dịch vụ của hãng trình duyệt và có thể gửi âm thanh tới dịch vụ đó. Không tạo tài khoản trả phí hoặc API key. Không tuyên bố STT offline hay chính xác tuyệt đối. TTS `vi-VN` còn phụ thuộc voice cài trên máy.
 - Giới hạn duration được kiểm tra bằng clock/ngân sách server và metadata, kèm size/header. Chưa có decoder media phía server để xác minh toàn bộ codec hoặc duration thực bên trong container của một client cố tình giả metadata.
@@ -120,3 +120,13 @@ Test dùng tài khoản tổng hợp trong fixture SQLite; source không chứa 
 - Dừng thu tự lưu transcript cuối và upload audio. Nút Lưu tạm cũng dừng, lưu audio và transcript; vẫn giữ bản nháp/chunk ở IndexedDB để khôi phục nếu mạng lỗi.
 - Browser smoke có hai phần tách biệt: probe dịch vụ STT thật; sau đó dùng sự kiện STT xác định sẵn để kiểm tra chính xác kết quả cuối, audio/transcript lưu tạm ở server và IndexedDB, F5 rồi nộp. Không dùng fixture STT để tuyên bố nhận dạng giọng thật thành công.
 - Build/test dùng `--artifacts-path "$env:TEMP/aives-voice-validation"` để tránh khóa executable của ứng dụng người dùng đang chạy. Không mở instance web lâu dài sau kiểm thử.
+
+## Giao diện phòng thi mới
+
+- Tách khu vực câu hỏi/đồng hồ, văn bản, thu âm, trạng thái lưu tạm và lịch sử. Dùng màu/spacing của AIVES hiện hữu; desktop hai cột, điện thoại theo thứ tự đọc → thu → xem văn bản → nộp.
+- Có trạng thái nhận dạng và trạng thái lưu audio, transcript, bản dự phòng riêng; không hiển thị đã lưu khi đang chờ gửi lại. Văn bản khóa chỉnh sửa trong lúc thu để kết quả STT không ghi đè thao tác gõ tay.
+- Sau F5, văn bản và player audio đã lưu được khôi phục. Chờ upload đang chạy khi bấm Nộp, không tạo upload trùng. File tạm còn được giữ trong phần Bản thu dự phòng, không tự xóa.
+- Đã xác minh player thực sự phát audio sau F5, không chỉ kiểm tra HTTP 200. HTTP fixture dùng SQLite shared-memory với kết nối riêng theo request để autosave/upload đồng thời không dùng chung một transaction/connection.
+- Probe STT thật có lần trả văn bản, có lần không nhận ra mẫu tổng hợp. UI hiển thị rõ khi chưa nhận dạng được; không đánh dấu STT thành công dựa vào dữ liệu fixture. Cần thử giọng Việt tự nhiên trên microphone của sinh viên để đánh giá độ chính xác thực tế.
+- Preview sử dụng tài khoản/dữ liệu tổng hợp: [desktop](previews/voice-room-desktop.png), [điện thoại](previews/voice-room-mobile.png).
+- Ảnh giao diện không có dữ liệu bài thi thật. Dừng ứng dụng đang chạy trong Visual Studio, build lại rồi mở `/VoiceRoom/{candidateId}` từ lịch thi để dùng Razor Page mới; các ca thi vẫn phải còn hiệu lực.

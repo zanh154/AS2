@@ -5,7 +5,7 @@ const { join } = require("node:path");
 const vm = require("node:vm");
 const turn = () => new Promise(resolve => setImmediate(resolve));
 
-function harness({ denied = false } = {}) {
+function harness({ denied = false, uploadGate } = {}) {
   const elements = new Map();
   class Element extends EventTarget {
     constructor(id) { super(); this.dataset = {}; this.children = []; this.value = ""; this.textContent = ""; this.id = id; }
@@ -48,7 +48,7 @@ function harness({ denied = false } = {}) {
     speechSynthesis: speech, performance, Blob, FormData, URL, location: { href: "https://example.test/VoiceRoom/1" },
     Date, Math, Event, CustomEvent, AbortSignal,
     setInterval(callback) { intervals.push(callback); },
-    fetch: async (url, options) => { uploads.push(options.body); return { ok: true, json: async () => ({}) }; } };
+    fetch: async (url, options) => { uploads.push(options.body); if (uploadGate) await uploadGate; return { ok: true, json: async () => ({}) }; } };
   vm.runInNewContext(readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/wwwroot/js/voice-capture.js"), "utf8"), context);
   const state = id => ({ serverNow: new Date().toISOString(), completed: false,
     question: { examQuestionId: id, text: `Question ${id}`, deadline: new Date(Date.now() + 30000).toISOString() } });
@@ -91,4 +91,16 @@ test("late speech callbacks cannot overwrite the next question's transcript", as
   old.onText("late result for old question");
   assert.equal(h.get("voice-transcript").value, "new question draft");
   assert.equal(h.get("voice-record").disabled, false, "an old recording must not block the next question");
+});
+
+test("submit waits for an audio upload already in progress", async () => {
+  let releaseUpload;
+  const h = harness({ uploadGate: new Promise(resolve => { releaseUpload = resolve; }) });
+  await h.window.voiceCapture.setState(h.state(10));
+  h.get("voice-record").dispatchEvent(new Event("click")); await turn();
+  const first = h.window.voiceCapture.beforeSubmit(); await turn();
+  let submitted = false;
+  const second = h.window.voiceCapture.beforeSubmit().then(() => { submitted = true; });
+  await turn(); assert.equal(submitted, false); assert.equal(h.uploads.length, 1);
+  releaseUpload(); await Promise.all([first, second]); assert.equal(submitted, true);
 });

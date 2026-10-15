@@ -29,6 +29,8 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
  await page.locator('#voice-stop').click();
  assert.equal((await nativeUpload).ok(),true);
  await page.waitForFunction(()=>!window.voiceCapture.busy);
+ nativeSpeech.text=await page.locator('#voice-transcript').inputValue();
+ nativeSpeech.status=await page.locator('#voice-stt-status').textContent();
  await page.locator('#voice-transcript').fill('');
  // Deterministic recognition events exercise final-result flush and real storage, without pretending to test the remote STT engine.
  await page.evaluate(()=>{
@@ -57,10 +59,17 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
  assert.ok(local.some(x=>x.kind==='audio'&&x.synced));
  await page.reload();
  await page.waitForFunction(()=>document.getElementById('voice-transcript').value.includes('hoàn tất.'));
+ await page.waitForFunction(()=>!document.getElementById('voice-preview').hidden&&document.getElementById('voice-local-badge').textContent==='Đã giữ trên thiết bị');
+ await page.locator('#voice-preview').click({position:{x:18,y:20}});
+ await page.waitForFunction(()=>document.getElementById('voice-preview').currentTime>0.05,{},{timeout:10000});
+ await page.evaluate(()=>document.getElementById('voice-preview').pause());
  const artifacts=process.env.AIVES_BROWSER_ARTIFACTS || path.join(os.tmpdir(),'aives-voice-browser');
  fs.mkdirSync(artifacts,{recursive:true});
+ await page.evaluate(()=>window.scrollTo(0,0));
  await page.screenshot({path:path.join(artifacts,'voice-room-desktop.png'),fullPage:true});
  await page.setViewportSize({width:390,height:844});
+ await page.evaluate(()=>window.scrollTo(0,0));
+ assert.ok(await page.evaluate(()=>{const box=document.getElementById('voice-room').getBoundingClientRect();return box.left>=0&&box.right<=innerWidth+1}),'voice room must fit a phone viewport');
  await page.screenshot({path:path.join(artifacts,'voice-room-mobile.png'),fullPage:true});
  await page.setViewportSize({width:1400,height:1000});
  await page.locator('#voice-submit').click();
@@ -70,8 +79,8 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
  const audio=await context.request.get(await links.last().getAttribute('href')); assert.equal(audio.status(),200);
  await page.screenshot({path:path.join(artifacts,'browser-flow.png'),fullPage:true});
  assert.deepEqual(errors,[]);
- const result={schedule:true,ttsControl:true,recorded:true,uploaded:true,submitted:true,audioStatus:audio.status(),autoSavedDraft:true,draftReload:true,recognitionEventFixture:true,nativeSpeech};
+ const result={schedule:true,ttsControl:true,recorded:true,uploaded:true,submitted:true,audioStatus:audio.status(),audioPlayback:true,autoSavedDraft:true,draftReload:true,recognitionEventFixture:true,nativeSpeech};
  fs.writeFileSync(path.join(artifacts,'browser-flow-result.json'),JSON.stringify(result,null,2));
  console.log('VOICE_BROWSER_FLOW_OK '+JSON.stringify(result));
  }finally{await browser.close()}
-})().catch(e=>{console.error(e.message);process.exitCode=1});
+})().catch(e=>{console.error(e.stack);process.exitCode=1});

@@ -23,9 +23,9 @@ public sealed class VoiceRoomTests
         new VoiceRoomRepository(db, new ExamStatePolicy()),
         new QuestionService(new QuestionRepository(db, new ExamStatePolicy()), new CatalogRepository(db), null!), clock);
 
-    internal static async Task<AivesDbContext> SeedAsync(Clock clock, bool entered = true)
+    internal static async Task<AivesDbContext> SeedAsync(Clock clock, bool entered = true, string connectionString = "Data Source=:memory:")
     {
-        var db = await IssuedPaperEditTests.OpenAsync();
+        var db = await IssuedPaperEditTests.OpenAsync(connectionString);
         db.Roles.Add(new Role { RoleId = 3, RoleName = "Student" });
         db.Users.Add(new User { UserId = 2, RoleId = 3, FullName = "Student", Email = "student@example.test", PasswordHash = "x", Status = "Active" });
         var candidate = await db.ExamCandidates.SingleAsync();

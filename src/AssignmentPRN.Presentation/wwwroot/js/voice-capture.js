@@ -7,12 +7,13 @@
   const retry = byId("voice-upload"), read = byId("voice-read"), preview = byId("voice-preview");
   const text = byId("voice-transcript"), adapter = window.createVoiceSpeechAdapter();
   let question, recorder, stream, chunks = [], pending, previewUrl, started, stopPromise, stopResolve;
-  let reading = false, requesting = false, uploading = false, failure;
+  let reading = false, requesting = false, uploading = false, failure, uploadTask;
   let stopping = false;
   let recoveryId, recovered = false, stateVersion = 0;
   const recordings = new Map();
   const renderRecovery = item => {
     recordings.set(item.id, item);
+    const count = byId("voice-backup-count"); if (count) count.textContent = recordings.size;
     let row = document.getElementById(`recovery-${item.id}`);
     if (!row) {
       row = document.createElement("p"); row.id = `recovery-${item.id}`;
@@ -22,7 +23,7 @@
     row.replaceChildren();
     const url = URL.createObjectURL(item.blob); row.dataset.url = url;
     const download = document.createElement("a"); download.href = url; download.download = `voice-${item.questionId}`;
-    download.textContent = `Tải bản thu câu ${item.questionId}${item.synced ? " (đã lưu máy chủ)" : " (chưa xác nhận lưu)"}`;
+    download.textContent = `Tải bản thu dự phòng${item.synced ? " · Đã lưu máy chủ" : " · Chưa gửi thành công"}`;
     row.append(download);
     if (!item.synced) {
       const button = document.createElement("button"); button.type = "button"; button.className = "btn btn-outline-secondary";
@@ -45,16 +46,20 @@
     read.textContent = reading ? "Dừng đọc" : "Đọc câu hỏi";
     stop.disabled = !active() || requesting || stopping;
     retry.disabled = !pending || uploading;
+    retry.hidden = !pending;
     const speechRetry = byId("voice-stt-retry");
     if (speechRetry) speechRetry.disabled = recorder?.state !== "recording" || stopping;
     const badge = byId("voice-record-state");
     if (badge) badge.textContent = ({ recording: "Đang thu âm", saving: "Đang lưu", processing: "Đang xử lý", permission: "Chờ quyền mic", reading: "Đang đọc câu hỏi", ready: "Sẵn sàng" })[root.dataset.captureState];
+    root.dispatchEvent(new CustomEvent("voice-capture-state"));
   };
-  const upload = async () => {
-    if (!pending || uploading) return;
+  const upload = () => {
+    if (uploading) return uploadTask;
+    if (!pending) return Promise.resolve();
     uploading = true; failure = null; buttons();
     status.textContent = "Đang lưu bản thu…";
     const snapshot = pending;
+    uploadTask = (async () => {
     try {
       const data = new FormData();
       data.append("questionId", snapshot.id);
@@ -71,8 +76,13 @@
       if (pending === snapshot) pending = null;
       status.textContent = "Đã lưu bản thu trên máy chủ.";
       root.dispatchEvent(new CustomEvent("voice-audio-saved", { detail: result }));
-    } catch (error) { failure = error; status.textContent = `${error.message} Bản thu còn trên trang; bấm Thử lưu lại hoặc tải xuống trước khi rời trang.`; }
+    } catch (error) {
+      failure = error; status.textContent = `${error.message} Bản thu còn trên trang; bấm Thử lưu lại hoặc tải xuống trước khi rời trang.`;
+      const badge = byId("voice-audio-badge"); if (badge) badge.textContent = "Chờ gửi lại";
+    }
     finally { uploading = false; buttons(); }
+    })();
+    return uploadTask;
   };
   const stopRecording = async (save = true) => {
     const targetId = question?.examQuestionId;
@@ -105,6 +115,7 @@
     if (!question || active() || pending?.id === question.examQuestionId) return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { status.textContent = "Cần HTTPS/localhost và trình duyệt hỗ trợ MediaRecorder. Bạn vẫn có thể nhập nội dung trả lời."; return; }
     const id = question.examQuestionId;
+    preview.pause?.(); preview.hidden = true;
     requesting = true; buttons(); stopReading();
     status.textContent = "Đang chờ bạn cho phép microphone…";
     try {
@@ -113,6 +124,7 @@
       const mime = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find(t => MediaRecorder.isTypeSupported(t));
       if (!mime) throw new Error("Trình duyệt không có định dạng thu âm phù hợp.");
       chunks = []; started = performance.now(); failure = null;
+      const timer = byId("voice-record-time"); if (timer) timer.textContent = "00:00";
       recoveryId = `audio/${id}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
       recorder = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 });
       stopPromise = new Promise(resolve => { stopResolve = resolve; });
@@ -133,10 +145,12 @@
           const local = { id: recoveryId, questionId: id, kind: "audio", blob, duration, synced: false };
           await window.voiceRecovery?.put(local); renderRecovery(local);
         }
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        previewUrl = URL.createObjectURL(blob); preview.src = previewUrl; preview.hidden = false;
-        const download = byId("voice-download-local");
-        download.href = previewUrl; download.download = `voice-${id}.${mime.startsWith("audio/mp4") ? "m4a" : mime.startsWith("audio/ogg") ? "ogg" : "webm"}`; download.hidden = false;
+        if (question?.examQuestionId === id) {
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          previewUrl = URL.createObjectURL(blob); preview.src = previewUrl; preview.hidden = false;
+          const download = byId("voice-download-local");
+          download.href = previewUrl; download.download = `voice-${id}.${mime.startsWith("audio/mp4") ? "m4a" : mime.startsWith("audio/ogg") ? "ogg" : "webm"}`; download.hidden = false;
+        }
         stopping = false; release(); buttons(); stopResolve();
       };
       recorder.onerror = () => { status.textContent = "Thiết bị thu âm gặp lỗi; hãy kiểm tra microphone."; stopRecording().catch(() => {}); };
@@ -187,6 +201,7 @@
   window.voiceCapture = {
     beforeSubmit: () => stopRecording(true),
     get busy() { return active() || uploading; },
+    get hasPendingAudio() { return pending?.id === question?.examQuestionId && !!pending; },
     async setState(state) {
       const snapshotVersion = ++stateVersion;
       if (!recovered) {
@@ -202,12 +217,20 @@
       if (question?.examQuestionId !== state.question?.examQuestionId) {
         stopReading(); adapter.stop();
         if (active()) stopRecording(false).catch(() => {});
+        preview.pause?.(); preview.hidden = true;
+        byId("voice-download-local").hidden = true;
+        const timer = byId("voice-record-time"); if (timer) timer.textContent = "00:00";
+        const badge = byId("voice-stt-badge"); if (badge) badge.textContent = state.question?.transcript ? "Văn bản đã lưu" : "Sẵn sàng nhận dạng";
+        root.dataset.speechState = "ready";
       }
       question = state.question;
       if (question) question.captureDeadline = Date.now() + Math.max(0, Date.parse(question.deadline) - Date.parse(state.serverNow) - 750);
       const link = byId("voice-stored-audio");
       link.hidden = !question?.hasAudio;
-      if (question?.hasAudio) { const url = new URL(root.dataset.audio, location.href); url.searchParams.set("questionId", question.examQuestionId); link.href = url; }
+      if (question?.hasAudio) {
+        const url = new URL(root.dataset.audio, location.href); url.searchParams.set("questionId", question.examQuestionId); link.href = url;
+        if (preview.hidden && !active() && pending?.id !== question.examQuestionId) { preview.src = url.href; preview.hidden = false; }
+      }
       byId("voice-capture").hidden = state.completed && !pending && !recordings.size;
       buttons();
     }
