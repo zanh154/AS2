@@ -14,9 +14,16 @@
                     {
                         <span aria-current="@(isLast ? "page" : null)">@item.Text</span>
                     }
+                    else if (item.Controller is "Courses" or "ExamSessions" or "ExamResults")
+                    {
+                        @* Hai nhánh riêng, không dùng ternary: tag helper coi asp-page và
+                           asp-controller/asp-action là loại trừ nhau ngay cả khi giá trị là null,
+                           và ném lỗi 500 khi gặp cả hai. *@
+                        <a asp-page="/@item.Controller/@item.Action" asp-all-route-data="@RouteDataFor(item)">@item.Text</a>
+                    }
                     else
                     {
-                        <a asp-controller="@(item.Controller is "Courses" or "ExamSessions" or "ExamResults" ? null : item.Controller)" asp-action="@(item.Controller is "Courses" or "ExamSessions" or "ExamResults" ? null : item.Action)" asp-page="@(item.Controller is "Courses" or "ExamSessions" or "ExamResults" ? "/" + item.Controller + "/" + item.Action : null)"
+                        <a asp-controller="@item.Controller" asp-action="@item.Action"
                            asp-all-route-data="@RouteDataFor(item)">@item.Text</a>
                     }
                     @if (!isLast)

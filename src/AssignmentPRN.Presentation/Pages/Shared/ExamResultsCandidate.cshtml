@@ -3,14 +3,6 @@
     var candidate = Model.Candidate;
     var paper = candidate.Paper;
     var isCompleted = candidate.Status == CandidateStatus.Completed;
-    ViewData["Title"] = $"Bài làm · {candidate.StudentName}";
-    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
-    {
-        new("Lịch thi", "ExamSessions", "Index"),
-        new(paper.ExamName, "ExamSessions", "Details", new { id = candidate.ExamId }),
-        new("Kết quả", "ExamResults", "Index", new { id = candidate.ExamId }),
-        new(candidate.StudentName)
-    };
 }
 
 <div class="exam-result-page">

@@ -1,14 +1,6 @@
 @model AssignmentPRN.Presentation.ViewModels.SessionResultViewModel
 @{
     var session = Model.Session;
-    ViewData["Title"] = $"Kết quả · {session.ExamName}";
-    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
-    {
-        new("Lịch thi", "ExamSessions", "Index"),
-        new(session.ExamName, "ExamSessions", "Details", new { id = session.ExamId }),
-        new("Kết quả")
-    };
-
     var table = new DataTableViewModel
     {
         Columns =

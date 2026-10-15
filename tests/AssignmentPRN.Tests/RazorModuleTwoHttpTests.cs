@@ -141,6 +141,14 @@ public class RazorModuleTwoHttpTests
             Assert.Contains("/ExamResults/Candidate/1", scoreSheet);
             var paper = await client.GetStringAsync("/ExamResults/Candidate/1");
             Assert.Contains("Test 3", paper);
+            // Tiêu đề và breadcrumb phải tới được layout. Đặt chúng trong partial thì mất,
+            // vì <partial> nhận bản sao ViewData — lỗi thấy được khi chạy thật 15/10/2026:
+            // tab trình duyệt chỉ còn " · AIVES".
+            foreach (var page in new[] { scoreSheet, paper })
+            {
+                Assert.DoesNotContain("<title> · AIVES</title>", page);
+                Assert.Contains("breadcrumb-trail", page);
+            }
             // Razor Pages drops the Index segment, so the way back is /ExamResults/1;
             // both spellings have to reach the same screen.
             Assert.Contains("href=\"/ExamResults/1\"", paper);
