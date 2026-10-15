@@ -36,6 +36,32 @@ public class QuestionsController(
         bool includeArchived,
         CancellationToken ct)
     {
+        return View(await BuildIndexModelAsync(courseId, materialId, difficulty, bloomLevel, term, includeArchived, ct));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Snapshot(
+        int? courseId,
+        int? materialId,
+        QuestionDifficulty? difficulty,
+        BloomLevel? bloomLevel,
+        string? term,
+        bool includeArchived,
+        CancellationToken ct)
+    {
+        return PartialView("_IndexContent", await BuildIndexModelAsync(
+            courseId, materialId, difficulty, bloomLevel, term, includeArchived, ct));
+    }
+
+    private async Task<QuestionListViewModel> BuildIndexModelAsync(
+        int? courseId,
+        int? materialId,
+        QuestionDifficulty? difficulty,
+        BloomLevel? bloomLevel,
+        string? term,
+        bool includeArchived,
+        CancellationToken ct)
+    {
         var courses = await ActiveCoursesAsync(ct);
         var allowed = CoursesFor(courses, LecturerId);
         var selectedCourseId = NormaliseCourse(courseId, allowed);
@@ -59,7 +85,7 @@ public class QuestionsController(
             LoadError = result.Success ? null : result.Error
         };
 
-        return View(model);
+        return model;
     }
 
     [HttpGet]

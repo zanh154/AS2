@@ -5,9 +5,24 @@ public sealed class SignalRExamNotifier(IHubContext<ExamUpdatesHub> hub, ILogger
 {
     public async Task ChangedAsync(ExamChange change, CancellationToken ct = default)
     {
-        var groups = change.StudentIds.Append(change.LecturerId).Distinct().Select(ExamGroups.User)
-            .Append(ExamGroups.Admins).ToArray();
-        try { await hub.Clients.Groups(groups).SendAsync("ExamChanged", new { examId = change.ExamId, kind = change.Kind }, ct); }
-        catch (Exception ex) { logger.LogWarning(ex, "Realtime notification failed after saving exam {ExamId}", change.ExamId); }
+        var groups = change.StudentIds.Append(change.LecturerId).Where(id => id > 0).Distinct().Select(ExamGroups.User)
+            .Append(ExamGroups.Admins);
+        if (change.CourseId is > 0)
+        {
+            groups = groups.Append(ExamGroups.Course(change.CourseId.Value));
+        }
+
+        try
+        {
+            await hub.Clients.Groups(groups.Distinct().ToArray()).SendAsync(
+                "ExamChanged",
+                new { examId = change.ExamId, courseId = change.CourseId, kind = change.Kind },
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Realtime notification failed for {Kind}, exam {ExamId}, course {CourseId}",
+                change.Kind, change.ExamId, change.CourseId);
+        }
     }
 }
