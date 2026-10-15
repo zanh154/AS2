@@ -12,10 +12,20 @@
                 <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi
             </a>
             <h1>Kết quả bài thi</h1>
-            <p>Điểm dưới đây là điểm giảng viên đã chốt. Nhận xét do AI gợi ý để bạn tự rút kinh nghiệm.</p>
+            @* Chỉ nói "giảng viên đã chốt" khi đúng là vậy. Trước khi giảng viên xem bài,
+               điểm ở đây là điểm AI đề xuất và còn có thể đổi; nói khác đi là hứa với sinh
+               viên một điều chưa xảy ra. *@
+            @if (review.LecturerScore is not null)
+            {
+                <p>Điểm dưới đây là điểm giảng viên đã chốt. Nhận xét do AI gợi ý để bạn tự rút kinh nghiệm.</p>
+            }
+            else
+            {
+                <p>Điểm dưới đây do AI đề xuất, <strong>giảng viên chưa xác nhận</strong> nên có thể còn thay đổi. Nhận xét do AI gợi ý để bạn tự rút kinh nghiệm.</p>
+            }
         </div>
         <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(review.FinalScore) trên 10">
-            <span>Điểm</span>
+            <span>@(review.LecturerScore is not null ? "Điểm" : "Điểm tạm")</span>
             <strong>@ExamResultText.Score(review.FinalScore)</strong>
             <small>/ 10</small>
         </div>
