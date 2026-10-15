@@ -344,9 +344,51 @@ Chưa đo lại 10 câu đó với model 7b.
 
 | # | Vấn đề | Trạng thái |
 |---|---|---|
-| 1 | **Nộp xong lượt thi không kích hoạt chấm.** Hai lượt thi đều ở `Completed` nhiều phút mà không có dòng nào trong `ai_evaluations`; chỉ khi khởi động lại app, vòng quét đầu của `GradingBackgroundService` mới chấm. Tức là hiện tại kết quả AI **không bao giờ xuất hiện trong ca thi đang diễn ra** | Chưa sửa — cần tìm trong đường `VoiceRoomService.SyncAsync` → `GradingQueue.QueueCandidateAsync` |
-| 2 | **Câu cuối của lượt thi không bao giờ được hỏi xoáy**: trả lời câu cuối làm lượt thi chuyển sang `Completed` nên không còn lượt nào để hỏi thêm | Chưa sửa — cần xác nhận đây là ý muốn hay thiếu sót |
+| 1 | **Nộp xong lượt thi không kích hoạt chấm.** Hai lượt thi đều ở `Completed` nhiều phút mà không có dòng nào trong `ai_evaluations`; chỉ khi khởi động lại app, vòng quét đầu của `GradingBackgroundService` mới chấm. Tức là kết quả AI **không bao giờ xuất hiện trong ca thi đang diễn ra** | **Đã sửa** — xem mục 9.1 bên dưới |
+| 2 | **Câu cuối của lượt thi không bao giờ được hỏi xoáy**: trả lời câu cuối làm lượt thi chuyển sang `Completed` nên không còn lượt nào để hỏi thêm | **Không phải lỗi** — xem mục 9.2 bên dưới |
 | 3 | `scripts/start-local-ai.ps1` lưu UTF-8 không BOM nên **Windows PowerShell 5.1 không parse được** (lỗi ở dòng có tiếng Việt). Phải tự chạy `ollama serve`. PowerShell 7 không bị | Chưa sửa — thêm BOM hoặc bỏ tiếng Việt trong script |
+
+### 9.1 Lỗi 1 — nguyên nhân và cách sửa
+
+Nguyên nhân không nằm ở chỗ thiếu lời gọi `QueueCandidateAsync`: `SyncAsync` có gọi. Nó
+nằm ở **chỗ đọc trạng thái**. `SyncAsync` quyết định "lượt thi vừa kết thúc" dựa trên giao
+dịch ĐẦU, nhưng một lượt thi giọng nói hầu như luôn kết thúc ở giao dịch THỨ HAI: sau câu
+cuối, phòng thi giữ chỗ chờ giám khảo quyết định (`AwaitingFollowUp`), và chính
+`ReleaseHoldAsync` — hoặc giao dịch đọc lại sau khi ghi câu hỏi thêm — mới đặt
+`Completed`. Ở giao dịch đầu lượt thi vẫn `InProgress`, nên không ai đưa nó vào hàng đợi.
+
+Thêm một bài test tạm thời dựng lại logic cũ cho thấy phạm vi còn rộng hơn báo cáo ban
+đầu: **không một lượt thi giọng nói nào từng được đưa vào hàng đợi**, kể cả đường trả lời
+câu hỏi xoáy xong mới kết thúc. Và đường nộp bài trắc nghiệm
+(`QuestionService.SubmitExamAsync`) thì chưa bao giờ có lời gọi nào cả.
+
+Đã sửa ba chỗ:
+
+1. `SyncAsync` đọc trạng thái **cuối** (`result.Data.Completed`) thay vì trạng thái sau
+   giao dịch đầu.
+2. `QuestionService.SubmitExamAsync` đẩy lượt thi vào hàng đợi khi bài nộp làm lượt thi
+   đóng.
+3. `GradingBackgroundService` quét lại mỗi phút (`SweepInterval`), không chỉ một lần lúc
+   khởi động — lưới an toàn cho mọi đường kết thúc khác, ví dụ hết giờ ca thi. Kèm theo,
+   `GradingQueue` tự bỏ bản trùng để một lượt thi không bị chấm hai lần bằng hai lần gọi
+   model.
+
+Bảo vệ bằng 7 bài test mới (`GradingQueueTests`, `VoiceFollowUpTests`, `ExamDraftTests`);
+hai trong số đó đã được xác nhận là **thất bại trên code cũ**.
+
+### 9.2 Lỗi 2 — không phải lỗi
+
+Câu cuối **vẫn được hỏi xoáy**: `Apply` tính `awaiting` TRƯỚC khi đặt `Completed`, và chỉ
+đóng lượt thi khi không còn câu hỏi thêm nào chờ. Hai bài test đã có từ trước chứng minh
+điều này — `The_slot_is_not_finished_while_a_probe_on_the_last_answer_is_open` và
+`Answering_the_last_probe_finishes_the_slot` — và cả hai vẫn xanh.
+
+Trường hợp duy nhất câu cuối không được hỏi là khi **còn dưới 20 giây**
+(`FollowUpTurnRules.MinimumTimeToProbe`) trước hạn câu hỏi hoặc hết ca thi: không đủ thời
+gian để đọc câu hỏi lên và nghe sinh viên trả lời. Đó là thiết kế có chủ ý — câu hỏi thêm
+không bao giờ mua thêm thời gian cho sinh viên. Lần đo không ghi lại câu cuối được trả lời
+lúc còn bao nhiêu giây, nên chưa khẳng định được đây là điều đã xảy ra; lần đo sau nên ghi
+thêm mốc đó.
 
 ---
 
@@ -362,7 +404,9 @@ Chưa đo lại 10 câu đó với model 7b.
 - **Model chấm điểm vẫn có thể nhận xét sai** (mục 9c, lỗi 1 và 2): nói sinh viên đã nêu một
   từ khoá họ không nói, hoặc cho điểm trình bày lệch với nhận xét ngay bên cạnh. Điểm AI là
   **đề xuất**; giảng viên phải đọc lại trước khi chốt. Đây là lý do module có bước duyệt tay.
-- **Kết quả AI chưa chạy trong ca thi**: hiện phải khởi động lại app mới chấm (mục 9, lỗi 1).
+- **Kết quả AI chạy trong ca thi**: lượt thi được đẩy vào hàng đợi ngay khi đóng, và có
+  vòng quét mỗi phút làm lưới an toàn (mục 9.1). Chấm một lượt 3 câu mất khoảng 11 giây, nên
+  giảng viên thấy điểm đề xuất trong vòng dưới một phút rưỡi sau khi sinh viên nộp.
 - Script `20261016_ai_evaluation_criteria.sql` **đã chạy trên database chung** (Aiven) ngày
   15/10/2026; lần đo này cũng chạy sạch trên MySQL 8.4.9 cục bộ. Kiểm tra lại bằng
   `scripts/apply-migration.ps1 -WhatIf`.
