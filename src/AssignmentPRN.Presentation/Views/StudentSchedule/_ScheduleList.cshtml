@@ -57,6 +57,19 @@ else if (Model.Schedule is not null)
 
                     <div class="student-schedule-item">
                         <partial name="_ScheduleItem" model="item" />
+                        @if (Model.IsOwnSchedule && !canSit && item.CandidateStatus != CandidateStatus.Completed)
+                        {
+                            var reason = item.CandidateStatus is CandidateStatus.Cancelled or CandidateStatus.Absent
+                                ? "Lượt thi đã hủy hoặc được ghi nhận vắng thi."
+                                : now > item.EndTime ? "Ca thi đã kết thúc."
+                                : !ExamSessionRules.CanSit(item.SessionStatus) ? "Phiên thi chưa mở hoặc đã kết thúc."
+                                : $"Mở lúc {item.ScheduledTime:dd/MM/yyyy HH:mm}.";
+                            <div class="student-schedule-item__action">
+                                <button class="btn btn-outline-secondary" type="button" disabled
+                                        aria-describedby="voice-entry-reason-@item.CandidateId">Thi giọng nói</button>
+                                <small id="voice-entry-reason-@item.CandidateId">@reason</small>
+                            </div>
+                        }
                         @if (Model.IsOwnSchedule && item.CandidateStatus == CandidateStatus.Completed)
                         {
                             <a class="btn btn-outline-secondary" asp-controller="ExamRoom" asp-action="Result" asp-route-id="@item.CandidateId">Xem bài đã nộp</a>

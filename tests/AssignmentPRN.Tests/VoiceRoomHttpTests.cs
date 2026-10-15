@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Data;
@@ -32,6 +33,7 @@ public sealed class VoiceRoomHttpTests
         await seed.SaveChangesAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
             ApplicationName = typeof(AssignmentPRN.Presentation.Pages.VoiceRoom.IndexModel).Assembly.GetName().Name,
+            WebRootPath = Path.GetFullPath("../../../../../src/AssignmentPRN.Presentation/wwwroot", AppContext.BaseDirectory),
             EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -51,6 +53,7 @@ public sealed class VoiceRoomHttpTests
         builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
         builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
         await using var app = builder.Build();
+        app.UseStaticFiles();
         app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute();
         app.MapHub<VoiceRoomHub>("/hubs/voice-room");
         await app.StartAsync();
@@ -64,6 +67,21 @@ public sealed class VoiceRoomHttpTests
             var loginFields = new Dictionary<string, string> { ["Input.Email"] = "student@example.test", ["Input.Password"] = "Test@123",
                 ["__RequestVerificationToken"] = Token(login) };
             Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Account/Login", new FormUrlEncodedContent(loginFields))).StatusCode);
+            Assert.Contains("Thi giọng nói", await client.GetStringAsync("/StudentSchedule/Mine"));
+            seed.ChangeTracker.Clear();
+            var scheduledCandidate = await seed.ExamCandidates.SingleAsync();
+            var scheduledSession = await seed.ExamSessions.SingleAsync();
+            var originalScheduled = scheduledCandidate.ScheduledTime;
+            var originalEnd = scheduledSession.EndTime;
+            scheduledCandidate.ScheduledTime = DateTime.Now.AddHours(-1);
+            scheduledSession.EndTime = DateTime.Now.AddMinutes(-50);
+            await seed.SaveChangesAsync();
+            var expiredSchedule = WebUtility.HtmlDecode(await client.GetStringAsync("/StudentSchedule/Mine"));
+            Assert.Contains("Ca thi đã kết thúc.", expiredSchedule);
+            Assert.Matches("<button[^>]*disabled[^>]*>Thi giọng nói</button>", expiredSchedule);
+            scheduledCandidate.ScheduledTime = originalScheduled;
+            scheduledSession.EndTime = originalEnd;
+            await seed.SaveChangesAsync();
             var page = await client.GetStringAsync("/VoiceRoom/1");
             Assert.Contains("voice-record", page);
             Assert.Contains("handler=Upload", page);
@@ -114,6 +132,27 @@ public sealed class VoiceRoomHttpTests
             Assert.Equal(next.Question.Deadline, (await retried.Content.ReadFromJsonAsync<VoiceRoomState>())!.Question!.Deadline);
             using var anonymous = new HttpClient { BaseAddress = client.BaseAddress };
             Assert.Equal(HttpStatusCode.Forbidden, (await anonymous.GetAsync($"/VoiceRoom/1?handler=Audio&questionId={id}")).StatusCode);
+            // Optional real-Chrome smoke check uses this isolated SQLite fixture only.
+            // Credentials below belong to synthetic test data, never a shared account.
+            var browserScript = Environment.GetEnvironmentVariable("AIVES_BROWSER_CHECK_SCRIPT");
+            if (!string.IsNullOrWhiteSpace(browserScript))
+            {
+                var start = new ProcessStartInfo("node") { UseShellExecute = false, CreateNoWindow = true,
+                    RedirectStandardOutput = true, RedirectStandardError = true };
+                start.ArgumentList.Add(browserScript);
+                start.Environment["AIVES_TEST_URL"] = address;
+                start.Environment["AIVES_TEST_LOGIN"] = "student@example.test";
+                start.Environment["AIVES_TEST_PASSWORD"] = "Test@123";
+                using var process = Process.Start(start)!;
+                var output = process.StandardOutput.ReadToEndAsync();
+                var error = process.StandardError.ReadToEndAsync();
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+                await process.WaitForExitAsync(timeout.Token);
+                Assert.True(process.ExitCode == 0, await output + await error);
+                Assert.Contains("VOICE_BROWSER_FLOW_OK", await output);
+                seed.ChangeTracker.Clear();
+                Assert.Equal(AssignmentPRN.DataAccess.Enums.CandidateStatus.Completed, (await seed.ExamCandidates.SingleAsync()).Status);
+            }
         }
         finally { await app.StopAsync(); }
     }

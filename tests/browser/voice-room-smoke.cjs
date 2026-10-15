@@ -1,0 +1,41 @@
+const {chromium}=require(process.env.AIVES_PLAYWRIGHT_MODULE || 'playwright-core');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+(async()=>{
+ const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
+ try {
+ const context=await browser.newContext({permissions:['microphone'],viewport:{width:1400,height:1000}});
+ const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+ const base=process.env.AIVES_TEST_URL;
+ await page.goto(base+'/Account/Login');
+ await page.locator('[name="Input.Email"]').fill(process.env.AIVES_TEST_LOGIN);
+ await page.locator('[name="Input.Password"]').fill(process.env.AIVES_TEST_PASSWORD);
+ await Promise.all([page.waitForURL(u=>!u.pathname.includes('/Login')),page.locator('button[type=submit]').click()]);
+ await page.goto(base+'/StudentSchedule/Mine');
+ const voice=page.getByRole('button',{name:'Thi giọng nói',exact:true});
+ assert.equal(await voice.isEnabled(),true);
+ await Promise.all([page.waitForURL('**/VoiceRoom/1'),voice.click()]);
+ await page.locator('#voice-question').filter({hasText:'Second question'}).waitFor();
+ await page.locator('#voice-read').click();
+ await page.waitForFunction(()=>!document.getElementById('voice-record').disabled,{},{timeout:10000});
+ await page.locator('#voice-record').click();
+ await page.waitForFunction(()=>!document.getElementById('voice-stop').disabled);
+ await page.waitForTimeout(1100);
+ const response=page.waitForResponse(r=>r.url().includes('handler=Upload')&&r.request().method()==='POST');
+ await page.locator('#voice-stop').click();
+ const uploaded=await response; assert.equal(uploaded.ok(),true,await uploaded.text());
+ await page.locator('#voice-transcript').fill('Nội dung kiểm thử bằng microphone giả lập, không phải bài thi thật.');
+ await page.locator('#voice-submit').click();
+ await page.waitForFunction(()=>document.getElementById('voice-status').textContent.includes('Đã hoàn thành'),{},{timeout:15000});
+ assert.match(await page.locator('#voice-history').innerText(),/microphone giả lập/);
+ const links=page.locator('#voice-history a'); assert.ok(await links.count()>=1);
+ const audio=await context.request.get(await links.last().getAttribute('href')); assert.equal(audio.status(),200);
+ const artifacts=process.env.AIVES_BROWSER_ARTIFACTS || path.join(os.tmpdir(),'aives-voice-browser');
+ fs.mkdirSync(artifacts,{recursive:true});
+ await page.screenshot({path:path.join(artifacts,'browser-flow.png'),fullPage:true});
+ assert.deepEqual(errors,[]);
+ const result={schedule:true,ttsControl:true,recorded:true,uploaded:true,submitted:true,audioStatus:audio.status(),stt:await page.locator('#voice-stt-status').textContent()};
+ fs.writeFileSync(path.join(artifacts,'browser-flow-result.json'),JSON.stringify(result,null,2));
+ console.log('VOICE_BROWSER_FLOW_OK '+JSON.stringify(result));
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e.message);process.exitCode=1});

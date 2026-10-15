@@ -94,3 +94,20 @@ node --test tests/browser/voice-room.test.cjs tests/browser/voice-capture.test.c
 - Commit hoàn thiện: chặn đường phòng cũ, lịch sử bài đã nộp, retry file dở, kiểm thử bổ sung và tài liệu này.
 
 Không merge sang `main`. Những thay đổi ban đầu của người dùng vẫn ở thư mục gốc.
+
+## Kiểm tra lỗi không thấy nút Thi giọng nói
+
+- Đã đăng nhập Chrome bằng tài khoản người dùng cung cấp: lịch chỉ có ca từ 29/09 đến 09/10/2026, đều hết hạn tại thời điểm kiểm tra 15/10/2026. Không sửa lịch hoặc nộp bài trên database của tài khoản đó.
+- Thư mục gốc vẫn là bản `main` cũ. Cần chạy solution trong `.worktrees/GiaThuan`; instance kiểm tra dùng `http://localhost:5088`.
+- Đã bổ sung nút bị khóa kèm lý do cho ca hết hạn/chưa mở/hủy/vắng, thay cho việc không thấy nút. Quyền vào thi phía server giữ nguyên.
+- Kiểm thử Chrome thực với microphone giả lập trên SQLite riêng đã qua: Lịch thi → Thi giọng nói → Đọc → Thu → Dừng/lưu → transcript → Nộp → nghe lại HTTP 200. Không xác nhận nhận dạng lời nói thật từ thiết bị vật lý.
+- Có thể chạy lại browser smoke bằng Playwright Core và Chrome có sẵn, không thêm dependency vào ứng dụng:
+
+```powershell
+npm.cmd install --prefix "$env:TEMP/aives-voice-browser" playwright-core --no-audit --no-fund
+$env:AIVES_PLAYWRIGHT_MODULE = "$env:TEMP/aives-voice-browser/node_modules/playwright-core"
+$env:AIVES_BROWSER_CHECK_SCRIPT = (Resolve-Path tests/browser/voice-room-smoke.cjs).Path
+dotnet test tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj --no-restore --filter FullyQualifiedName~VoiceRoomHttpTests
+```
+
+Test dùng tài khoản tổng hợp trong fixture SQLite; source không chứa thông tin đăng nhập của người dùng. Ảnh và kết quả smoke được ghi vào thư mục tạm `aives-voice-browser`.
