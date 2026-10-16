@@ -23,6 +23,9 @@ public class GeneratedQuestion
 
     public int DocumentId { get; set; }
 
+    public int? BankQuestionId { get; set; }
+    public Question? BankQuestion { get; set; }
+
     public int? CourseId { get; set; }
 
     public string QuestionText { get; set; } = string.Empty;
@@ -31,7 +34,7 @@ public class GeneratedQuestion
 
     public string? Explanation { get; set; }
 
-    public DocumentBloomLevel BloomLevel { get; set; }
+    public DocumentBloomLevel BloomLevel { get; set; } = DocumentBloomLevel.Remember;
 
     public string? Topic { get; set; }
 

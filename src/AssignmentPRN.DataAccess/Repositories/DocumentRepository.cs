@@ -14,6 +14,22 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
         var question = await context.GeneratedQuestions.Include(x => x.Course).Include(x => x.Document).SingleOrDefaultAsync(x => x.QuestionId == questionId, ct)
             ?? throw new KeyNotFoundException("Không tìm thấy câu hỏi.");
         update(question);
+        if (question.Status == GeneratedQuestionStatus.Approved && question.BankQuestionId is null)
+        {
+            if (!Enum.IsDefined(question.BloomLevel)) throw new ArgumentException("Bloom không hợp lệ.");
+            question.BankQuestion = new Question {
+                CourseId = question.CourseId ?? question.Document.CourseId,
+                CreatedBy = question.Document.UploadedById,
+                QuestionText = question.QuestionText, ExpectedAnswer = question.AnswerKey,
+                BloomLevel = (AssignmentPRN.DataAccess.Enums.BloomLevel)((int)question.BloomLevel - 1),
+                Difficulty = AssignmentPRN.DataAccess.Enums.QuestionDifficulty.Medium,
+                QuestionType = AssignmentPRN.DataAccess.Enums.QuestionType.Main,
+                Source = AssignmentPRN.DataAccess.Enums.QuestionSource.AI,
+                Status = AssignmentPRN.DataAccess.Enums.QuestionStatus.Approved,
+                ReviewedBy = question.ReviewedById, ReviewedAt = question.ReviewedAt,
+                CreatedAt = DateTime.Now
+            };
+        }
         await context.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
