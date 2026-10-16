@@ -416,6 +416,8 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
 
     public async Task<RubricDetail> SaveRubricAsync(RubricUpsertInput input, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        await EnsureRubricEditableAsync(input.QuestionId, cancellationToken);
         var question = await context.Questions.FindAsync([input.QuestionId], cancellationToken)
             ?? throw new KeyNotFoundException("Không tìm thấy câu hỏi.");
 
@@ -483,16 +485,31 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         rubric.UpdatedAt = DateTime.Now;
 
         await context.SaveChangesAsync(cancellationToken);
-        return (await GetRubricAsync(input.QuestionId, cancellationToken))!;
+        var saved = (await GetRubricAsync(input.QuestionId, cancellationToken))!;
+        await transaction.CommitAsync(cancellationToken);
+        return saved;
     }
 
     public async Task DeleteRubricAsync(int rubricId, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
         var rubric = await context.Rubrics.FindAsync([rubricId], cancellationToken)
             ?? throw new KeyNotFoundException("Không tìm thấy bộ tiêu chí.");
 
+        await EnsureRubricEditableAsync(rubric.QuestionId, cancellationToken);
         context.Rubrics.Remove(rubric);
         await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private async Task EnsureRubricEditableAsync(int questionId, CancellationToken ct)
+    {
+        var used = await context.ExamQuestions.AnyAsync(x => x.QuestionId == questionId
+            && (x.AskedAt != null || x.IsCompleted || x.Candidate.StartedAt != null
+                || x.Candidate.Status == CandidateStatus.Completed), ct)
+            || await context.Answers.AnyAsync(x => x.ExamQuestion.QuestionId == questionId, ct)
+            || await context.AiEvaluationCriteria.AnyAsync(x => x.Criteria.Rubric.QuestionId == questionId, ct);
+        if (used) throw new ArgumentException("Câu hỏi đã được dùng để thi; không thể sửa hoặc xóa rubric. Hãy tạo câu hỏi mới để giữ nguyên lịch sử điểm.");
     }
 
     public async Task<IReadOnlyList<RubricListItem>> ListRubricsAsync(int? courseId, string? term, CancellationToken cancellationToken = default)

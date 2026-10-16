@@ -104,7 +104,7 @@ public sealed class GradingService(
             var slotScore = skipped == 0 ? RubricScoring.Slot(weighted) : null;
             if (evaluations.Count > 0 || slotScore is not null)
             {
-                await repository.SaveAsync(slot.CandidateId, slot.ExamId, evaluations, slotScore,
+                slotScore = await repository.SaveAsync(slot.CandidateId, slot.ExamId, evaluations, slotScore,
                     clock.GetLocalNow().DateTime, ct);
             }
 

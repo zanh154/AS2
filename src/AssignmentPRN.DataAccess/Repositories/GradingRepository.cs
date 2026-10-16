@@ -103,7 +103,7 @@ public interface IGradingRepository
     /// Grading again replaces what was there; a mark the lecturer decided is never
     /// touched.
     /// </summary>
-    Task SaveAsync(int candidateId, int examId, IReadOnlyList<AnswerEvaluation> evaluations,
+    Task<decimal?> SaveAsync(int candidateId, int examId, IReadOnlyList<AnswerEvaluation> evaluations,
         decimal? slotScore, DateTime at, CancellationToken ct = default);
 
     /// <summary>Slots that finished but were never marked, oldest first.</summary>
@@ -177,13 +177,18 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
         return new GradingSlotRow(candidate.CandidateId, candidate.ExamId, candidate.Status, rows);
     }
 
-    public async Task SaveAsync(int candidateId, int examId, IReadOnlyList<AnswerEvaluation> evaluations,
+    public async Task<decimal?> SaveAsync(int candidateId, int examId, IReadOnlyList<AnswerEvaluation> evaluations,
         decimal? slotScore, DateTime at, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(evaluations);
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         db.ChangeTracker.Clear();
+        if (db.Database.IsMySql())
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT candidate_id FROM exam_candidates WHERE candidate_id = {candidateId} FOR UPDATE", ct);
+        if (!await db.ExamCandidates.AnyAsync(x => x.CandidateId == candidateId && x.ExamId == examId
+            && x.Status == CandidateStatus.Completed, ct))
+            throw new ArgumentException("Lượt thi không còn hợp lệ để chấm điểm.");
 
         foreach (var evaluation in evaluations)
         {
@@ -223,6 +228,19 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
             }
         }
 
+        await db.SaveChangesAsync(ct);
+        // Recompute from the committed batch plus retained evaluations, never a subset
+        // of this model call. The candidate lock serializes concurrent regrades.
+        var marks = await db.Answers.Where(x => x.CandidateId == candidateId)
+            .Select(x => new { IsFollowUp = x.ExamQuestion.ParentExamQuestionId != null,
+                Score = db.AiEvaluations.Where(e => e.AnswerId == x.AnswerId).Select(e => (decimal?)e.AiScore).FirstOrDefault() })
+            .ToListAsync(ct);
+        slotScore = null;
+        if (marks.Count > 0 && marks.All(x => x.Score.HasValue))
+        {
+            var weight = marks.Sum(x => x.IsFollowUp ? 0.5m : 1m);
+            slotScore = Math.Round(marks.Sum(x => x.Score!.Value * (x.IsFollowUp ? 0.5m : 1m)) / weight, 1, MidpointRounding.AwayFromZero);
+        }
         var result = await db.FinalResults.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct);
         if (result is null && slotScore is not null)
         {
@@ -230,7 +248,7 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
             db.FinalResults.Add(result);
         }
 
-        if (result is not null && slotScore is not null)
+        if (result is not null)
         {
             result.AiScore = slotScore;
             // The lecturer's decision stands. Only a slot nobody has marked by hand takes
@@ -240,6 +258,7 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+        return slotScore;
     }
 
     /// <summary>The action written on every mark change, so the trail can be read back.</summary>
