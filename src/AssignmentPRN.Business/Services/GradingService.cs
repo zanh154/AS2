@@ -99,7 +99,9 @@ public sealed class GradingService(
                 notifier?.Progress(slot, done + skipped);
             }
 
-            var slotScore = RubricScoring.Slot(weighted);
+            // A retry may grade only part of the paper. Do not replace a previous total
+            // with a total calculated from the successful subset.
+            var slotScore = skipped == 0 ? RubricScoring.Slot(weighted) : null;
             if (evaluations.Count > 0 || slotScore is not null)
             {
                 await repository.SaveAsync(slot.CandidateId, slot.ExamId, evaluations, slotScore,

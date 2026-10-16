@@ -224,16 +224,19 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
         }
 
         var result = await db.FinalResults.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct);
-        if (result is null)
+        if (result is null && slotScore is not null)
         {
             result = new FinalResult { ExamId = examId, CandidateId = candidateId };
             db.FinalResults.Add(result);
         }
 
-        result.AiScore = slotScore;
-        // The lecturer's decision stands. Only a slot nobody has marked by hand takes
-        // the suggestion as its final score.
-        if (result.LecturerScore is null) result.FinalScore = slotScore;
+        if (result is not null && slotScore is not null)
+        {
+            result.AiScore = slotScore;
+            // The lecturer's decision stands. Only a slot nobody has marked by hand takes
+            // the suggestion as its final score.
+            if (result.LecturerScore is null) result.FinalScore = slotScore;
+        }
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

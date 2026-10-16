@@ -437,12 +437,29 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
                 .FirstOrDefaultAsync(r => r.RubricId == input.RubricId, cancellationToken)
                 ?? throw new KeyNotFoundException("Không tìm thấy bộ tiêu chí.");
 
-            // Remove existing criteria
-            context.RubricCriteria.RemoveRange(rubric.Criteria);
-            rubric.Criteria = new List<RubricCriteria>();
+            if (rubric.QuestionId != input.QuestionId)
+                throw new InvalidOperationException("Bộ tiêu chí không thuộc câu hỏi đã chọn.");
+
         }
 
-        // Add new criteria
+        var submittedIds = input.Criteria
+            .Where(c => c.CriteriaId > 0)
+            .Select(c => c.CriteriaId)
+            .ToHashSet();
+        if (submittedIds.Any(id => rubric.Criteria.All(c => c.CriteriaId != id)))
+            throw new InvalidOperationException("Tiêu chí không thuộc bộ tiêu chí đã chọn.");
+
+        var removed = rubric.Criteria.Where(c => !submittedIds.Contains(c.CriteriaId)).ToList();
+        if (removed.Count > 0)
+        {
+            var removedIds = removed.Select(c => c.CriteriaId).ToArray();
+            var hasHistoricalMarks = await context.AiEvaluationCriteria
+                .AnyAsync(mark => removedIds.Contains(mark.CriteriaId), cancellationToken);
+            if (hasHistoricalMarks)
+                throw new InvalidOperationException("Không thể xóa tiêu chí đã được dùng để chấm bài.");
+            context.RubricCriteria.RemoveRange(removed);
+        }
+
         decimal totalScore = 0;
         foreach (var criterionInput in input.Criteria.OrderBy(c => c.DisplayOrder))
         {
@@ -451,15 +468,14 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
                 throw new ArgumentException($"Tiêu chí '{criterionInput.CriteriaName}' phải có điểm lớn hơn 0.");
             }
 
-            var criterion = new RubricCriteria
-            {
-                RubricId = rubric.RubricId,
-                CriteriaName = criterionInput.CriteriaName,
-                Description = criterionInput.Description,
-                MaxScore = criterionInput.MaxScore,
-                DisplayOrder = criterionInput.DisplayOrder
-            };
-            rubric.Criteria.Add(criterion);
+            var criterion = criterionInput.CriteriaId > 0
+                ? rubric.Criteria.Single(c => c.CriteriaId == criterionInput.CriteriaId)
+                : new RubricCriteria { RubricId = rubric.RubricId };
+            criterion.CriteriaName = criterionInput.CriteriaName;
+            criterion.Description = criterionInput.Description;
+            criterion.MaxScore = criterionInput.MaxScore;
+            criterion.DisplayOrder = criterionInput.DisplayOrder;
+            if (criterionInput.CriteriaId == 0) rubric.Criteria.Add(criterion);
             totalScore += criterionInput.MaxScore;
         }
 

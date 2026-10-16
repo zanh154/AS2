@@ -61,6 +61,29 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 
+// A session is only a cached login, not proof that the account is still active. Recheck
+// it on every protected request so locking an account takes effect immediately.
+app.Use(async (context, next) =>
+{
+    var userId = context.Session.GetInt32(AssignmentPRN.Presentation.Constants.SessionKeys.UserId);
+    if (userId is > 0)
+    {
+        var auth = context.RequestServices.GetRequiredService<IAuthService>();
+        var user = await auth.GetUserByIdAsync(userId.Value);
+        var sessionRole = context.Session.GetString(AssignmentPRN.Presentation.Constants.SessionKeys.Role);
+        if (user is null || !string.Equals(user.RoleName, sessionRole, StringComparison.OrdinalIgnoreCase))
+        {
+            context.Session.Clear();
+            if (!context.Request.Path.StartsWithSegments("/Account"))
+            {
+                context.Response.Redirect("/Account/Login");
+                return;
+            }
+        }
+    }
+    await next();
+});
+
 app.MapRazorPages();
 app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
 app.MapHub<VoiceRoomHub>("/hubs/voice-room");

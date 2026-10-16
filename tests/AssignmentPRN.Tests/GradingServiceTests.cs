@@ -217,6 +217,21 @@ public sealed class GradingServiceTests
     }
 
     [Fact]
+    public async Task A_partial_retry_does_not_replace_the_existing_total()
+    {
+        await using var db = await SeedAsync();
+        await Service(db, new StubGrader(FullMarks)).GradeCandidateAsync(1);
+        db.ChangeTracker.Clear();
+
+        await Service(db, new ThrowingGrader()).GradeCandidateAsync(1);
+
+        db.ChangeTracker.Clear();
+        var result = await db.FinalResults.SingleAsync();
+        Assert.Equal(10m, result.AiScore);
+        Assert.Equal(10m, result.FinalScore);
+    }
+
+    [Fact]
     public async Task A_slot_still_being_sat_is_refused()
     {
         // Marking half a paper would hand the examiner a score the student never finished.

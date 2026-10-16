@@ -68,6 +68,9 @@ public class CourseMaterialsController(
         if (LecturerId.HasValue)
         {
             ModelState.Remove(nameof(model.CourseId));
+            var allowed = CoursesFor(await ActiveCoursesAsync(ct), LecturerId);
+            if (!allowed.Any(course => course.CourseId == model.CourseId))
+                ModelState.AddModelError(nameof(model.CourseId), "Bạn không có quyền tải tài liệu lên môn học này.");
         }
 
         if (ModelState.IsValid)
@@ -202,6 +205,12 @@ public class CourseMaterialsController(
     [HttpGet]
     public async Task<IActionResult> Download(int id, CancellationToken ct)
     {
+        var material = await materialService.GetAsync(id, ct);
+        if (material is null) return NotFound();
+        if (!CoursesFor(await ActiveCoursesAsync(ct), LecturerId)
+            .Any(course => course.CourseId == material.CourseId))
+            return StatusCode(403);
+
         var result = await materialService.DownloadAsync(id, ct);
         if (!result.Success || result.Data is null)
         {
