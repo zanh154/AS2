@@ -51,7 +51,8 @@ public sealed record GeneratedQuestionResponse(
     string? ReviewedByName,
     DateTime? ReviewedAt,
     string? ReviewNotes,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int? BankQuestionId = null
 );
 
 public interface IDocumentService

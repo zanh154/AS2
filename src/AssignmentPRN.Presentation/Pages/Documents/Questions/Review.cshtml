@@ -23,6 +23,10 @@
 
 @if (Model.Question is not null)
 {
+@if (Model.Question.BankQuestionId is int bankId)
+{
+    <div class="alert alert-info">Câu hỏi đã có trong ngân hàng. <a href="@Url.Page("/Rubrics/Edit", new { questionId = bankId })">Cấu hình rubric chấm điểm</a> trước khi sử dụng cho bài vấn đáp.</div>
+}
 <div class="row">
     <div class="col-md-8">
         <div class="card">

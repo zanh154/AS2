@@ -44,6 +44,15 @@ public class ExamRoomController(IQuestionService questionService, IVoiceRoomServ
             return RedirectToAction("Mine", "StudentSchedule");
         }
 
+        // An oral question has no multiple-choice options. Keep these papers in the
+        // voice/text viva room rather than showing an unanswerable radio form.
+        if (result.Data.Questions.Any(x => x.Options.Count == 0))
+        {
+            var entered = await voiceRoom.EnterAsync(id, CurrentUserId, ct);
+            if (!entered.Success) { TempData["Error"] = entered.Error; return RedirectToAction("Mine", "StudentSchedule"); }
+            return RedirectToPage("/VoiceRoom/Index", new { id });
+        }
+
         // Redirect after the write, so refreshing the room is a plain read.
         return RedirectToAction(nameof(Index), new { id });
     }

@@ -325,7 +325,8 @@ public sealed class DocumentService : IDocumentService
         q.ReviewedBy?.FullName,
         q.ReviewedAt,
         q.ReviewNotes,
-        q.CreatedAt
+        q.CreatedAt,
+        q.BankQuestionId
     );
 
     private static string BuildGenerationPrompt(string context, GenerateQuestionsRequest request)

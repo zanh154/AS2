@@ -104,3 +104,9 @@ Chạy lần lượt bằng SQL Editor trong DBeaver (Execute SQL Script):
 Các script bổ sung schema và có kiểm tra phần đã tồn tại. Không import lại dump hoặc chạy seed để cập nhật database chung đang sử dụng. Hai script có stored procedure dùng `DELIMITER`; cần chạy toàn bộ script, không tách tại từng dấu chấm phẩy.
 
 Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu hình tại máy này. Script số 5 (`ai_evaluation_criteria`) cũng đã được áp dụng trên Aiven và trên MySQL local cùng ngày. Không cần chạy lại để dùng web. Xem `docs/local-runtime.md` để khởi động AI và ứng dụng.
+
+## Approved RAG questions and the question bank (17/10/2026)
+
+Before running the updated application, run `pwsh scripts/update-rag-bank.ps1 -WhatIf`, then `pwsh scripts/update-rag-bank.ps1`. The script reads the ignored appsettings.json, applies `20261017_rag_question_bank.sql` and publishes previously approved RAG questions exactly once. It adds a nullable unique bank_question_id link and supports all six Bloom levels. The script does not update existing exam scores. Re-running is safe.
+
+Running SQL alone updates the schema; run the PowerShell script as well to backfill old approvals. New approvals publish to the canonical bank in the same transaction. Published questions are oral questions; configure their rubric before an exam. Deleting a source document preserves published bank questions.

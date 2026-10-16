@@ -30,7 +30,9 @@ public enum BloomLevel
     Remember,
     Understand,
     Apply,
-    Analyze
+    Analyze,
+    Evaluate,
+    Create
 }
 
 public enum QuestionStatus

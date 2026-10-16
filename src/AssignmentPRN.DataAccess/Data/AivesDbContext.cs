@@ -908,6 +908,10 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
                 .ValueGeneratedOnAdd();
             entity.Property(q => q.DocumentId)
                 .HasColumnName("document_id");
+            entity.Property(q => q.BankQuestionId).HasColumnName("bank_question_id");
+            entity.HasIndex(q => q.BankQuestionId).IsUnique();
+            entity.HasOne(q => q.BankQuestion).WithOne()
+                .HasForeignKey<GeneratedQuestion>(q => q.BankQuestionId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(q => q.CourseId)
                 .HasColumnName("course_id");
             entity.Property(q => q.QuestionText)
