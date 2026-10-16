@@ -66,8 +66,6 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
     {
         _logger.LogInformation("Processing document {DocumentId}", documentId);
 
-        await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Processing, null, cancellationToken);
-
         try
         {
             var doc = await documentRepository.GetByIdAsync(documentId, cancellationToken);
@@ -77,7 +75,10 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
                 return;
             }
 
-            var fullPath = Path.Combine(_storageOptions.BasePath, doc.StoragePath);
+            await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Processing, null, cancellationToken);
+            var root = Path.GetFullPath(_storageOptions.BasePath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var fullPath = Path.GetFullPath(Path.Combine(root, doc.StoragePath));
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Đường dẫn tài liệu không hợp lệ.");
             if (!File.Exists(fullPath))
             {
                 throw new FileNotFoundException($"File not found: {fullPath}");
@@ -119,12 +120,26 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
             if (_progress is not null) await _progress.ChangedAsync(new(doc.DocumentId, doc.CourseId, "Completed"), cancellationToken);
             _logger.LogInformation("Document {DocumentId} processed successfully with {ChunkCount} chunks", documentId, chunks.Count);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Keep Processing so startup recovery can resume after shutdown.
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process document {DocumentId}", documentId);
-            await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Failed, ex.Message, cancellationToken);
-            var failed = await documentRepository.GetByIdAsync(documentId, cancellationToken);
-            if (_progress is not null && failed is not null) await _progress.ChangedAsync(new(documentId, failed.CourseId, "Failed"), cancellationToken);
+            try
+            {
+                var message = ex.Message.Length > 1000 ? ex.Message[..1000] : ex.Message;
+                await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Failed, message, cancellationToken);
+                var failed = await documentRepository.GetByIdAsync(documentId, cancellationToken);
+                if (_progress is not null && failed is not null) await _progress.ChangedAsync(new(documentId, failed.CourseId, "Failed"), cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception statusError)
+            {
+                _logger.LogError(statusError, "Cannot persist failure for document {DocumentId}; leaving it for startup recovery", documentId);
+            }
         }
     }
 
@@ -208,8 +223,10 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         return sb.ToString();
     }
 
-    private List<string> ChunkText(string text, int chunkSize, int overlap)
+    internal static List<string> ChunkText(string text, int chunkSize, int overlap)
     {
+        if (chunkSize <= 0 || overlap < 0 || overlap >= chunkSize)
+            throw new ArgumentOutOfRangeException(nameof(overlap), "Chunk overlap must be non-negative and smaller than the chunk size.");
         var chunks = new List<string>();
         var words = text.Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
 

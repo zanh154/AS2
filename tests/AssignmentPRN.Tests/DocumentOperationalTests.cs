@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace AssignmentPRN.Tests;
 
-public class DocumentOperationalTests
+public partial class DocumentOperationalTests
 {
     [Theory]
     [InlineData(2, "Lecturer")]
@@ -76,8 +76,28 @@ public class DocumentOperationalTests
         Assert.Single(await repo.GetChunksByDocumentAsync(2));
     }
 
-    private static DocumentService Service(AivesDbContext db, int id = 1, string role = "Lecturer") =>
-        new(new DocumentRepository(db), new CatalogRepository(db), Options.Create(new DocumentStorageOptions()), Options.Create(new OllamaOptions()), new NoAiCalls(), new DocumentProcessingQueue(), NullLogger<DocumentService>.Instance, new Actor(id, role), new CourseRepository(db), Options.Create(new RagOptions()));
+    [Theory]
+    [InlineData(0)]
+    [InlineData(999)]
+    public async Task Review_page_uses_question_document_for_navigation(int suppliedDocumentId)
+    {
+        await using var db = await OpenAsync();
+        var page = new AssignmentPRN.Presentation.Pages.Documents.Questions.ReviewModel(Service(db));
+        await page.OnGetAsync(1, suppliedDocumentId, CancellationToken.None);
+        Assert.NotNull(page.Question);
+        Assert.Equal(page.Question.DocumentId, page.DocumentId);
+    }
+
+    [Fact]
+    public async Task Document_list_includes_the_uploader_display_name()
+    {
+        await using var db = await OpenAsync();
+        var response = await Service(db).ListByCourseAsync(1);
+        Assert.True(response.Success);
+        Assert.Equal("Test", Assert.Single(response.Data!).UploadedByName);
+    }
+    private static DocumentService Service(AivesDbContext db, int id = 1, string role = "Lecturer", IHttpClientFactory? ai = null, string? root = null, IDocumentRepository? repository = null) =>
+        new(repository ?? new DocumentRepository(db), new CatalogRepository(db), Options.Create(new DocumentStorageOptions { BasePath = root ?? Path.GetTempPath() }), Options.Create(new OllamaOptions()), ai ?? new NoAiCalls(), new DocumentProcessingQueue(), NullLogger<DocumentService>.Instance, new Actor(id, role), new CourseRepository(db), Options.Create(new RagOptions()));
     private sealed record Actor(int UserId, string? Role) : IDocumentActor;
     private sealed class NoAiCalls : IHttpClientFactory
     {

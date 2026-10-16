@@ -27,6 +27,12 @@ if (storageRoot.Equals(publicStorageRoot, StringComparison.OrdinalIgnoreCase)
     throw new InvalidOperationException("MaterialStorage:RootPath must be outside wwwroot to protect private recordings.");
 
 builder.Services.AddBusiness(connectionString, storageRoot);
+// Allow a configured-size file plus multipart overhead; Business validates the file itself.
+var uploadLimit = builder.Configuration.GetValue<long?>("DocumentStorage:MaxFileSizeMB") ?? 50;
+if (uploadLimit is < 1 or > 1024) throw new InvalidOperationException("Document size limit must be between 1 and 1024 MB.");
+var requestLimit = uploadLimit * 1024L * 1024L + 1024L * 1024L;
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = Math.Max(30_000_000L, requestLimit));
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o => o.MultipartBodyLengthLimit = requestLimit);
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
 builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
@@ -37,7 +43,7 @@ builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier
 builder.Services.PostConfigure<DocumentStorageOptions>(options => {
     options.BasePath = Path.GetFullPath(options.BasePath, builder.Environment.ContentRootPath);
     var publicRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot")).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-    if (options.BasePath.StartsWith(publicRoot, StringComparison.OrdinalIgnoreCase))
+    if (options.BasePath.Equals(publicRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) || options.BasePath.StartsWith(publicRoot, StringComparison.OrdinalIgnoreCase))
         throw new InvalidOperationException("DocumentStorage:BasePath must be outside wwwroot.");
 });
 

@@ -22,6 +22,7 @@
     </div>
     <div class="card-body">
         <form method="post" enctype="multipart/form-data">
+            <div asp-validation-summary="All" class="text-danger"></div>
             <div class="mb-3">
                 <label asp-for="Input.File" class="form-label">Chọn file <span class="text-danger">*</span></label>
                 <input asp-for="Input.File" type="file" class="form-control" accept=".pdf,.docx,.pptx" required />
@@ -34,7 +35,7 @@
             <div class="mb-3">
                 <label class="form-label">Môn học</label>
                 <input type="text" class="form-control" value="@Model.CourseName" readonly />
-                <input type="hidden" asp-for="CourseId" />
+                <input type="hidden" asp-for="Input.CourseId" />
             </div>
 
             <button type="submit" class="btn btn-primary" id="uploadBtn">
@@ -47,7 +48,9 @@
 
 @section Scripts {
     <script>
-        document.getElementById('uploadBtn').addEventListener('click', function(e) {
+        const uploadButton = document.getElementById('uploadBtn');
+        const uploadLabel = uploadButton.innerHTML;
+        uploadButton.form.addEventListener('submit', function(e) {
             const fileInput = document.querySelector('input[type="file"]');
             if (!fileInput.files.length) {
                 e.preventDefault();
@@ -55,8 +58,13 @@
                 return;
             }
 
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang tải lên...';
+            if (uploadButton.disabled) { e.preventDefault(); return; }
+            uploadButton.disabled = true;
+            uploadButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang tải lên...';
+        });
+        window.addEventListener('pageshow', () => {
+            uploadButton.disabled = false;
+            uploadButton.innerHTML = uploadLabel;
         });
     </script>
 }

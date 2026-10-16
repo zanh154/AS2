@@ -65,7 +65,7 @@
                                 <td>@doc.ChunkCount</td>
                                 <td>@doc.QuestionCount</td>
                                 <td>@doc.UploadedByName</td>
-                                <td>@doc.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
                                         <a asp-page="Details" asp-route-id="@doc.DocumentId" class="btn btn-outline-primary" title="Xem chi tiết">
@@ -77,7 +77,7 @@
                                                 <i class="bi bi-question-circle"></i>
                                             </a>
                                         }
-                                        <form method="post" asp-page-handler="Delete" asp-route-id="@doc.DocumentId" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xoá tài liệu này?');">
+                                        <form method="post" asp-page-handler="Delete" asp-route-id="@doc.DocumentId" asp-route-courseId="@Model.CourseId" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xoá tài liệu này?');">
                                             <button type="submit" class="btn btn-outline-danger" title="Xoá">
                                                 <i class="bi bi-trash"></i>
                                             </button>

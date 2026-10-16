@@ -35,6 +35,8 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
     public async Task<IReadOnlyList<Document>> ListByCourseAsync(int courseId, CancellationToken cancellationToken = default)
     {
         return await context.Documents
+            .Include(d => d.Course)
+            .Include(d => d.UploadedBy)
             .Where(d => d.CourseId == courseId)
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -43,6 +45,8 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
     public async Task<IReadOnlyList<Document>> ListByUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         return await context.Documents
+            .Include(d => d.Course)
+            .Include(d => d.UploadedBy)
             .Where(d => d.UploadedById == userId)
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -87,7 +91,6 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
     public async Task<IReadOnlyList<DocumentChunk>> SearchSimilarChunksAsync(float[] embedding, int courseId, int topK, float threshold, CancellationToken cancellationToken = default, int? documentId = null)
     {
         // For MySQL without native VECTOR support, we do cosine similarity in memory
-        // For production with MySQL 8.4+, use native VECTOR index and SQL
         var query = context.DocumentChunks
             .Where(c => c.Document!.CourseId == courseId && (!documentId.HasValue || c.DocumentId == documentId.Value))
             .Select(c => new { c.ChunkId, c.DocumentId, c.ChunkIndex, c.Content, c.TokenCount, c.EmbeddingJson });
@@ -118,6 +121,13 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
         return results;
     }
 
+    public async Task CreateQuestionsAsync(IReadOnlyList<GeneratedQuestion> questions, CancellationToken cancellationToken = default)
+    {
+        context.GeneratedQuestions.AddRange(questions);
+        // EF saves the entire batch in one transaction, including when one insert fails.
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<GeneratedQuestion> CreateQuestionAsync(GeneratedQuestion question, CancellationToken cancellationToken = default)
     {
         context.GeneratedQuestions.Add(question);
@@ -137,6 +147,7 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
     public async Task<IReadOnlyList<GeneratedQuestion>> GetQuestionsByDocumentAsync(int documentId, CancellationToken cancellationToken = default)
     {
         return await context.GeneratedQuestions
+            .Include(q => q.ReviewedBy)
             .Where(q => q.DocumentId == documentId)
             .OrderByDescending(q => q.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -145,6 +156,7 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
     public async Task<IReadOnlyList<GeneratedQuestion>> GetQuestionsByCourseAsync(int courseId, GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
     {
         var query = context.GeneratedQuestions
+            .Include(q => q.ReviewedBy)
             .Where(q => q.CourseId == courseId);
 
         if (status.HasValue)

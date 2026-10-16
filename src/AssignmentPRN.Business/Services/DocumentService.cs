@@ -60,7 +60,7 @@ public sealed class DocumentService : IDocumentService
             ValidateFile(file);
 
             // Generate unique filename and save
-            var fileId = Guid.NewGuid().ToString("N")[..12];
+            var fileId = Guid.NewGuid().ToString("N");
             var extension = Path.GetExtension(file.FileName);
             var storedFileName = $"{fileId}{extension}";
             var relativePath = Path.Combine("documents", courseId.ToString(), storedFileName);
@@ -68,29 +68,41 @@ public sealed class DocumentService : IDocumentService
 
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-            using (var stream = new FileStream(fullPath, FileMode.Create))
+            // Only remove a file created by this request when compensating a failure.
+            var ownsFile = false;
+            try
             {
-                await file.CopyToAsync(stream, cancellationToken);
+                using (var stream = new FileStream(fullPath, FileMode.CreateNew))
+                {
+                    ownsFile = true;
+                    await file.CopyToAsync(stream, cancellationToken);
+                }
+
+                // Create document record
+                var document = new Document
+                {
+                    CourseId = courseId,
+                    UploadedById = userId,
+                    FileName = file.FileName,
+                    ContentType = extension.ToLowerInvariant() switch { ".pdf" => "application/pdf", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", _ => file.ContentType },
+                    FileSize = file.Length,
+                    StoragePath = relativePath,
+                    Status = DocumentStatus.Pending
+                };
+
+                var created = await _documentRepository.CreateAsync(document, cancellationToken);
+
+                // Queue for background processing
+                await _processingQueue.QueueDocumentAsync(created.DocumentId, CancellationToken.None);
+
+                return MapToResponse(created, 0, 0);
             }
-
-            // Create document record
-            var document = new Document
+            catch
             {
-                CourseId = courseId,
-                UploadedById = userId,
-                FileName = file.FileName,
-                ContentType = extension.ToLowerInvariant() switch { ".pdf" => "application/pdf", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", _ => file.ContentType },
-                FileSize = file.Length,
-                StoragePath = relativePath,
-                Status = DocumentStatus.Pending
-            };
-
-            var created = await _documentRepository.CreateAsync(document, cancellationToken);
-
-            // Queue for background processing
-            await _processingQueue.QueueDocumentAsync(created.DocumentId, cancellationToken);
-
-            return MapToResponse(created, 0, 0);
+                try { if (ownsFile) File.Delete(fullPath); }
+                catch (Exception cleanup) { _logger.LogWarning(cleanup, "Cannot clean up failed upload {File}", storedFileName); }
+                throw;
+            }
         }, "Không thể tải lên tài liệu.");
     }
 
@@ -134,7 +146,8 @@ public sealed class DocumentService : IDocumentService
         {
             await EnsureActorAsync(cancellationToken);
             if (_actor.Role != "Admin" && userId != _actor.UserId) throw new BusinessValidationException("Không có quyền xem tài liệu người khác.");
-            var docs = await _documentRepository.ListByUserAsync(userId, cancellationToken);
+            var docs = (await _documentRepository.ListByUserAsync(userId, cancellationToken))
+                .Where(x => _actor.Role == "Admin" || x.Course.LecturerId == _actor.UserId).ToList();
             var results = new List<DocumentResponse>();
 
             foreach (var doc in docs)
@@ -158,14 +171,11 @@ public sealed class DocumentService : IDocumentService
 
             if (userId != _actor.UserId) throw new BusinessValidationException("Tài khoản không hợp lệ.");
 
-            // Delete physical file
             var fullPath = ResolvePath(doc.StoragePath);
-            if (File.Exists(fullPath))
-            {
-                File.Delete(fullPath);
-            }
-
             await _documentRepository.DeleteDocumentAsync(documentId, cancellationToken);
+            try { File.Delete(fullPath); }
+            catch (IOException ex) { _logger.LogWarning(ex, "Cannot remove deleted document file {DocumentId}", documentId); }
+            catch (UnauthorizedAccessException ex) { _logger.LogWarning(ex, "Cannot remove deleted document file {DocumentId}", documentId); }
         }, "Không thể xoá tài liệu.");
     }
 
@@ -182,7 +192,7 @@ public sealed class DocumentService : IDocumentService
                 throw new BusinessValidationException("Tài liệu chưa được xử lý xong. Vui lòng đợi xử lý hoàn tất.");
             }
 
-            // Get relevant chunks for context (use first few chunks as context)
+            request = request with { Topic = BusinessValidation.OptionalText(request.Topic, "Chủ đề", 200) };
             BusinessValidation.InRange(request.Count, 1, 20, "Số câu hỏi");
             if (request.BloomLevel.HasValue && !Enum.IsDefined(request.BloomLevel.Value)) throw new BusinessValidationException("Mức độ Bloom không hợp lệ.");
             var embedding = await EmbedAsync(request.Topic ?? "Nội dung kiến thức chính trong tài liệu", cancellationToken);
@@ -196,19 +206,12 @@ public sealed class DocumentService : IDocumentService
             var prompt = BuildGenerationPrompt(context, request);
 
             // Call Ollama
-            var questionsJson = await CallOllamaGenerateAsync(prompt, cancellationToken);
+            var questionsJson = await CallOllamaGenerateAsync(prompt, request, cancellationToken);
 
             // Parse and save questions
             var questions = ParseQuestionsResponse(questionsJson, documentId, doc.CourseId, request);
-            var savedQuestions = new List<GeneratedQuestionResponse>();
-
-            foreach (var q in questions)
-            {
-                var saved = await _documentRepository.CreateQuestionAsync(q, cancellationToken);
-                savedQuestions.Add(MapQuestionToResponse(saved));
-            }
-
-            return (IReadOnlyList<GeneratedQuestionResponse>)savedQuestions;
+            await _documentRepository.CreateQuestionsAsync(questions, cancellationToken);
+            return (IReadOnlyList<GeneratedQuestionResponse>)questions.Select(MapQuestionToResponse).ToList();
         }, "Không thể sinh câu hỏi.");
     }
 
@@ -359,13 +362,13 @@ public sealed class DocumentService : IDocumentService
                 "answerKey": "...",
                 "explanation": "...",
                 "bloomLevel": {{(int?)request.BloomLevel ?? 3}},
-                "topic": "{{request.Topic ?? ""}}"
+                "topic": {{JsonSerializer.Serialize(request.Topic ?? "")}}
               }
             ] }
             """;
     }
 
-    private async Task<string> CallOllamaGenerateAsync(string prompt, CancellationToken cancellationToken)
+    private async Task<string> CallOllamaGenerateAsync(string prompt, GenerateQuestionsRequest settings, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient();
         client.BaseAddress = new Uri(_ollamaOptions.BaseUrl);
@@ -378,12 +381,12 @@ public sealed class DocumentService : IDocumentService
             stream = false,
             format = new {
                 type = "object",
-                properties = new { questions = new { type = "array", minItems = 1, items = new { type = "object", properties = new {
-                    questionText = new { type = "string" }, answerKey = new { type = "string" }, explanation = new { type = "string" }, bloomLevel = new { type = "integer" }, topic = new { type = "string" }
+                properties = new { questions = new { type = "array", minItems = settings.Count, maxItems = settings.Count, items = new { type = "object", properties = new {
+                    questionText = new { type = "string" }, answerKey = new { type = "string" }, explanation = new { type = "string" }, bloomLevel = new { type = "integer", @enum = settings.BloomLevel.HasValue ? new[] { (int)settings.BloomLevel.Value } : new[] { 1, 2, 3, 4, 5, 6 } }, topic = new { type = "string" }
                 }, required = new[] { "questionText", "answerKey", "explanation", "bloomLevel", "topic" } } } },
                 required = new[] { "questions" }
             },
-            options = new { temperature = 0.3, top_p = 0.9, num_ctx = 4096, num_predict = 2048 }
+            options = new { temperature = 0.3, top_p = 0.9, num_ctx = 4096, num_predict = Math.Clamp(settings.Count * 500, 2048, 8192) }
         };
 
         var response = await client.PostAsJsonAsync("/api/generate", request, cancellationToken);
@@ -404,20 +407,29 @@ public sealed class DocumentService : IDocumentService
                 PropertyNameCaseInsensitive = true
             }) ?? [];
 
-            if (items.Count == 0 || items.Any(x => string.IsNullOrWhiteSpace(x.QuestionText) || string.IsNullOrWhiteSpace(x.AnswerKey))) throw new BusinessValidationException("AI chưa tạo được câu hỏi hợp lệ.");
-            return items.Take(request.Count).Select((item, index) => new GeneratedQuestion
+            if (items.Count != request.Count)
+                throw new BusinessValidationException($"AI trả về {items.Count}/{request.Count} câu hỏi. Chưa lưu câu nào; vui lòng thử lại.");
+            var result = new List<GeneratedQuestion>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
             {
-                DocumentId = documentId,
-                CourseId = courseId,
-                QuestionText = item.QuestionText ?? string.Empty,
-                AnswerKey = item.AnswerKey,
-                Explanation = item.Explanation,
-                BloomLevel = Enum.IsDefined(typeof(DocumentBloomLevel), item.BloomLevel) ? (DocumentBloomLevel)item.BloomLevel : request.BloomLevel ?? DocumentBloomLevel.Apply,
-                Topic = item.Topic,
-                Status = GeneratedQuestionStatus.PendingReview
-            }).ToList();
+                var text = BusinessValidation.RequiredText(item.QuestionText, "Nội dung câu hỏi AI", 10000);
+                if (!seen.Add(text)) throw new BusinessValidationException("AI trả về câu hỏi trùng trong cùng đợt. Chưa lưu câu nào; vui lòng thử lại.");
+                if (!Enum.IsDefined(typeof(DocumentBloomLevel), item.BloomLevel) || (request.BloomLevel.HasValue && item.BloomLevel != (int)request.BloomLevel.Value))
+                    throw new BusinessValidationException("AI trả về mức độ Bloom không đúng yêu cầu. Chưa lưu câu nào; vui lòng thử lại.");
+                result.Add(new GeneratedQuestion {
+                    DocumentId = documentId, CourseId = courseId,
+                    QuestionText = text,
+                    AnswerKey = BusinessValidation.RequiredText(item.AnswerKey, "Đáp án AI", 2000),
+                    Explanation = BusinessValidation.OptionalText(item.Explanation, "Giải thích AI", 2000),
+                    BloomLevel = (DocumentBloomLevel)item.BloomLevel,
+                    Topic = request.Topic ?? BusinessValidation.OptionalText(item.Topic, "Chủ đề AI", 200),
+                    Status = GeneratedQuestionStatus.PendingReview
+                });
+            }
+            return result;
         }
-        catch (Exception ex) when (ex is JsonException or KeyNotFoundException)
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
             _logger.LogError(ex, "Failed to parse questions JSON: {Json}", json);
             throw new BusinessValidationException("AI trả về định dạng không hợp lệ. Vui lòng thử lại.");

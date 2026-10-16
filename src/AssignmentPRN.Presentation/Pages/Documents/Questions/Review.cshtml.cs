@@ -36,6 +36,7 @@ public class ReviewModel : PageModel
         }
 
         Question = response.Data;
+        DocumentId = Question.DocumentId;
         return Page();
     }
 
@@ -51,14 +52,21 @@ public class ReviewModel : PageModel
         string? notes,
         CancellationToken cancellationToken)
     {
-        DocumentId = documentId;
-
+        var current = await _documentService.GetQuestionAsync(questionId, cancellationToken);
+        if (!current.Success || current.Data is null) return NotFound();
+        DocumentId = current.Data.DocumentId;
+        Question = current.Data with { QuestionText = questionText ?? string.Empty, AnswerKey = answerKey, Explanation = explanation, Topic = topic };
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(questionText))
+        {
+            Error = "Vui lòng nhập nội dung câu hỏi hợp lệ.";
+            return Page();
+        }
         var reviewerId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
 
         if (decision is not (1 or 2)) return BadRequest();
         var status = decision == 1 ? GeneratedQuestionStatus.Approved : GeneratedQuestionStatus.Rejected;
 
-        var request = new ReviewQuestionRequest(status, notes, questionText, answerKey, explanation, (DocumentBloomLevel)bloomLevel, topic);
+        var request = new ReviewQuestionRequest(status, notes, questionText, answerKey ?? string.Empty, explanation ?? string.Empty, (DocumentBloomLevel)bloomLevel, topic ?? string.Empty);
         var response = await _documentService.ReviewQuestionAsync(questionId, reviewerId, request, cancellationToken);
 
         if (response.Success)
@@ -67,10 +75,11 @@ public class ReviewModel : PageModel
         }
         else
         {
-            TempData["Error"] = response.Error;
+            Error = response.Error;
+            return Page();
         }
 
-        return RedirectToPage("Index", new { documentId });
+        return RedirectToPage("Index", new { documentId = DocumentId });
     }
 
     public string GetQuestionStatusBadgeClass(GeneratedQuestionStatus status) => status switch
