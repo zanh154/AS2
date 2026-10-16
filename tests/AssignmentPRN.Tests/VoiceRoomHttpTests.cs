@@ -24,12 +24,14 @@ namespace AssignmentPRN.Tests;
 
 public sealed class VoiceRoomHttpTests
 {
-    [Fact]
-    public async Task Real_handlers_bind_json_uploads_and_enforce_csrf_and_audio_ownership()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Real_handlers_bind_json_uploads_and_enforce_csrf_and_audio_ownership(bool enterViaLegacyRoute)
     {
         var clock = new VoiceRoomTests.Clock();
         var testConnectionString = $"Data Source=voice-http-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
-        await using var seed = await VoiceRoomTests.SeedAsync(clock, connectionString: testConnectionString);
+        await using var seed = await VoiceRoomTests.SeedAsync(clock, entered: !enterViaLegacyRoute, connectionString: testConnectionString);
         (await seed.Users.SingleAsync(x => x.UserId == 2)).PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test@123");
         await seed.SaveChangesAsync();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
@@ -69,6 +71,13 @@ public sealed class VoiceRoomHttpTests
             var loginFields = new Dictionary<string, string> { ["Input.Email"] = "student@example.test", ["Input.Password"] = "Test@123",
                 ["__RequestVerificationToken"] = Token(login) };
             Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Account/Login", new FormUrlEncodedContent(loginFields))).StatusCode);
+            if (enterViaLegacyRoute)
+            {
+                var shell = await client.GetStringAsync("/VoiceRoom/1");
+                var entered = await client.PostAsync("/ExamRoom/Enter/1", new FormUrlEncodedContent(new Dictionary<string,string> { ["__RequestVerificationToken"] = Token(shell) }));
+                Assert.Equal(HttpStatusCode.Redirect, entered.StatusCode);
+                Assert.Equal("/VoiceRoom/1", entered.Headers.Location!.OriginalString);
+            }
             Assert.Contains("Thi giọng nói", await client.GetStringAsync("/StudentSchedule/Mine"));
             seed.ChangeTracker.Clear();
             var scheduledCandidate = await seed.ExamCandidates.SingleAsync();

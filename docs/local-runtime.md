@@ -56,3 +56,11 @@ dotnet test tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj
 ```
 
 203 test hiện hành đã đạt ngày 15/10/2026. Bốn file test ASM1 cũ còn ở máy được giữ làm tham khảo, loại khỏi compile vì trỏ tới controller/contract đã được thay thế. Chi tiết: `docs/asm2-runtime-test-report.md`.
+
+## Cập nhật sau 17/10/2026
+
+Chạy `pwsh scripts/update-rag-bank.ps1 -WhatIf` rồi `pwsh scripts/update-rag-bank.ps1` trước khi chạy bản mới. Script bổ sung liên kết RAG/ngân hàng và đưa các câu đã duyệt cũ vào ngân hàng. Không chạy lại dump và không sửa điểm thi cũ.
+
+Câu RAG đã duyệt được đưa vào ngân hàng câu hỏi vấn đáp; link cấu hình rubric có trên trang xem câu đã duyệt. Khi chọn lối vào trắc nghiệm cho đề có câu vấn đáp, hệ thống chuyển sang phòng vấn đáp. Rubric đã sử dụng để thi được khóa để bảo toàn lịch sử.
+
+Nếu Ollama báo lỗi cấp phát CUDA_Host, thử giải phóng bộ nhớ hoặc khởi động Ollama ở chế độ CPU. Lượt kiểm thử này dùng biến môi trường CUDA_VISIBLE_DEVICES=-1 cho tiến trình Ollama của project; không thay đổi driver hoặc cấu hình GPU hệ thống. CPU có thể chậm hơn, ngân sách hỏi xoáy vẫn do backend giới hạn. Script khởi động đã tăng số lần chờ server sẵn sàng để tránh báo lỗi khi khởi tạo GPU chậm.

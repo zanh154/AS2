@@ -292,6 +292,8 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
     {
         if (a.Candidate.Status != CandidateStatus.InProgress || a.Logs.Count == 0) return null;
         if (OpenProbe(a) != null) return null;
+        // A decision arriving after the next turn opened cannot take that turn back.
+        if (a.Questions.Any(x => !x.IsCompleted && x.AskedAt != null)) return null;
 
         // The turn that just ended: the completed question whose answer was finished last.
         var candidates = a.Questions
@@ -417,7 +419,8 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             if (probe == null)
             {
                 var current = a.Questions.FirstOrDefault(x => !x.IsCompleted);
-                if (current != null)
+                var holdingForAnalysis = !releaseHold && current?.AskedAt is null && ProbeTarget(a, now) != null;
+                if (current != null && !holdingForAnalysis)
                 {
                     current.AskedAt ??= now < SlotEnd(a) ? now : SlotEnd(a);
                     // Expired answers are finalized before inspecting a client payload.
