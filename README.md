@@ -1,8 +1,10 @@
 # assignment_prn
 
-ASP.NET Core MVC (.NET 10), MySQL, kiến trúc ba tầng Presentation → Business → DataAccess.
+ASP.NET Core Razor Pages + MVC (.NET 10), SignalR, MySQL và Ollama; kiến trúc ba tầng Presentation → Business → DataAccess.
 
-![Sơ đồ kiến trúc hệ thống](docs/kien-truc-tong-quan.svg)
+![ASM2 system architecture](docs/kien-truc-tong-quan.png)
+
+[SVG diagram](docs/kien-truc-tong-quan.svg) · [Architecture notes](docs/architecture.md)
 
 ## Bắt đầu
 

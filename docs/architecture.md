@@ -1,115 +1,83 @@
-# AssignmentPRN system architecture
+# Kiến trúc hệ thống AIVES — ASM2
 
-Sơ đồ phản ánh kiến trúc ba tầng hiện tại: `Presentation → Business → DataAccess`.
+Sơ đồ mô tả mã nguồn hiện tại: ứng dụng ASP.NET Core .NET 10 tổ chức thành ba project Presentation → Business → DataAccess. Giao diện kết hợp Razor Pages và MVC; việc chuyển sang Razor Pages chưa bao phủ toàn bộ màn hình.
 
-## Sơ đồ tổng quan ba tầng
+![ASM2 system architecture](kien-truc-tong-quan.png)
 
-![Kiến trúc ba tầng](kien-truc-tong-quan.svg)
+Tải [SVG](kien-truc-tong-quan.svg) hoặc [PNG](kien-truc-tong-quan.png) để trình chiếu. [Nguồn Mermaid](architecture.mmd) mô tả cùng các thành phần và quan hệ; bố cục Mermaid được trình xem tự sắp xếp. [architecture.svg](architecture.svg) là bản tương thích cho các liên kết tài liệu cũ.
 
-Nét liền là request đi xuống, nét đứt là response đi lên. Business và DataAccess được build thành class library (`.dll`) và được Presentation tham chiếu.
+## Trách nhiệm ba tầng
 
-## Sơ đồ chi tiết
-
-![AssignmentPRN system architecture](architecture.svg)
-
-Source Mermaid có thể chỉnh sửa tại [architecture.mmd](architecture.mmd). GitHub hiển thị trực tiếp SVG ở trên và vẫn cho phép xem source của sơ đồ.
-
-## Luồng request đến database
-
-```mermaid
-sequenceDiagram
-    actor User as Admin / Lecturer / Student
-    participant Browser
-    participant MVC as Presentation Controller
-    participant Service as Business Service
-    participant Repo as DataAccess Repository
-    participant EF as AivesDbContext / EF Core
-    participant DB as MySQL 8.4
-
-    User->>Browser: Thao tác trên giao diện
-    Browser->>MVC: HTTP request + session cookie
-    MVC->>Service: Gọi service interface với request DTO
-    Service->>Service: Kiểm tra quyền và business rules
-    Service->>Repo: Query hoặc command
-    Repo->>EF: LINQ / transaction
-    EF->>DB: SQL qua Pomelo MySQL provider + TLS
-    DB-->>EF: Result rows / affected rows
-    EF-->>Repo: Entity hoặc read model nội bộ
-    Repo-->>Service: DataAccess read model
-    Service-->>MVC: ServiceResponse / response DTO
-    MVC-->>Browser: Razor HTML hoặc redirect
-    Browser-->>User: Hiển thị kết quả
-```
-
-## Cách kết nối MySQL
-
-1. `Program.cs` đọc `ConnectionStrings:DefaultConnection` từ cấu hình ứng dụng hoặc biến môi trường.
-2. `AddBusiness(...)` gọi `AddDataAccess(...)` trong lúc đăng ký dependency injection.
-3. DataAccess gọi `UseMySql(connectionString, MySqlServerVersion(8.4.8))` để cấu hình `AivesDbContext`.
-4. Repository nhận `AivesDbContext` theo request scope và dùng EF Core để sinh SQL.
-5. `DatabaseInitializerHostedService` chạy lúc khởi động, gọi `CanConnectAsync` và đọc số lượng dữ liệu cơ bản. Nó không tự tạo schema hay seed dữ liệu.
-6. Chuỗi kết nối mẫu dùng MySQL trên Aiven với `SslMode=Required`; mật khẩu thật không được commit vào Git.
-
-## Luồng file tài liệu
-
-`CourseMaterialsController → ICourseMaterialService → CourseMaterialService → LocalMaterialFileStore → src/AssignmentPRN.DataAccess/Storage/materials`
-
-Thư mục lưu trữ nằm **ngoài `wwwroot`** là có chủ đích: mọi thứ dưới `wwwroot` đều được
-`UseStaticFiles()` phục vụ thẳng, không qua controller, nên ai biết URL cũng tải được dù
-chưa đăng nhập. Đặt ra ngoài thì mọi lượt tải đều phải đi qua `CourseMaterialsController.Download`,
-nơi `[SessionAuthorize(Admin, Lecturer)]` kiểm tra phiên trước. Đường dẫn lấy từ cấu hình
-`MaterialStorage:RootPath`; giá trị tương đối được tính theo content root, còn khi publish thì
-đặt đường dẫn tuyệt đối vì thư mục project chỉ tồn tại trong bản checkout.
-
-Controller chỉ gọi service của Business. Business điều phối metadata và file; việc tạo đường dẫn, ghi, đọc và xóa file nằm trong DataAccess implementation.
-
-## Quy tắc phụ thuộc
-
-- Presentation chỉ tham chiếu Business; không truy cập DataAccess, Repository hay `AivesDbContext`.
-- Business chứa service interface, request/response DTO, enum công khai và các quy tắc nghiệp vụ; Business gọi DataAccess.
-- Quy tắc nghiệp vụ nằm **trong chính service sở hữu nó**, dưới dạng thành viên `internal static` nhận mọi đầu vào qua tham số: `QuestionService` giữ việc phát đề, vòng đào sâu, đọc file nhập và kiểm tra lưu tạm; `ExamSessionService` giữ việc sinh ca thi và kiểm tra ngân hàng đủ câu; `ExamResultService` giữ việc chốt ca quá giờ; cách chấm điểm nằm cạnh DTO công bố `Score` trong `Interfaces/Contracts.cs`.
-- `Policies/` chỉ chứa phần mà service **không** giữ được: `ExamSessionRules`, `ExamLifecycleRules` và `ExamStatePolicy`. Repository cần các quyết định này ngay bên trong transaction, mà DataAccess không gọi được service — tham chiếu project sẽ thành vòng tròn. DataAccess khai `IExamStatePolicy` trong `Contracts/`, Business cắm `ExamStatePolicy` vào qua DI.
-- DataAccess chứa EF Core, entity, read model nội bộ, repository, MySQL provider và local file-store implementation.
-- Chiều tham chiếu project là `Presentation → Business → DataAccess`; không có project `Domain` riêng.
-
-## Cấu trúc thư mục theo sơ đồ
-
-Mỗi hộp trong sơ đồ tương ứng một thư mục thật; thêm file mới phải đặt đúng thư mục của hộp đó.
-
-| Tầng | Hộp trong sơ đồ | Thư mục | Namespace |
-|---|---|---|---|
-| Presentation | Controllers | `Controllers/` | `AssignmentPRN.Presentation.Controllers` |
-| Presentation | Razor Views | `Views/` | *(không tự khai báo — xem ghi chú dưới bảng)* |
-| Presentation | ViewModels | `ViewModels/` | `AssignmentPRN.Presentation.ViewModels` |
-| Business | Services | `Services/` | `AssignmentPRN.Business.Services` |
-| Business | Services (dòng "3 policy") | `Policies/` | `AssignmentPRN.Business.Policies` |
-| Business | Interfaces | `Interfaces/` | `AssignmentPRN.Business.Interfaces` |
-| DataAccess | Repositories | `Repositories/` | `AssignmentPRN.DataAccess.Repositories` |
-| DataAccess | AivesDbContext | `Data/` | `AssignmentPRN.DataAccess.Data` |
-| DataAccess | Entity Models | `Entities/` | `AssignmentPRN.DataAccess.Entities` |
-
-File `.cshtml` không khai báo namespace như file `.cs`. Lúc build, Razor sinh ra một lớp
-cho mỗi view và đặt tất cả vào namespace `AspNetCoreGeneratedDocument`, tên lớp ghép từ
-đường dẫn — `Views/Account/Login.cshtml` thành `AspNetCoreGeneratedDocument.Views_Account_Login`.
-Có thể đổi bằng chỉ thị `@namespace`, nhưng dự án không dùng. Các `@using` dùng chung cho
-mọi view khai báo một lần ở `Views/_ViewImports.cshtml`.
-
-Sơ đồ tổng quan chỉ vẽ phần nghiệp vụ, kèm số lượng từng hộp. Phần hạ tầng không vẽ vì
-nó giống nhau ở mọi project ASP.NET Core và không nói lên kiến trúc của dự án này; bảng
-dưới liệt kê đầy đủ để không thiếu thứ gì khi tìm file:
-
-| Tầng | Hạ tầng (không vẽ) | Vai trò |
+| Tầng / project | Thành phần chính | Trách nhiệm |
 |---|---|---|
-| Presentation | `Program.cs` | Đăng ký DI, cấu hình middleware |
-| Presentation | `appsettings.json` | `ConnectionStrings:DefaultConnection`, `MaterialStorage:RootPath` |
-| Presentation | `Constants/`, `Filters/`, `Properties/`, `Styles/`, `wwwroot/` | Hằng số, `SessionAuthorizeAttribute`, cấu hình chạy, SCSS, tài nguyên tĩnh |
-| Business | `ServiceCollectionExtensions.cs` | `AddBusiness()` — đăng ký DI, gọi tiếp `AddDataAccess()` |
-| Business | `DataAccessMappings.cs` | Chuyển enum/DTO giữa Business và DataAccess |
-| DataAccess | `Contracts/` | Read model nội bộ, input ghi, `IExamStatePolicy` |
-| DataAccess | `Enums/`, `Extensions/` | Enum khớp cột MySQL; `AddDataAccess()` |
-| DataAccess | `Services/` | `LocalMaterialFileStore` (lưu file) và `DatabaseInitializer` (kiểm tra kết nối lúc khởi động) |
-| DataAccess | `Common/` | `ExamScheduleConflictException` |
+| Presentation / AssignmentPRN.Presentation | Pages, PageModels, Controllers, Views, ViewModels, Hubs, SignalR notifiers, JavaScript | Nhận request, binding / validation đầu vào, xác thực session, kiểm tra quyền truy cập, hiển thị kết quả và gửi cập nhật thời gian thực. |
+| Business / AssignmentPRN.Business | Service interfaces, services, DTO, policies, AI adapters, background services | Điều phối nghiệp vụ; môn học, lớp, phiên thi, phát đề, thời gian mỗi câu, số câu chính, lượt hỏi xoáy, phòng thi, RAG, rubric, chấm và duyệt điểm. |
+| DataAccess / AssignmentPRN.DataAccess | Repositories, Entities, Contracts, AivesDbContext, file stores | Truy vấn / ghi dữ liệu bằng EF Core và Pomelo MySQL; transaction, lưu tệp tài liệu môn học và audio. |
 
-Riêng `Storage/materials` có vẽ, thành hình trụ "File tài liệu", vì nó là nơi dữ liệu nằm
-chứ không phải hạ tầng. Project `tests/AssignmentPRN.Tests` cố ý không vẽ vì không chạy
-lúc runtime.
+Các project tham chiếu theo hướng Presentation → Business → DataAccess. Program.cs là nơi ghép triển khai bằng dependency injection: AddBusiness() gọi AddDataAccess(). Hợp đồng thông báo nằm ở Business; triển khai SignalR nằm ở Presentation, nên Business không cần tham chiếu project giao diện. IExamStatePolicy được khai báo ở DataAccess và triển khai ở Business để repository áp dụng quyết định trạng thái trong transaction.
+
+Ba tầng là cách tổ chức mã nguồn. Hiện chúng chạy trong cùng một ứng dụng web, chưa tách thành ba dịch vụ triển khai độc lập.
+
+## Giao diện hiện tại
+
+| Cách triển khai | Chức năng |
+|---|---|
+| Razor Pages / PageModel | Tài khoản; môn học; phiên thi; tài liệu và duyệt câu hỏi RAG; rubric; kết quả giảng viên / sinh viên; phòng thi VoiceRoom. |
+| MVC Controller / Razor View | Dashboard Admin / Lecturer / Student; lớp; sinh viên trong phiên thi; tài liệu môn học; ngân hàng câu hỏi; lịch thi sinh viên; luồng ExamRoom cũ. |
+
+Một tệp .cshtml có thể là Razor View hoặc Razor Page. Razor Pages đi cùng PageModel / handlers; MVC View được controller trả về. Không nên giới thiệu dự án là đã chuyển hoàn toàn sang Razor Pages.
+
+## Luồng request và cập nhật thời gian thực
+
+1. Trình duyệt gửi HTTP request kèm session cookie.
+2. Middleware kiểm tra tài khoản còn hoạt động và vai trò còn khớp session; PageModel / Controller / service kiểm tra quyền theo tài nguyên.
+3. PageModel hoặc Controller gọi service interface, truyền request DTO.
+4. Business kiểm tra quy tắc và gọi repository hoặc dịch vụ lưu tệp. Repository dùng AivesDbContext để thao tác MySQL qua TLS.
+5. Sau thay đổi, Business gọi notifier interface; triển khai tại Presentation dùng IHubContext để gửi thông báo đến nhóm được phép.
+6. JavaScript nhận sự kiện SignalR và cập nhật màn hình. Trang vẫn lấy dữ liệu qua các điểm vào có kiểm tra quyền.
+
+| Hub | Endpoint | Mục đích |
+|---|---|---|
+| ExamUpdatesHub | /hubs/exam-updates | Cập nhật phiên thi, danh sách / tiến độ cho màn hình quản lý. |
+| VoiceRoomHub | /hubs/voice-room | Đồng bộ sự kiện phòng thi và chấm điểm. |
+| DocumentProcessingHub | /hubs/document-processing | Tiến độ xử lý tài liệu và sinh câu hỏi. |
+
+Quyền tham gia nhóm được kiểm tra ở server. SignalR là kênh thông báo; quy tắc chuyển trạng thái, thời gian thi và quyền dữ liệu vẫn do server quyết định.
+
+## Luồng AI và RAG
+
+- Tài liệu PDF / DOCX / PPTX được lưu riêng, đưa vào DocumentProcessingQueue rồi xử lý nền: trích xuất văn bản, chia đoạn và tạo embedding.
+- Embedding được lưu dạng JSON trong MySQL; ứng dụng tính độ tương đồng và lấy ngữ cảnh cho RAG. Hiện chưa có vector database riêng.
+- Ollama sinh câu hỏi nháp; giảng viên duyệt. Khi duyệt, hệ thống xuất bản vào ngân hàng questions và liên kết bằng bank_question_id; câu được phát đề từ ngân hàng chính.
+- Trong phòng thi, trình duyệt dùng microphone / MediaRecorder; SpeechRecognition chuyển giọng nói thành transcript và speechSynthesis đọc nội dung khi trình duyệt hỗ trợ.
+- Business gửi transcript / ngữ cảnh đến Ollama để hỏi xoáy. Bài hoàn thành đi vào GradingQueue; tiến trình nền chấm theo rubric, lưu đánh giá và tổng hợp điểm. Giảng viên có thể duyệt / chỉnh điểm theo quyền.
+
+| Model cấu hình hiện tại | Vai trò |
+|---|---|
+| nomic-embed-text | Embedding tài liệu / truy vấn RAG. |
+| qwen2.5:3b | Sinh câu hỏi từ ngữ cảnh RAG. |
+| qwen2.5:7b-instruct | Phân tích câu trả lời, hỏi xoáy và chấm điểm. |
+
+Ollama được gọi qua HTTP JSON, mặc định cổng 11434. STT / TTS trong luồng hiện tại dùng API trình duyệt, không phải mô hình Ollama xử lý âm thanh trực tiếp.
+
+## Dữ liệu và tệp
+
+| Nơi lưu | Dữ liệu |
+|---|---|
+| MySQL / Aiven | Tài khoản / vai trò, môn / lớp, phiên / sinh viên, ngân hàng câu hỏi, rubric, đáp án / hỏi xoáy, đánh giá / kết quả, tài liệu / chunks / câu RAG, thông báo. |
+| Storage/materials | Tài liệu môn học qua LocalMaterialFileStore. |
+| Storage/voice-audio | Bản ghi câu trả lời qua LocalVoiceAudioStore. |
+| Storage/rag | Tệp nguồn của luồng tài liệu RAG; DocumentService / tiến trình xử lý tài liệu quản lý trực tiếp. |
+
+Kho tệp riêng nằm ngoài wwwroot; tải / đọc tệp đi qua điểm vào có kiểm tra quyền. Session và hai hàng đợi xử lý nền hiện dùng bộ nhớ của tiến trình ứng dụng. Khởi động lại không bảo toàn session hoặc nội dung hàng đợi như một message broker bền vững.
+
+Kiểm tra database lúc khởi động chỉ xác nhận kết nối / dữ liệu. Nâng cấp schema dùng các script trong database/ và scripts/ theo [hướng dẫn database](../database/README.md), không phải tự động chạy toàn bộ migration khi mở web.
+
+## Đọc code khi thuyết trình
+
+- [Program.cs](../src/AssignmentPRN.Presentation/Program.cs): đăng ký Razor Pages, MVC, session, middleware và ba hub.
+- [Business registration](../src/AssignmentPRN.Business/ServiceCollectionExtensions.cs): ghép services, policies, AI adapters và background services.
+- [Pages](../src/AssignmentPRN.Presentation/Pages): giao diện Razor Pages / PageModels.
+- [Controllers](../src/AssignmentPRN.Presentation/Controllers): các phần MVC đang giữ lại.
+- [Business services](../src/AssignmentPRN.Business/Services): nghiệp vụ và xử lý AI / RAG.
+- [Repositories](../src/AssignmentPRN.DataAccess/Repositories): truy vấn, cập nhật và transaction dữ liệu.
