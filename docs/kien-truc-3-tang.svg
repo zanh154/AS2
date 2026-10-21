@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1040" viewBox="0 0 780 520" role="img" aria-labelledby="title">
+<title id="title">AssignmentPRN system architecture</title>
+<defs>
+<marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="#9a9a9a" stroke-width="1.2"/></marker>
+</defs>
+<style>
+text{font-family:Segoe UI,Arial,sans-serif;fill:#f2f2f2;text-anchor:middle}
+.t{font-size:15px;font-weight:600}.h{font-size:14px;font-weight:600}.c{font-size:14px;font-weight:600}.s{font-size:11.5px;fill:#bdbdbd}
+.side{font-size:13px;font-weight:700}.ln{stroke:#9a9a9a;stroke-width:1.2;fill:none;marker-end:url(#a)}.dl{stroke:#9a9a9a;stroke-width:1.2;fill:none;stroke-dasharray:4 3;marker-end:url(#a)}
+.card{fill:#1c1c1c;stroke:#3a3a3a}
+</style>
+<rect width="780" height="520" fill="#262624"/>
+<text x="370" y="40" class="t">AssignmentPRN system architecture</text>
+
+<!-- Presentation -->
+<rect x="168" y="60" width="398" height="102" rx="4" fill="#0b4a8a" stroke="#3b82c4"/>
+<text x="367" y="82" class="h" fill="#9fd0ff" style="fill:#9fd0ff">Presentation layer (ASP.NET Core MVC + Razor Pages)</text>
+<rect x="184" y="94" width="114" height="52" rx="3" class="card"/><text x="241" y="116" class="c">Controllers</text><text x="241" y="135" class="s">10 ctrl · 25 page</text>
+<rect x="310" y="94" width="114" height="52" rx="3" class="card"/><text x="367" y="116" class="c">Views</text><text x="367" y="135" class="s">Razor .cshtml</text>
+<rect x="436" y="94" width="114" height="52" rx="3" class="card"/><text x="493" y="116" class="c">SignalR Hubs</text><text x="493" y="135" class="s">3 hub realtime</text>
+
+<!-- Business -->
+<rect x="168" y="204" width="398" height="102" rx="4" fill="#1e5a1e" stroke="#4caf50"/>
+<text x="367" y="226" class="h" style="fill:#b6f0a8">Business layer (services)</text>
+<rect x="247" y="238" width="114" height="52" rx="3" class="card"/><text x="304" y="260" class="c">Services</text><text x="304" y="279" class="s">Auth, ExamSession…</text>
+<rect x="373" y="238" width="114" height="52" rx="3" class="card"/><text x="430" y="260" class="c">Interfaces</text><text x="430" y="279" class="s">IxxxService</text>
+
+<!-- Data access -->
+<rect x="168" y="348" width="398" height="102" rx="4" fill="#7a2a12" stroke="#e0703a"/>
+<text x="367" y="370" class="h" style="fill:#ffc9a8">Data access layer</text>
+<rect x="184" y="382" width="114" height="52" rx="3" class="card"/><text x="241" y="404" class="c">Repositories</text><text x="241" y="423" class="s">13 repository</text>
+<rect x="310" y="382" width="114" height="52" rx="3" class="card"/><text x="367" y="404" class="c">DbContext</text><text x="367" y="423" class="s">AivesDbContext</text>
+<rect x="436" y="382" width="114" height="52" rx="3" class="card"/><text x="493" y="404" class="c">Entity models</text><text x="493" y="423" class="s">23 entity</text>
+
+<!-- request / response between layers -->
+<path d="M338 162V200" class="ln"/><path d="M414 202V166" class="dl"/>
+<path d="M338 306V344" class="ln"/><path d="M414 346V310" class="dl"/>
+
+<!-- left side -->
+<path d="M168 111H138" class="ln"/>
+<text x="100" y="108" class="side">MVC</text><text x="100" y="124" class="s">web app</text>
+<path d="M158 206q-8 0-8 8v100q0 8-8 8q8 0 8 8v104q0 8 8 8" fill="none" stroke="#bdbdbd" stroke-width="1.2"/>
+<text x="102" y="318" class="side">.dll</text><text x="102" y="335" class="s">class</text><text x="102" y="350" class="s">library</text>
+
+<!-- Ollama -->
+<path d="M566 248H604" class="ln"/><path d="M606 266H570" class="dl"/>
+<rect x="608" y="232" width="100" height="48" rx="4" class="card"/>
+<text x="658" y="253" class="c">Ollama</text><text x="658" y="270" class="s">local AI</text>
+
+<!-- MySQL -->
+<path d="M566 392H604" class="ln"/><path d="M606 410H570" class="dl"/>
+<path d="M608 376v52c0 9 22 15 50 15s50-6 50-15v-52" fill="#1c1c1c" stroke="#bdbdbd"/>
+<ellipse cx="658" cy="376" rx="50" ry="12" fill="#1c1c1c" stroke="#bdbdbd"/>
+<text x="658" y="406" class="c">MySQL</text><text x="658" y="423" class="s">8.4</text>
+
+<!-- legend -->
+<text x="198" y="490" class="s" style="fill:#f2f2f2">Chú thích:</text>
+<path d="M240 486H300" class="ln"/><text x="330" y="490" class="s" style="fill:#f2f2f2">request</text>
+<path d="M380 486H440" class="dl"/><text x="474" y="490" class="s" style="fill:#f2f2f2">response</text>
+</svg>
