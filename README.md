@@ -2,9 +2,9 @@
 
 ASP.NET Core Razor Pages (.NET 10), SignalR, MySQL và Ollama; kiến trúc ba tầng Presentation → Business → DataAccess.
 
-![ASM2 system architecture](docs/kien-truc-3-tang.png)
+![AIVES system architecture](docs/kien-truc-3-tang-drawio.png)
 
-[SVG diagram](docs/kien-truc-3-tang.svg) · [Sơ đồ draw.io](https://drive.google.com/file/d/1VqzB1KfEKXHnygZ3RZNExFD9TXyKFdCK/view?usp=sharing) · [Mermaid](docs/kien-truc-3-tang.mmd) · [Architecture notes](docs/architecture.md)
+[Sơ đồ draw.io](https://drive.google.com/file/d/1VqzB1KfEKXHnygZ3RZNExFD9TXyKFdCK/view?usp=sharing) · [Mermaid](docs/kien-truc-3-tang.mmd) · [Architecture notes](docs/architecture.md)
 
 ## Bắt đầu
 
