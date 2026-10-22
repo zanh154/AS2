@@ -1,0 +1,10 @@
+@page 
+@model AssignmentPRN.Presentation.Pages.Questions.CreateModel
+@{
+    var form = (QuestionEditViewModel)Model.Data;
+    ViewData["Title"] = form.QuestionId == 0 ? "Thêm câu hỏi" : "Sửa câu hỏi";
+}
+<partial name="/Pages/Shared/QuestionsEdit.cshtml" model="Model.Data" />
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

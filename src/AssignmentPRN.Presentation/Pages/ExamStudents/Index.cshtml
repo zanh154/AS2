@@ -1,0 +1,12 @@
+@page
+@model AssignmentPRN.Presentation.Pages.ExamStudents.IndexModel
+@{
+    ViewData["Title"] = "Sinh viên trong phiên thi";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Sinh viên trong phiên thi") };
+}
+<partial name="/Pages/Shared/ExamStudentsIndex.cshtml" model="Model.Search" />
+@section Scripts {
+    @* combobox.js drives the shared _SearchableSelect; without it the picker is inert. *@
+    <script src="~/js/combobox.js" asp-append-version="true"></script>
+    <script src="~/js/exam-student-search.js" asp-append-version="true"></script>
+}

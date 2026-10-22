@@ -9,7 +9,7 @@
     <div class="page-header exam-result-header">
         <div>
             <a class="back-link" asp-page="/ExamResults/Index" asp-route-id="@candidate.ExamId">
-                <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại bảng điểm
+                <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại bảng điểm
             </a>
             <span class="eyebrow">@paper.CourseCode · @paper.ExamName</span>
             <h1>@candidate.StudentName</h1>
@@ -165,7 +165,7 @@
     {
         <div class="content-card">
             <div class="empty-state">
-                <div class="empty-icon"><partial name="/Views/Shared/_Icon.cshtml" model="@("question")" /></div>
+                <div class="empty-icon"><partial name="/Pages/Shared/_Icon.cshtml" model="@("question")" /></div>
                 <h2>Chưa có bài làm</h2>
                 <p>Sinh viên chưa vào thi nên chưa được phát đề.</p>
             </div>
@@ -183,7 +183,7 @@
             <ol class="exam-room-questions">
                 @foreach (var question in paper.MainQuestions)
                 {
-                    <partial name="/Views/Shared/_ExamResultQuestion.cshtml" model="@(new ExamResultQuestionViewModel
+                    <partial name="/Pages/Shared/_ExamResultQuestion.cshtml" model="@(new ExamResultQuestionViewModel
                     {
                         Question = question,
                         PickedLabel = "Sinh viên chọn"
@@ -204,7 +204,7 @@
                 <ol class="exam-room-questions">
                     @foreach (var question in paper.FollowUpQuestions)
                     {
-                        <partial name="/Views/Shared/_ExamResultQuestion.cshtml" model="@(new ExamResultQuestionViewModel
+                        <partial name="/Pages/Shared/_ExamResultQuestion.cshtml" model="@(new ExamResultQuestionViewModel
                         {
                             Question = question,
                             ParentOrderNo = Model.OrderOf(question.ParentExamQuestionId),

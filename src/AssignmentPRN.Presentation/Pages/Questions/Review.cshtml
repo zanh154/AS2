@@ -10,7 +10,7 @@
         <p>Câu hỏi do AI sinh được giữ riêng ở đây. Chỉ câu được duyệt mới vào ngân hàng và được phát đề.</p>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" asp-controller="Questions" asp-action="Index" asp-route-courseId="@Model.CourseId">Ngân hàng câu hỏi</a>
+        <a class="btn btn-outline-secondary" asp-page="/Questions/Index" asp-route-courseId="@Model.CourseId">Ngân hàng câu hỏi</a>
     </div>
 </div>
 
@@ -92,7 +92,7 @@
                             </td>
                             <td>
                                 <div class="d-flex gap-2">
-                                    <a class="btn btn-outline-secondary btn-sm" asp-controller="Questions" asp-action="Edit" asp-route-id="@question.QuestionId">Sửa</a>
+                                    <a class="btn btn-outline-secondary btn-sm" asp-page="/Questions/Edit" asp-route-id="@question.QuestionId">Sửa</a>
                                     <form asp-page-handler="Approve" asp-route-id="@question.QuestionId" method="post" data-confirm="Duyệt câu hỏi này? Câu đã duyệt sẽ được phát đề.">
                                         <button class="btn btn-success btn-sm">Duyệt</button>
                                     </form>

@@ -1,0 +1,13 @@
+@page "{id:int}"
+@model AssignmentPRN.Presentation.Pages.ExamRoom.IndexModel
+@{
+    var room = ((ExamRoomViewModel)Model.Data).Room;
+    ViewData["Title"] = $"Phòng thi · {room.ExamName}";
+
+    // While the paper is open the exam layout hides every way off the page and runs the
+    // countdown; once it is handed in the page puts the way back on itself.
+    Layout = "_ExamLayout";
+    ViewData["ExamLocked"] = room.CanAnswer;
+    ViewData["SecondsRemaining"] = room.SecondsRemaining;
+}
+<partial name="/Pages/Shared/ExamRoomIndex.cshtml" model="Model.Data" />

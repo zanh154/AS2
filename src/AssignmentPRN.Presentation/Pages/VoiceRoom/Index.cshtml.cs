@@ -27,7 +27,7 @@ public sealed class IndexModel(IVoiceRoomService service) : PageModel
         var result = await service.EnterAsync(id, UserId, ct);
         if (result.Success) return RedirectToPage(new { id });
         TempData["Error"] = result.Error;
-        return RedirectToAction("Mine", "StudentSchedule");
+        return RedirectToPage("/StudentSchedule/Mine");
     }
 
     public async Task<IActionResult> OnPostSyncAsync(int id, [FromBody] VoiceAnswerRequest? answer, CancellationToken ct)

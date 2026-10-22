@@ -56,9 +56,9 @@ public sealed class LoginModel(IAuthService authService) : PageModel
 
     private IActionResult RedirectToRoleHome(string? role) => role switch
     {
-        RoleNames.Admin => RedirectToAction("Index", "Admin"),
-        RoleNames.Lecturer => RedirectToAction("Index", "Lecturer"),
-        RoleNames.Student => RedirectToAction("Index", "Student"),
+        RoleNames.Admin => RedirectToPage("/Admin/Index"),
+        RoleNames.Lecturer => RedirectToPage("/Lecturer/Index"),
+        RoleNames.Student => RedirectToPage("/Student/Index"),
         _ => RedirectToPage("/Account/AccessDenied")
     };
 }

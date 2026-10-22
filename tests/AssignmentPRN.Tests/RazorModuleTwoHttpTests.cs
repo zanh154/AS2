@@ -31,7 +31,6 @@ public class RazorModuleTwoHttpTests
             EnvironmentName = "Development"
         });
         builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Services.AddControllersWithViews();
         builder.Services.AddRazorPages();
         builder.Services.AddSignalR();
         builder.Services.AddDistributedMemoryCache();
@@ -48,7 +47,7 @@ public class RazorModuleTwoHttpTests
         builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
         builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
         await using var app = builder.Build();
-        app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute(); app.MapHub<ExamUpdatesHub>("/hubs/exam-updates"); app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
+        app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapHub<ExamUpdatesHub>("/hubs/exam-updates"); app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
         try {
             using (var scope = app.Services.CreateScope()) {
                 var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();

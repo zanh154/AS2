@@ -9,9 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-builder.Services.AddControllersWithViews();
-
-// The question reviewer and rubric editors are Razor Pages; the rest of the app stays MVC.
+// Every screen is a Razor Page; there are no MVC controllers.
 builder.Services.AddRazorPages();
 
 // Course materials live in the data access project, deliberately outside wwwroot so the
@@ -88,6 +86,5 @@ app.MapRazorPages();
 app.MapHub<ExamUpdatesHub>("/hubs/exam-updates");
 app.MapHub<VoiceRoomHub>("/hubs/voice-room");
 app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
-app.MapDefaultControllerRoute();
 
 app.Run();

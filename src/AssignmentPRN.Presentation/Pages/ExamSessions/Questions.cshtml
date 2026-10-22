@@ -1,6 +1,19 @@
 @page "{id:int?}"
 @model AssignmentPRN.Presentation.Pages.ExamSessions.QuestionsModel
-@{ ViewData["Title"] = "ExamSessions · Questions"; }
+@{
+    // Đặt ở trang, không ở partial: <partial> nhận một bản sao ViewData, nên tiêu đề và
+    // breadcrumb mà partial ghi vào không bao giờ tới được layout.
+    if (Model.Data is ExamQuestionAssignViewModel assign)
+    {
+        ViewData["Title"] = $"Phát đề · {assign.ExamName}";
+        ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+        {
+            new("Lịch thi", "/ExamSessions/Index"),
+            new(assign.ExamName, "/ExamSessions/Details", new { id = assign.ExamId }),
+            new("Phát đề")
+        };
+    }
+}
 <div data-live-page="ExamSessions" data-exam-id="@(RouteData.Values["id"] ?? Request.Query["id"].ToString())" data-snapshot-url="@Url.Page("/ExamSessions/Index", "Snapshot")">
 <partial name="/Pages/Shared/ExamSessionsQuestions.cshtml" model="Model.Data" />
 </div>

@@ -9,9 +9,9 @@
         ViewData["Title"] = $"Bài làm · {candidate.StudentName}";
         ViewData["Breadcrumb"] = new List<BreadcrumbItem>
         {
-            new("Lịch thi", "ExamSessions", "Index"),
-            new(candidate.Paper.ExamName, "ExamSessions", "Details", new { id = candidate.ExamId }),
-            new("Kết quả", "ExamResults", "Index", new { id = candidate.ExamId }),
+            new("Lịch thi", "/ExamSessions/Index"),
+            new(candidate.Paper.ExamName, "/ExamSessions/Details", new { id = candidate.ExamId }),
+            new("Kết quả", "/ExamResults/Index", new { id = candidate.ExamId }),
             new(candidate.StudentName)
         };
     }

@@ -37,21 +37,17 @@ public sealed record ActionsCell(IReadOnlyList<TableAction> Actions) : TableCell
 /// </summary>
 /// <param name="Label">Tooltip and accessible name — the button shows only the icon.</param>
 /// <param name="Icon">Key understood by the <c>_Icon</c> partial.</param>
-/// <param name="Action">Target action; <paramref name="Controller"/> defaults to the current one.</param>
+/// <param name="Page">Target Razor Page path, e.g. <c>/Classes/Roster</c>.</param>
+/// <param name="Handler">Page handler a POST form calls, e.g. <c>Delete</c> for <c>OnPostDeleteAsync</c>.</param>
 /// <param name="Tone">Bootstrap outline tone: secondary, primary or danger.</param>
 /// <param name="IsPost">Renders a POST form (with antiforgery) instead of a link.</param>
 /// <param name="Confirm">Message for the shared confirm dialog; POST actions only.</param>
-/// <param name="Page">
-/// Razor Page path, for a screen that has moved off MVC. When set it is used instead of
-/// <paramref name="Controller"/> and <paramref name="Action"/>, which a page has none of.
-/// </param>
 public sealed record TableAction(
     string Label,
     string Icon,
-    string Action,
+    string Page,
     object? RouteValues = null,
-    string? Controller = null,
+    string? Handler = null,
     string Tone = "secondary",
     bool IsPost = false,
-    string? Confirm = null,
-    string? Page = null);
+    string? Confirm = null);

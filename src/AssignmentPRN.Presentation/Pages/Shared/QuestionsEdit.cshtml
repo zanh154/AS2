@@ -1,0 +1,122 @@
+@model QuestionEditViewModel
+@{
+    var optionLetters = "ABCD".ToCharArray();
+}
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-page="/Questions/Index">← Ngân hàng câu hỏi</a>
+        <h1>@ViewData["Title"]</h1>
+        <p>Chỉ hỗ trợ trắc nghiệm, mỗi câu có đúng một phương án đúng.</p>
+    </div>
+</div>
+
+<form asp-page="/Questions/Edit" method="post" class="content-card">
+    <input asp-for="QuestionId" type="hidden" />
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="CourseId" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(QuestionEditViewModel.CourseId),
+                SelectedValue = Model.CourseId,
+                Placeholder = "Chọn môn học",
+                SearchPlaceholder = "Tìm mã hoặc tên môn học",
+                EmptyText = "Không tìm thấy môn học phù hợp",
+                Options = Model.CourseOptions
+            })" />
+            <span asp-validation-for="CourseId" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="MaterialId" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(QuestionEditViewModel.MaterialId),
+                SelectedValue = Model.MaterialId ?? 0,
+                Placeholder = "Chọn chủ đề (tài liệu)",
+                SearchPlaceholder = "Tìm tên tài liệu",
+                EmptyText = "Môn này chưa có tài liệu nào",
+                Options = Model.MaterialOptions
+            })" />
+            <p class="text-muted">Chủ đề lấy từ tài liệu môn. <a asp-page="/CourseMaterials/Index">Quản lý tài liệu</a></p>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Difficulty" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(QuestionEditViewModel.Difficulty),
+                SelectedKey = Model.Difficulty.ToString(),
+                ShowAvatar = false,
+                Placeholder = "Chọn mức độ khó",
+                SearchPlaceholder = "Tìm độ khó",
+                EmptyText = "Không có mức nào phù hợp",
+                Options = Model.DifficultyOptions
+            })" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="BloomLevel" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(QuestionEditViewModel.BloomLevel),
+                SelectedKey = Model.BloomLevel.ToString(),
+                ShowAvatar = false,
+                Placeholder = "Chọn mức độ Bloom",
+                SearchPlaceholder = "Tìm mức độ",
+                EmptyText = "Không có mức nào phù hợp",
+                Options = Model.BloomOptions
+            })" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="QuestionType" class="form-label"></label>
+            <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
+            {
+                Name = nameof(QuestionEditViewModel.QuestionType),
+                SelectedKey = Model.QuestionType.ToString(),
+                ShowAvatar = false,
+                Placeholder = "Chọn loại câu hỏi",
+                SearchPlaceholder = "Tìm loại câu",
+                EmptyText = "Không có loại nào phù hợp",
+                Options = Model.QuestionTypeOptions
+            })" />
+            <p class="text-muted">Câu đào sâu chỉ được hỏi sau vòng câu chính, theo cùng chủ đề; bắt buộc chọn chủ đề.</p>
+            <span asp-validation-for="MaterialId" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="QuestionText" class="form-label"></label>
+            <textarea asp-for="QuestionText" class="form-control" rows="3"></textarea>
+            <span asp-validation-for="QuestionText" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="ExpectedAnswer" class="form-label"></label>
+            <textarea asp-for="ExpectedAnswer" class="form-control" rows="2"></textarea>
+            <p class="text-muted">Dùng cho AI chấm câu hỏi đào sâu sau này, không bắt buộc với trắc nghiệm.</p>
+        </div>
+    </div>
+
+    <fieldset class="option-editor">
+        <legend class="section-heading">Phương án trả lời</legend>
+        <p class="text-muted">Bỏ trống phương án không dùng, tick vào ô của phương án đúng.</p>
+        @for (var index = 0; index < Model.Options.Count; index++)
+        {
+            <div class="option-row">
+                <span class="option-row__label" aria-hidden="true">@optionLetters[index % optionLetters.Length]</span>
+                <input asp-for="Options[@index].Text" class="form-control" placeholder="Nội dung phương án" />
+                <div class="form-check option-row__correct">
+                    <input class="form-check-input" type="radio" id="correct-@index"
+                           name="@nameof(Model.CorrectIndex)" value="@index"
+                           checked="@(Model.CorrectIndex == index)" />
+                    <label class="form-check-label" for="correct-@index">Đúng</label>
+                </div>
+            </div>
+        }
+        <span asp-validation-for="Options" class="text-danger"></span>
+        <span asp-validation-for="CorrectIndex" class="text-danger"></span>
+    </fieldset>
+
+    <div class="form-actions">
+        <button class="btn btn-primary">Lưu câu hỏi</button>
+        <a asp-page="/Questions/Index" class="btn btn-outline-secondary">Huỷ</a>
+    </div>
+</form>
+

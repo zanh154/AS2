@@ -1,7 +1,5 @@
 @model ExamSessionListViewModel
 @{
-    ViewData["Title"] = "Lịch thi";
-    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Lịch thi") };
     var vietnamese = new System.Globalization.CultureInfo("vi-VN");
     var groupedSessions = Model.Sessions
         .OrderBy(session => session.StartTime)
@@ -15,7 +13,7 @@
         <h1>Khung giờ thi vấn đáp</h1>
         <p>Theo dõi toàn bộ ca thi, thời lượng và người phụ trách trong một màn hình.</p>
     </div>
-    <a class="btn btn-primary" asp-page="/ExamSessions/Create"><partial name="/Views/Shared/_Icon.cshtml" model="@("plus")" /> Tạo lịch thi</a>
+    <a class="btn btn-primary" asp-page="/ExamSessions/Create"><partial name="/Pages/Shared/_Icon.cshtml" model="@("plus")" /> Tạo lịch thi</a>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.LoadError))
@@ -32,7 +30,7 @@
 @if (groupedSessions.Count == 0)
 {
     <div class="content-card empty-state">
-        <div class="empty-icon"><partial name="/Views/Shared/_Icon.cshtml" model="@("calendar")" /></div>
+        <div class="empty-icon"><partial name="/Pages/Shared/_Icon.cshtml" model="@("calendar")" /></div>
         <h2>Chưa có lịch thi</h2>
         <p>Tạo lịch đầu tiên — hệ thống sẽ tự sinh khung giờ cho từng sinh viên theo thời lượng bạn đặt.</p>
         <a class="btn btn-primary" asp-page="/ExamSessions/Create">Tạo lịch thi</a>
@@ -65,7 +63,7 @@ else
                                 <span>@session.CourseCode · @session.CourseName</span>
                                 <small>@session.LecturerName · @session.CandidateCount sinh viên · @session.TimePerStudent phút/SV</small>
                             </div>
-                            <span class="session-arrow"><partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-right")" /></span>
+                            <span class="session-arrow"><partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-right")" /></span>
                         </a>
                     }
                 </div>

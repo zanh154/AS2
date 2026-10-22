@@ -2,12 +2,6 @@
 @{
     var session = Model.Session;
     var candidates = session.Candidates;
-    ViewData["Title"] = session.ExamName;
-    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
-    {
-        new("Lịch thi", "ExamSessions", "Index"),
-        new(session.ExamName)
-    };
     var canManageStudents = (session.Status is ExamSessionStatus.Draft
         or ExamSessionStatus.Scheduled) && session.StartTime > DateTime.Now
         && (Context.Session.GetString(AssignmentPRN.Presentation.Constants.SessionKeys.Role) == AssignmentPRN.Presentation.Constants.RoleNames.Admin
@@ -16,7 +10,7 @@
 
 <div class="page-header">
     <div>
-        <a class="back-link" asp-page="/ExamSessions/Index"><partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi</a>
+        <a class="back-link" asp-page="/ExamSessions/Index"><partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi</a>
         <span class="eyebrow">@session.Course.CourseCode · @session.StartTime.ToString("dd/MM/yyyy")</span>
         <h1>@session.ExamName</h1>
         <p>@session.Course.CourseName · @session.Lecturer.FullName</p>
@@ -47,7 +41,7 @@
     <form asp-page="/ExamSessions/Details" asp-page-handler="ChangeStatus" asp-route-id="@session.ExamId" method="post" class="content-card" data-confirm="Xác nhận chuyển trạng thái phiên thi? Không thể quay lại trạng thái trước.">
         <label for="session-status" class="form-label">Chuyển trạng thái</label>
         <div class="d-flex gap-2 align-items-start">
-            <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
+            <partial name="/Pages/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
             {
                 Name = "status",
                 SelectedKey = nextStatuses[0].ToString(),
@@ -106,7 +100,7 @@
                 @* Same window the reschedule picker below uses: inside the exam day,
                    and early enough that the slot still ends before midnight. *@
                 <span class="form-label">Giờ bắt đầu</span>
-                <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
+                <partial name="/Pages/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
                 {
                     Name = "ScheduledTime",
                     Value = session.EndTime.ToString("yyyy-MM-ddTHH:mm"),
@@ -165,7 +159,7 @@
         <div><label class="form-label" for="roster-query">Tên hoặc email</label><input id="roster-query" type="search" class="form-control" placeholder="Tìm trong phiên thi này" data-roster-query /></div>
         <div>
             <label class="form-label" for="roster-status">Trạng thái</label>
-            <partial name="/Views/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
+            <partial name="/Pages/Shared/_SearchableSelect.cshtml" model="@(new SearchableSelectViewModel
             {
                 Name = "roster-status",
                 Placeholder = "Tất cả trạng thái",
@@ -229,7 +223,7 @@
                                     <button type="submit" class="btn btn-outline-danger btn-sm btn-icon"
                                             title="Xóa khỏi phiên thi"
                                             aria-label="Xóa @candidate.StudentName khỏi phiên thi">
-                                        <partial name="/Views/Shared/_Icon.cshtml" model="@("trash")" />
+                                        <partial name="/Pages/Shared/_Icon.cshtml" model="@("trash")" />
                                     </button>
                                 </form>
                             }
@@ -244,7 +238,7 @@
                                 <input type="hidden" name="ExamId" value="@session.ExamId" />
                                 <div>
                                     <label class="form-label">Bắt đầu mới</label>
-                                    <partial name="/Views/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
+                                    <partial name="/Pages/Shared/_DateTimePicker.cshtml" model="@(new DateTimePickerViewModel
                                     {
                                         Name = "ScheduledTime",
                                         Value = candidate.ScheduledTime?.ToString("yyyy-MM-ddTHH:mm"),

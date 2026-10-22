@@ -23,7 +23,7 @@
             new TextCell(ExamResultText.Score(candidate.Score), Nowrap: true),
             new ActionsCell(
             [
-                new("Xem bài làm", "file-text", "", new { id = candidate.CandidateId }, Page: "/ExamResults/Candidate")
+                new("Xem bài làm", "file-text", "/ExamResults/Candidate", new { id = candidate.CandidateId })
             ])
         } as IReadOnlyList<TableCell>).ToList()
     };
@@ -32,7 +32,7 @@
 <div class="page-header">
     <div>
         <a class="back-link"  asp-page="/ExamSessions/Details" asp-route-id="@session.ExamId">
-            <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại phiên thi
+            <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại phiên thi
         </a>
         <span class="eyebrow">@session.CourseCode · @session.StartTime.ToString("dd/MM/yyyy")</span>
         <h1>Kết quả phiên thi</h1>
@@ -43,7 +43,7 @@
         <form method="post" asp-page="/ExamResults/Index" asp-page-handler="CloseOverdue" asp-route-id="@session.ExamId"
               data-confirm="Chốt @session.OverdueCount ca đã hết giờ? Sinh viên chưa vào thi được ghi Vắng, bài đang làm dở được đóng với những gì đã lưu.">
             <button class="btn btn-primary" type="submit">
-                <partial name="/Views/Shared/_Icon.cshtml" model="@("lock")" /> Chốt @session.OverdueCount ca đã hết giờ
+                <partial name="/Pages/Shared/_Icon.cshtml" model="@("lock")" /> Chốt @session.OverdueCount ca đã hết giờ
             </button>
         </form>
     }
@@ -72,13 +72,13 @@
     @if (session.Candidates.Count == 0)
     {
         <div class="empty-state">
-            <div class="empty-icon"><partial name="/Views/Shared/_Icon.cshtml" model="@("users")" /></div>
+            <div class="empty-icon"><partial name="/Pages/Shared/_Icon.cshtml" model="@("users")" /></div>
             <h2>Chưa có sinh viên nào</h2>
             <p>Phiên thi này chưa có sinh viên để hiển thị kết quả.</p>
         </div>
     }
     else
     {
-        <partial name="/Views/Shared/_DataTable.cshtml" model="table" />
+        <partial name="/Pages/Shared/_DataTable.cshtml" model="table" />
     }
 </div>

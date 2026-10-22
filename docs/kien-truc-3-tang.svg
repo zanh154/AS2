@@ -1,134 +1,107 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1130" viewBox="0 0 1600 1130" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="950" viewBox="0 0 1600 950" role="img" aria-labelledby="title">
 <title id="title">AIVES system architecture</title>
 <defs>
 <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3d5470"/></marker>
-<marker id="p" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#d9771f"/></marker>
 </defs>
 <style>
 text{font-family:"Segoe UI",Arial,sans-serif;fill:#1f2d3d;text-anchor:middle}
 .title{font-size:40px;font-weight:800;fill:#1c3550}
 .lt{font-size:22px;font-weight:700}
 .ls{font-size:15px;font-weight:600}
-.c{font-size:16px;font-weight:600}
-.s{font-size:12.5px;fill:#5b6b7c}
+.c{font-size:17px;font-weight:500}
 .card{fill:#ffffff;stroke-width:1.4}
 .dash{stroke-dasharray:6 4}
 .req{stroke:#3d5470;stroke-width:2;fill:none;marker-end:url(#a)}
 .res{stroke:#3d5470;stroke-width:2;fill:none;stroke-dasharray:6 5;marker-end:url(#a)}
-.push{stroke:#d9771f;stroke-width:2.4;fill:none;stroke-dasharray:2 5;stroke-linecap:round;marker-end:url(#p)}
-.pl{font-size:13px;font-weight:600;fill:#b8601a}
 </style>
-<rect width="1600" height="1130" fill="#f5f8fb"/>
+<rect width="1600" height="950" fill="#f5f8fb"/>
 <text x="800" y="62" class="title">AIVES | SYSTEM ARCHITECTURE</text>
 
 <!-- Client -->
-<rect x="40" y="170" width="220" height="200" rx="14" fill="#e8eefb" stroke="#9db4dc" stroke-width="1.5"/>
-<text x="150" y="222" class="c">Lecturer · Student · Admin</text>
+<rect x="40" y="150" width="220" height="190" rx="14" fill="#e8eefb" stroke="#9db4dc" stroke-width="1.5"/>
+<text x="150" y="232" class="c">Lecturer · Student · Admin</text>
 <text x="150" y="262" class="c">Web Browser</text>
-<text x="150" y="292" class="s">HTTP · HTML form · fetch</text>
-<text x="150" y="312" class="s">SignalR client (JS)</text>
-<text x="150" y="332" class="s">ghi âm voice room</text>
+<text x="150" y="292" class="c">SignalR Client</text>
 
 <!-- 1. Presentation -->
-<rect x="330" y="110" width="900" height="260" rx="18" fill="#e8eefb" stroke="#9db4dc" stroke-width="1.6"/>
+<rect x="330" y="110" width="900" height="230" rx="18" fill="#e8eefb" stroke="#9db4dc" stroke-width="1.6"/>
 <text x="780" y="146" class="lt">1. PRESENTATION LAYER</text>
 <text x="780" y="170" class="ls" style="fill:#5a77a8">AssignmentPRN.Presentation</text>
 <g stroke="#b7c8e6">
-<rect x="350" y="190" width="205" height="72" rx="8" class="card"/>
-<rect x="570" y="190" width="205" height="72" rx="8" class="card"/>
-<rect x="790" y="190" width="205" height="72" rx="8" class="card"/>
-<rect x="1010" y="190" width="205" height="72" rx="8" class="card"/>
-<rect x="350" y="278" width="315" height="72" rx="8" class="card dash"/>
-<rect x="680" y="278" width="315" height="72" rx="8" class="card dash"/>
-<rect x="1010" y="278" width="205" height="72" rx="8" class="card"/>
+<rect x="350" y="190" width="205" height="56" rx="8" class="card"/>
+<rect x="570" y="190" width="205" height="56" rx="8" class="card"/>
+<rect x="790" y="190" width="205" height="56" rx="8" class="card"/>
+<rect x="1010" y="190" width="205" height="56" rx="8" class="card"/>
+<rect x="350" y="262" width="315" height="56" rx="8" class="card dash"/>
+<rect x="680" y="262" width="315" height="56" rx="8" class="card dash"/>
+<rect x="1010" y="262" width="205" height="56" rx="8" class="card"/>
 </g>
-<text x="452" y="222" class="c">Razor Pages</text><text x="452" y="243" class="s">Documents · Rubrics · Exams</text>
-<text x="672" y="222" class="c">MVC Controllers</text><text x="672" y="243" class="s">+ Razor Views · ViewModels</text>
-<text x="892" y="222" class="c">Session / Roles</text><text x="892" y="243" class="s">SessionAuthorize · middleware</text>
-<text x="1112" y="222" class="c">ViewComponents</text><text x="1112" y="243" class="s">Notification · partials</text>
-<text x="507" y="310" class="c">Hub · SignalR endpoint</text><text x="507" y="331" class="s">ExamUpdates · VoiceRoom · DocumentProcessing</text>
-<text x="837" y="310" class="c">Realtime · SignalR adapter</text><text x="837" y="331" class="s">SignalR*Notifier (implements I*Notifier)</text>
-<text x="1112" y="310" class="c">Bootstrap · jQuery</text><text x="1112" y="331" class="s">SCSS · jquery-validation</text>
+<text x="452" y="224" class="c">Razor Pages (.cshtml)</text>
+<text x="672" y="224" class="c">PageModel · Handlers</text>
+<text x="892" y="224" class="c">Session / Roles</text>
+<text x="1112" y="224" class="c">Authorize Filters</text>
+<text x="507" y="296" class="c">Hub · SignalR endpoint</text>
+<text x="837" y="296" class="c">Realtime · SignalR adapter</text>
+<text x="1112" y="296" class="c">Bootstrap · jQuery</text>
 
 <!-- 2. Business -->
-<rect x="330" y="430" width="900" height="320" rx="18" fill="#e9f6ef" stroke="#9fd2b4" stroke-width="1.6"/>
-<text x="780" y="466" class="lt">2. BUSINESS LOGIC LAYER</text>
-<text x="780" y="490" class="ls" style="fill:#3f8a5f">AssignmentPRN.Business</text>
+<rect x="330" y="400" width="900" height="170" rx="18" fill="#e9f6ef" stroke="#9fd2b4" stroke-width="1.6"/>
+<text x="780" y="436" class="lt">2. BUSINESS LOGIC LAYER</text>
+<text x="780" y="460" class="ls" style="fill:#3f8a5f">AssignmentPRN.Business</text>
 <g stroke="#b6dfc6">
-<rect x="350" y="505" width="205" height="76" rx="8" class="card"/>
-<rect x="570" y="505" width="205" height="76" rx="8" class="card"/>
-<rect x="790" y="505" width="205" height="76" rx="8" class="card"/>
-<rect x="1010" y="505" width="205" height="76" rx="8" class="card"/>
-<rect x="350" y="595" width="205" height="76" rx="8" class="card"/>
-<rect x="570" y="595" width="205" height="76" rx="8" class="card"/>
-<rect x="790" y="595" width="205" height="76" rx="8" class="card"/>
-<rect x="1010" y="595" width="205" height="76" rx="8" class="card"/>
-<rect x="350" y="685" width="865" height="48" rx="8" class="card dash"/>
+<rect x="350" y="482" width="205" height="64" rx="8" class="card"/>
+<rect x="570" y="482" width="205" height="64" rx="8" class="card"/>
+<rect x="790" y="482" width="205" height="64" rx="8" class="card"/>
+<rect x="1010" y="482" width="205" height="64" rx="8" class="card"/>
 </g>
-<text x="452" y="538" class="c">Auth Service</text><text x="452" y="560" class="s">login · register · BCrypt</text>
-<text x="672" y="538" class="c">Catalog · Course · Class</text><text x="672" y="560" class="s">môn học · lớp · tài liệu môn</text>
-<text x="892" y="538" class="c">Exam Session Service</text><text x="892" y="560" class="s">ca thi · viva settings · Policies</text>
-<text x="1112" y="538" class="c">Voice Room · Notification</text><text x="1112" y="560" class="s">phòng thi giọng nói · thông báo</text>
-<text x="452" y="628" class="c">Question · Review</text><text x="452" y="650" class="s">ngân hàng câu hỏi · Bloom</text>
-<text x="672" y="628" class="c">Rubric · Result Review</text><text x="672" y="650" class="s">tiêu chí · điểm · phúc khảo</text>
-<text x="892" y="628" class="c">AI Grading · Follow-up</text><text x="892" y="650" class="s">chấm điểm · hỏi xoáy (Ollama)</text>
-<text x="1112" y="628" class="c">Document · RAG Service</text><text x="1112" y="650" class="s">PDF/DOCX → chunk → embedding</text>
-<text x="782" y="715" class="c">Background workers <tspan class="s" style="font-weight:400">— GradingQueue · DocumentProcessingQueue · OllamaWarmUp (IHostedService)</tspan></text>
+<text x="452" y="520" class="c">Auth Service</text>
+<text x="672" y="520" class="c">Exam Session Service</text>
+<text x="892" y="520" class="c">AI Grading Service</text>
+<text x="1112" y="520" class="c">Document · RAG Service</text>
 
 <!-- 3. Data access -->
-<rect x="330" y="810" width="900" height="170" rx="18" fill="#f1ebf8" stroke="#c7b4e0" stroke-width="1.6"/>
-<text x="780" y="846" class="lt">3. DATA ACCESS LAYER</text>
-<text x="780" y="870" class="ls" style="fill:#7a5aa8">AssignmentPRN.DataAccess</text>
+<rect x="330" y="630" width="900" height="170" rx="18" fill="#f1ebf8" stroke="#c7b4e0" stroke-width="1.6"/>
+<text x="780" y="666" class="lt">3. DATA ACCESS LAYER</text>
+<text x="780" y="690" class="ls" style="fill:#7a5aa8">AssignmentPRN.DataAccess</text>
 <g stroke="#d4c6e9">
-<rect x="350" y="888" width="205" height="72" rx="8" class="card"/>
-<rect x="570" y="888" width="205" height="72" rx="8" class="card"/>
-<rect x="790" y="888" width="205" height="72" rx="8" class="card"/>
-<rect x="1010" y="888" width="205" height="72" rx="8" class="card"/>
+<rect x="350" y="712" width="205" height="64" rx="8" class="card"/>
+<rect x="570" y="712" width="205" height="64" rx="8" class="card"/>
+<rect x="790" y="712" width="205" height="64" rx="8" class="card"/>
+<rect x="1010" y="712" width="205" height="64" rx="8" class="card"/>
 </g>
-<text x="452" y="920" class="c">Repositories</text><text x="452" y="941" class="s">Exam, Question, Grading, …</text>
-<text x="672" y="920" class="c">AivesDbContext</text><text x="672" y="941" class="s">EF Core · Pomelo MySQL</text>
-<text x="892" y="920" class="c">Entities · Contracts</text><text x="892" y="941" class="s">entity · read model · enum</text>
-<text x="1112" y="920" class="c">File Store</text><text x="1112" y="941" class="s">tài liệu môn · file ghi âm</text>
+<text x="452" y="750" class="c">Repositories</text>
+<text x="672" y="750" class="c">AivesDbContext</text>
+<text x="892" y="750" class="c">EF Core · Pomelo</text>
+<text x="1112" y="750" class="c">File Store</text>
 
 <!-- Storage -->
-<rect x="440" y="1040" width="320" height="58" rx="10" fill="#e6f0f7" stroke="#9fbcd4" stroke-width="1.5"/>
-<text x="600" y="1076" class="c" style="font-weight:700">DATABASE · MySQL 8.4</text>
-<rect x="860" y="1040" width="320" height="58" rx="10" fill="#e6f0f7" stroke="#9fbcd4" stroke-width="1.5"/>
-<text x="1020" y="1076" class="c" style="font-weight:700">LOCAL DISK · ngoài wwwroot</text>
+<rect x="440" y="860" width="320" height="58" rx="10" fill="#e6f0f7" stroke="#9fbcd4" stroke-width="1.5"/>
+<text x="600" y="896" class="c" style="font-weight:700">DATABASE · MySQL 8.4</text>
+<rect x="860" y="860" width="320" height="58" rx="10" fill="#e6f0f7" stroke="#9fbcd4" stroke-width="1.5"/>
+<text x="1020" y="896" class="c" style="font-weight:700">LOCAL DISK STORAGE</text>
 
 <!-- Third-party -->
-<rect x="1300" y="430" width="260" height="320" rx="18" fill="#fcf3e6" stroke="#e8c48f" stroke-width="1.6"/>
-<text x="1430" y="468" class="lt" style="font-size:20px">THIRD-PARTY</text>
-<g stroke="#ecd1a6">
-<rect x="1322" y="500" width="216" height="100" rx="8" class="card"/>
-<rect x="1322" y="620" width="216" height="100" rx="8" class="card"/>
-</g>
-<text x="1430" y="534" class="c">Ollama local · LLM</text><text x="1430" y="556" class="s">POST /api/generate</text><text x="1430" y="576" class="s">chấm · hỏi xoáy · sinh câu hỏi</text>
-<text x="1430" y="654" class="c">Ollama local · Embed</text><text x="1430" y="676" class="s">POST /api/embeddings</text><text x="1430" y="696" class="s">vector cho RAG</text>
+<rect x="1300" y="400" width="260" height="170" rx="18" fill="#fcf3e6" stroke="#e8c48f" stroke-width="1.6"/>
+<text x="1430" y="438" class="lt" style="font-size:20px">THIRD-PARTY</text>
+<rect x="1322" y="462" width="216" height="80" rx="8" class="card" stroke="#ecd1a6"/>
+<text x="1430" y="509" class="c" style="font-size:20px">Ollama Local</text>
 
-<!-- Request / response arrows -->
-<path d="M260 225H328" class="req"/>
-<path d="M330 258H262" class="res"/>
-<path d="M500 370V428" class="req"/>
-<path d="M560 430V372" class="res"/>
-<path d="M500 750V808" class="req"/>
-<path d="M560 810V752" class="res"/>
-<path d="M570 980V1038" class="req"/>
-<path d="M630 1040V982" class="res"/>
-<path d="M990 980V1038" class="req"/>
-<path d="M1050 1040V982" class="res"/>
-<path d="M1230 560H1298" class="req"/>
-<path d="M1300 640H1232" class="res"/>
-
-<!-- Realtime push -->
-<path d="M840 430V352" class="push"/>
-<text x="852" y="400" class="pl" style="text-anchor:start">push (I*Notifier)</text>
-<path d="M350 330H262" class="push"/>
-<text x="296" y="352" class="pl">push</text>
+<!-- Arrows -->
+<path d="M260 215H328" class="req"/>
+<path d="M330 275H262" class="res"/>
+<path d="M500 340V398" class="req"/>
+<path d="M560 400V342" class="res"/>
+<path d="M500 570V628" class="req"/>
+<path d="M560 630V572" class="res"/>
+<path d="M570 800V858" class="req"/>
+<path d="M630 860V802" class="res"/>
+<path d="M990 800V858" class="req"/>
+<path d="M1050 860V802" class="res"/>
+<path d="M1230 470H1298" class="req"/>
+<path d="M1300 530H1232" class="res"/>
 
 <!-- Legend -->
-<rect x="40" y="980" width="250" height="118" rx="10" fill="#ffffff" stroke="#3d5470" stroke-width="1.2"/>
-<path d="M60 1012H128" class="req"/><text x="142" y="1017" class="c" style="text-anchor:start;font-weight:400">Request</text>
-<path d="M128 1044H60" class="res"/><text x="142" y="1049" class="c" style="text-anchor:start;font-weight:400">Response</text>
-<path d="M60 1076H128" class="push"/><text x="142" y="1081" class="c" style="text-anchor:start;font-weight:400">Realtime push</text>
+<rect x="40" y="836" width="230" height="86" rx="10" fill="#ffffff" stroke="#3d5470" stroke-width="1.2"/>
+<path d="M60 865H128" class="req"/><text x="142" y="871" class="c" style="text-anchor:start">Request</text>
+<path d="M128 897H60" class="res"/><text x="142" y="903" class="c" style="text-anchor:start">Response</text>
 </svg>

@@ -1,6 +1,19 @@
 @page "{id:int?}"
 @model AssignmentPRN.Presentation.Pages.ExamSessions.EditModel
-@{ ViewData["Title"] = "ExamSessions · Edit"; }
+@{
+    // Đặt ở trang, không ở partial: <partial> nhận một bản sao ViewData, nên tiêu đề và
+    // breadcrumb mà partial ghi vào không bao giờ tới được layout.
+    ViewData["Title"] = "Sửa phiên thi";
+    if (Model.Data is ExamSessionEditViewModel form)
+    {
+        ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+        {
+            new("Lịch thi", "/ExamSessions/Index"),
+            new(form.ExamName, "/ExamSessions/Details", new { id = form.ExamId }),
+            new("Sửa")
+        };
+    }
+}
 <div data-live-page="ExamSessions" data-exam-id="@(RouteData.Values["id"] ?? Request.Query["id"].ToString())" data-snapshot-url="@Url.Page("/ExamSessions/Index", "Snapshot")">
 <partial name="/Pages/Shared/ExamSessionsEdit.cshtml" model="Model.Data" />
 </div>

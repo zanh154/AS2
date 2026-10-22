@@ -8,8 +8,8 @@
 <div class="exam-result-page">
     <div class="page-header exam-result-header">
         <div>
-            <a class="back-link" asp-controller="StudentSchedule" asp-action="Mine">
-                <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi
+            <a class="back-link" asp-page="/StudentSchedule/Mine">
+                <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi
             </a>
             <h1>Kết quả bài thi</h1>
             @* Chỉ nói "giảng viên đã chốt" khi đúng là vậy. Trước khi giảng viên xem bài,
@@ -53,7 +53,7 @@
         @if (review.Answers.Count == 0)
         {
             <div class="empty-state">
-                <div class="empty-icon"><partial name="/Views/Shared/_Icon.cshtml" model="@("question")" /></div>
+                <div class="empty-icon"><partial name="/Pages/Shared/_Icon.cshtml" model="@("question")" /></div>
                 <h2>Chưa có nội dung</h2>
                 <p>Bài thi này chưa ghi nhận câu trả lời nào.</p>
             </div>

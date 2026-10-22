@@ -2,8 +2,7 @@ flowchart TB
     Browser["WEB CLIENT<br/>Admin · Lecturer · Student<br/>Audio recording · Browser STT / TTS"]
     subgraph P["1 · PRESENTATION — AssignmentPRN.Presentation"]
       direction LR
-      Pages["Razor Pages<br/>Accounts · Courses · Sessions<br/>Documents · Rubrics · Results · VoiceRoom"]
-      MVC["MVC Modules<br/>Dashboards · Classes · Candidates<br/>Question bank · Student schedule"]
+      Pages["Razor Pages · PageModels<br/>Dashboards · Courses · Classes · Sessions · Question bank<br/>Documents · Rubrics · ExamRoom · VoiceRoom · Results"]
       Hubs["SignalR Hubs & Notifiers<br/>ExamUpdates · VoiceRoom · DocumentProcessing<br/>Authorized groups"]
     end
     subgraph B["2 · BUSINESS — AssignmentPRN.Business"]
@@ -24,9 +23,7 @@ flowchart TB
     Files[("Private File Storage<br/>Materials · Audio · RAG sources<br/>Outside wwwroot")]
     AI["Ollama · HTTP JSON · :11434<br/>nomic-embed-text: Embeddings<br/>qwen2.5:3b: RAG questions<br/>qwen2.5:7b-instruct: Follow-up / Grading"]
     Browser <-->|"HTTP(S) · Session"| Pages
-    Browser <-->|"HTTP(S)"| MVC
     Pages --> Services
-    MVC --> Services
     Hubs --> Services
     Services --> Rules
     Services --> Rag
@@ -48,7 +45,7 @@ flowchart TB
     classDef business fill:#f0fdf4,stroke:#16a34a,color:#14532d
     classDef data fill:#faf5ff,stroke:#9333ea,color:#581c87
     classDef resource fill:#fff7ed,stroke:#f59e0b,color:#7c2d12
-    class Pages,MVC,Hubs web
+    class Pages,Hubs web
     class Services,Rules,Rag,Jobs,Ports business
     class Repo,EF,Store data
     class DB,Files,AI resource

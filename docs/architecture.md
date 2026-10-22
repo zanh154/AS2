@@ -1,6 +1,6 @@
 # Kiến trúc hệ thống AIVES — ASM2
 
-Sơ đồ mô tả mã nguồn hiện tại: ứng dụng ASP.NET Core .NET 10 tổ chức thành ba project Presentation → Business → DataAccess. Giao diện kết hợp Razor Pages và MVC; việc chuyển sang Razor Pages chưa bao phủ toàn bộ màn hình.
+Sơ đồ mô tả mã nguồn hiện tại: ứng dụng ASP.NET Core .NET 10 tổ chức thành ba project Presentation → Business → DataAccess. Toàn bộ giao diện dùng Razor Pages; dự án không còn MVC controller.
 
 ![ASM2 system architecture](kien-truc-tong-quan.png)
 
@@ -10,7 +10,7 @@ Tải [SVG](kien-truc-tong-quan.svg) hoặc [PNG](kien-truc-tong-quan.png) để
 
 | Tầng / project | Thành phần chính | Trách nhiệm |
 |---|---|---|
-| Presentation / AssignmentPRN.Presentation | Pages, PageModels, Controllers, Views, ViewModels, Hubs, SignalR notifiers, JavaScript | Nhận request, binding / validation đầu vào, xác thực session, kiểm tra quyền truy cập, hiển thị kết quả và gửi cập nhật thời gian thực. |
+| Presentation / AssignmentPRN.Presentation | Pages, PageModels, ViewModels, Hubs, SignalR notifiers, JavaScript | Nhận request, binding / validation đầu vào, xác thực session, kiểm tra quyền truy cập, hiển thị kết quả và gửi cập nhật thời gian thực. |
 | Business / AssignmentPRN.Business | Service interfaces, services, DTO, policies, AI adapters, background services | Điều phối nghiệp vụ; môn học, lớp, phiên thi, phát đề, thời gian mỗi câu, số câu chính, lượt hỏi xoáy, phòng thi, RAG, rubric, chấm và duyệt điểm. |
 | DataAccess / AssignmentPRN.DataAccess | Repositories, Entities, Contracts, AivesDbContext, file stores | Truy vấn / ghi dữ liệu bằng EF Core và Pomelo MySQL; transaction, lưu tệp tài liệu môn học và audio. |
 
@@ -20,18 +20,24 @@ Ba tầng là cách tổ chức mã nguồn. Hiện chúng chạy trong cùng m�
 
 ## Giao diện hiện tại
 
-| Cách triển khai | Chức năng |
-|---|---|
-| Razor Pages / PageModel | Tài khoản; môn học; phiên thi; tài liệu và duyệt câu hỏi RAG; rubric; kết quả giảng viên / sinh viên; phòng thi VoiceRoom. |
-| MVC Controller / Razor View | Dashboard Admin / Lecturer / Student; lớp; sinh viên trong phiên thi; tài liệu môn học; ngân hàng câu hỏi; lịch thi sinh viên; luồng ExamRoom cũ. |
+Mọi màn hình là một Razor Page (`.cshtml` có `@page`) đi cùng PageModel (`.cshtml.cs`). GET nạp dữ liệu qua `OnGet…`; mỗi thao tác POST là một handler `OnPost<Tên>…`, gọi bằng `asp-page-handler`.
 
-Một tệp .cshtml có thể là Razor View hoặc Razor Page. Razor Pages đi cùng PageModel / handlers; MVC View được controller trả về. Không nên giới thiệu dự án là đã chuyển hoàn toàn sang Razor Pages.
+| Thư mục Pages | Chức năng |
+|---|---|
+| Account, Index | Đăng nhập / đăng ký / đăng xuất; trang gốc chuyển về dashboard theo vai trò. |
+| Admin, Lecturer, Student | Dashboard theo vai trò. |
+| Courses, Classes, CourseMaterials | Môn học, lớp và danh sách sinh viên, tài liệu môn học. |
+| Questions, Documents, Rubrics | Ngân hàng câu hỏi và nhập CSV, tài liệu RAG và duyệt câu hỏi AI, rubric. |
+| ExamSessions, ExamStudents, StudentSchedule | Phiên thi, sinh viên trong phiên thi, lịch thi sinh viên. |
+| ExamRoom, VoiceRoom, ExamResults, MyResults | Phòng thi trắc nghiệm, phòng thi giọng nói, kết quả giảng viên / sinh viên. |
+
+Phần markup dùng lại giữa các trang nằm trong Pages/Shared; mỗi nhóm trang dùng chung một PageModel nền (ví dụ ClassesPage) chứa logic của nhóm đó.
 
 ## Luồng request và cập nhật thời gian thực
 
 1. Trình duyệt gửi HTTP request kèm session cookie.
-2. Middleware kiểm tra tài khoản còn hoạt động và vai trò còn khớp session; PageModel / Controller / service kiểm tra quyền theo tài nguyên.
-3. PageModel hoặc Controller gọi service interface, truyền request DTO.
+2. Middleware kiểm tra tài khoản còn hoạt động và vai trò còn khớp session; PageModel / service kiểm tra quyền theo tài nguyên.
+3. PageModel gọi service interface, truyền request DTO.
 4. Business kiểm tra quy tắc và gọi repository hoặc dịch vụ lưu tệp. Repository dùng AivesDbContext để thao tác MySQL qua TLS.
 5. Sau thay đổi, Business gọi notifier interface; triển khai tại Presentation dùng IHubContext để gửi thông báo đến nhóm được phép.
 6. JavaScript nhận sự kiện SignalR và cập nhật màn hình. Trang vẫn lấy dữ liệu qua các điểm vào có kiểm tra quyền.
@@ -75,9 +81,8 @@ Kiểm tra database lúc khởi động chỉ xác nhận kết nối / dữ li�
 
 ## Đọc code khi thuyết trình
 
-- [Program.cs](../src/AssignmentPRN.Presentation/Program.cs): đăng ký Razor Pages, MVC, session, middleware và ba hub.
+- [Program.cs](../src/AssignmentPRN.Presentation/Program.cs): đăng ký Razor Pages, session, middleware và ba hub.
 - [Business registration](../src/AssignmentPRN.Business/ServiceCollectionExtensions.cs): ghép services, policies, AI adapters và background services.
 - [Pages](../src/AssignmentPRN.Presentation/Pages): giao diện Razor Pages / PageModels.
-- [Controllers](../src/AssignmentPRN.Presentation/Controllers): các phần MVC đang giữ lại.
 - [Business services](../src/AssignmentPRN.Business/Services): nghiệp vụ và xử lý AI / RAG.
 - [Repositories](../src/AssignmentPRN.DataAccess/Repositories): truy vấn, cập nhật và transaction dữ liệu.

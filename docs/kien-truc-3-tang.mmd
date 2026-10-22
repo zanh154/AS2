@@ -1,0 +1,65 @@
+%% AIVES - kiến trúc 3 tầng. Dán vào draw.io: Arrange > Insert > Advanced > Mermaid.
+flowchart TB
+    Browser["Web Browser<br/>Lecturer · Student · Admin<br/>SignalR Client"]
+
+    subgraph P["1. PRESENTATION LAYER — AssignmentPRN.Presentation"]
+        direction LR
+        Pages["Razor Pages (.cshtml)"]
+        PageModels["PageModel · Handlers"]
+        Session["Session / Roles"]
+        Filters["Authorize Filters"]
+        Hub["Hub · SignalR endpoint"]
+        Realtime["Realtime · SignalR adapter"]
+        UI["Bootstrap · jQuery"]
+    end
+
+    subgraph B["2. BUSINESS LOGIC LAYER — AssignmentPRN.Business"]
+        direction LR
+        Auth["Auth Service"]
+        Exam["Exam Session Service"]
+        Grading["AI Grading Service"]
+        Rag["Document · RAG Service"]
+    end
+
+    subgraph D["3. DATA ACCESS LAYER — AssignmentPRN.DataAccess"]
+        direction LR
+        Repo["Repositories"]
+        Ctx["AivesDbContext"]
+        EF["EF Core · Pomelo"]
+        Files["File Store"]
+    end
+
+    subgraph T["THIRD-PARTY"]
+        Ollama["Ollama Local"]
+    end
+
+    DB[("DATABASE · MySQL 8.4")]
+    Disk[("LOCAL DISK STORAGE")]
+
+    Browser -->|Request| P
+    P -.->|Response| Browser
+    P -->|Request| B
+    B -.->|Response| P
+    B -->|Request| T
+    T -.->|Response| B
+    B -->|Request| D
+    D -.->|Response| B
+    D -->|Request| DB
+    DB -.->|Response| D
+    D -->|Request| Disk
+    Disk -.->|Response| D
+
+    classDef pres fill:#e8eefb,stroke:#9db4dc,color:#1f2d3d
+    classDef bus fill:#e9f6ef,stroke:#9fd2b4,color:#1f2d3d
+    classDef dal fill:#f1ebf8,stroke:#c7b4e0,color:#1f2d3d
+    classDef ext fill:#fcf3e6,stroke:#e8c48f,color:#1f2d3d
+    classDef store fill:#e6f0f7,stroke:#9fbcd4,color:#1f2d3d
+    class Browser,Pages,PageModels,Session,Filters,Hub,Realtime,UI pres
+    class Auth,Exam,Grading,Rag bus
+    class Repo,Ctx,EF,Files dal
+    class Ollama ext
+    class DB,Disk store
+    style P fill:#e8eefb,stroke:#9db4dc
+    style B fill:#e9f6ef,stroke:#9fd2b4
+    style D fill:#f1ebf8,stroke:#c7b4e0
+    style T fill:#fcf3e6,stroke:#e8c48f

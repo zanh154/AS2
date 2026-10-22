@@ -26,7 +26,7 @@ public sealed class IndexModel(IResultReviewService reviewService) : PageModel
         if (!result.Success || result.Data is null)
         {
             TempData["Error"] = result.Error;
-            return RedirectToAction("Mine", "StudentSchedule");
+            return RedirectToPage("/StudentSchedule/Mine");
         }
 
         Review = result.Data;

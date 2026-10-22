@@ -1,0 +1,7 @@
+@page
+@model AssignmentPRN.Presentation.Pages.StudentSchedule.MineModel
+@{
+    ViewData["Title"] = "Lịch thi của tôi";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Lịch thi của tôi") };
+}
+<partial name="/Pages/Shared/StudentScheduleMine.cshtml" model="Model.Schedule" />

@@ -1,12 +1,5 @@
 @model ExamQuestionAssignViewModel
 @{
-    ViewData["Title"] = $"Phát đề · {Model.ExamName}";
-    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
-    {
-        new("Lịch thi", "ExamSessions", "Index"),
-        new(Model.ExamName, "ExamSessions", "Details", new { id = Model.ExamId }),
-        new("Phát đề")
-    };
     var selectedMaterials = Model.MaterialIds.Select(id => id.ToString()).ToHashSet();
     var selectedDifficulties = Model.Difficulties.Select(value => value.ToString()).ToHashSet();
 }
@@ -14,7 +7,7 @@
 <div class="page-header">
     <div>
         <a class="back-link" asp-page="/ExamSessions/Details" asp-route-id="@Model.ExamId">
-            <partial name="/Views/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại phiên thi
+            <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại phiên thi
         </a>
         <span class="eyebrow">@Model.CourseCode · Ngân hàng câu hỏi</span>
         <h1>Phát đề cho @Model.ExamName</h1>
@@ -25,7 +18,7 @@
         </p>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" asp-controller="Questions" asp-action="Index" asp-route-courseId="@Model.CourseId">
+        <a class="btn btn-outline-secondary" asp-page="/Questions/Index" asp-route-courseId="@Model.CourseId">
             Ngân hàng câu hỏi
         </a>
     </div>
@@ -63,7 +56,7 @@ else if (!Model.IsEnough)
     <div class="alert alert-danger app-alert" role="alert">
         Ngân hàng chỉ còn @Model.AvailableCount câu khớp bộ lọc, cần @Model.RequiredCount câu.
         Hãy bớt chủ đề/độ khó, giảm số câu mỗi sinh viên, hoặc
-        <a asp-controller="Questions" asp-action="Index" asp-route-courseId="@Model.CourseId">bổ sung câu hỏi</a>.
+        <a asp-page="/Questions/Index" asp-route-courseId="@Model.CourseId">bổ sung câu hỏi</a>.
     </div>
 }
 
@@ -95,7 +88,7 @@ else if (!Model.IsEnough)
             {
                 <p class="text-muted">
                     Môn này chưa có tài liệu nào.
-                    <a asp-controller="CourseMaterials" asp-action="Upload" asp-route-courseId="@Model.CourseId">Tải tài liệu lên</a>
+                    <a asp-page="/CourseMaterials/Upload" asp-route-courseId="@Model.CourseId">Tải tài liệu lên</a>
                 </p>
             }
             else

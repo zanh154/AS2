@@ -1,0 +1,13 @@
+@page "{id:int}"
+@model AssignmentPRN.Presentation.Pages.Classes.RosterModel
+@{
+    var roster = (ClassRosterViewModel)Model.Data;
+    ViewData["Title"] = $"Sinh viên lớp {roster.Class.ClassCode}";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lớp học", "/Classes/Index"),
+        new(roster.Class.ClassCode, "/Classes/Edit", new { id = roster.Class.ClassId }),
+        new("Sinh viên")
+    };
+}
+<partial name="/Pages/Shared/ClassesRoster.cshtml" model="Model.Data" />

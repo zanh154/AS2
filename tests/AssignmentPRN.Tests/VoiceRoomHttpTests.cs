@@ -40,7 +40,7 @@ public sealed class VoiceRoomHttpTests
             EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
-        builder.Services.AddControllersWithViews(); builder.Services.AddRazorPages();
+        builder.Services.AddRazorPages();
         builder.Services.AddSignalR(); builder.Services.AddDistributedMemoryCache(); builder.Services.AddSession();
         builder.Services.AddBusiness("Server=unused;Database=unused;User=unused;Password=unused",
             Path.Combine(Path.GetTempPath(), "aives-voice-http-" + Guid.NewGuid().ToString("N")));
@@ -58,7 +58,7 @@ public sealed class VoiceRoomHttpTests
         builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
         await using var app = builder.Build();
         app.UseStaticFiles();
-        app.UseRouting(); app.UseSession(); app.MapRazorPages(); app.MapDefaultControllerRoute();
+        app.UseRouting(); app.UseSession(); app.MapRazorPages();
         app.MapHub<VoiceRoomHub>("/hubs/voice-room");
         await app.StartAsync();
         try

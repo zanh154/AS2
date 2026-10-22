@@ -1,6 +1,10 @@
 @page
 @model AssignmentPRN.Presentation.Pages.Courses.IndexModel
-@{ ViewData["Title"] = "Courses · Index"; }
+@{
+    // Đặt ở trang, không ở partial: <partial> nhận một bản sao ViewData, nên tiêu đề và
+    // breadcrumb mà partial ghi vào không bao giờ tới được layout.
+    ViewData["Title"] = "Môn học";
+}
 <div data-live-page="Courses" data-snapshot-url="@Url.Page("/Courses/Index", "Snapshot")">
 <partial name="/Pages/Shared/CoursesIndex.cshtml" model="Model.Data" />
 </div>

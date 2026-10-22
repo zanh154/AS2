@@ -1,0 +1,7 @@
+@page
+@model AssignmentPRN.Presentation.Pages.StudentSchedule.IndexModel
+@{
+    ViewData["Title"] = "Tra cứu lịch sinh viên";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Tra cứu sinh viên") };
+}
+<partial name="/Pages/Shared/StudentScheduleIndex.cshtml" model="Model.Schedule" />

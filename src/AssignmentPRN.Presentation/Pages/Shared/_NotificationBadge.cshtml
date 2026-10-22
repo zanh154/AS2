@@ -1,0 +1,10 @@
+@* Unread-notification count in the header. A plain partial with an injected service,
+   so the app needs no MVC view component for it. *@
+@inject INotificationService Notifications
+@{
+    var count = await Notifications.CountUnreadAsync(Context.Session.GetInt32(SessionKeys.UserId) ?? 0);
+}
+@if (count > 0)
+{
+    <span class="badge bg-danger ms-2">@(count >= 99 ? "99+" : count.ToString())</span>
+}

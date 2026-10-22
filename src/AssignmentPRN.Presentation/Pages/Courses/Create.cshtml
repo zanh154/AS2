@@ -1,6 +1,18 @@
 @page
 @model AssignmentPRN.Presentation.Pages.Courses.CreateModel
-@{ ViewData["Title"] = "Courses · Create"; }
+@{
+    // Đặt ở trang, không ở partial: <partial> nhận một bản sao ViewData, nên tiêu đề và
+    // breadcrumb mà partial ghi vào không bao giờ tới được layout.
+    if (Model.Data is CourseViewModel form)
+    {
+        ViewData["Title"] = form.CourseId == 0 ? "Thêm môn học" : "Sửa môn học";
+        ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+        {
+            new("Môn học", "/Courses/Index"),
+            new((string)ViewData["Title"]!)
+        };
+    }
+}
 <div data-live-page="Courses" data-exam-id="@(RouteData.Values["id"] ?? Request.Query["id"].ToString())" data-snapshot-url="@Url.Page("/Courses/Index", "Snapshot")">
 <partial name="/Pages/Shared/CoursesCreate.cshtml" model="Model.Data" />
 </div>
