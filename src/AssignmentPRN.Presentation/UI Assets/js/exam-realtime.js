@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   connection.onreconnected(async () => {
     await join().catch(() => {});
-    await refresh().catch(() => {});
+    if (root) await updatePage("Kết nối realtime đã được khôi phục.");
   });
 
   const start = async () => {

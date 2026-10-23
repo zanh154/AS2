@@ -49,9 +49,7 @@
                             <span class="nav-user__meta d-none d-sm-flex">
                                 <span class="nav-user__name">@fullName</span>
                                 <span class="nav-user__role">@roleLabel</span>
-                                <span class="badge bg-danger ms-2 notif-badge" role="status">
-                                    <partial name="_NotificationBadge" />
-                                </span>
+                                <partial name="_NotificationBadge" />
                             </span>
                             <form method="post" asp-page="/Account/Logout">
                                 <button class="nav-logout" type="submit">

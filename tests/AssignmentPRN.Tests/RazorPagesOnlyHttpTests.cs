@@ -141,7 +141,9 @@ public class RazorPagesOnlyHttpTests
             {
                 Assert.Equal("/Student", await RedirectOf(student, "/"));
                 Assert.Equal(HttpStatusCode.OK, (await student.GetAsync("/Student")).StatusCode);
-                Assert.Contains("Own exam", await student.GetStringAsync("/StudentSchedule/Mine"));
+                var ownSchedule = await student.GetStringAsync("/StudentSchedule/Mine");
+                Assert.Contains("Own exam", ownSchedule);
+                Assert.Contains("data-live-page=\"StudentSchedule\"", ownSchedule);
                 Assert.Equal("/StudentSchedule/Mine", await RedirectOf(student, "/ExamRoom/Enter/1"));
                 Assert.StartsWith("/Account/AccessDenied", await RedirectOf(student, "/Classes"));
                 Assert.StartsWith("/Account/AccessDenied", await RedirectOf(student, "/Questions/Template"));
