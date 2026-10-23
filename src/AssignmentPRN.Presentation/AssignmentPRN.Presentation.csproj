@@ -3,6 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Keep the Web SDK/static-assets manifest aligned with Program.cs. -->
+    <WebRoot>UI Assets</WebRoot>
     <!-- Presentation talks to Business only; DataAccess must not be reachable from here. -->
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
