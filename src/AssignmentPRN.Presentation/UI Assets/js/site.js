@@ -45,8 +45,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Shared helpers ───────────────────────────────────────────────────────
   const pad = (value) => String(value).padStart(2, "0");
 
-  document.getElementById("realtime-notice-refresh")?.addEventListener("click", () => window.location.reload());
-
   // ── Date-time picker ─────────────────────────────────────────────────────
   // Initialise a single date-time picker root element.
   // Self-contained: each picker reads/writes its own [data-date-time-value] input.

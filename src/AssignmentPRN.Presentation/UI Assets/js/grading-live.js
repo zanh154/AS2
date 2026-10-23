@@ -31,14 +31,14 @@
       if (event.kind !== DONE) return { kind: "ignore" };
       // Tự tải lại sẽ xoá điểm và nhận xét giảng viên đang gõ dở. Hỏi trước.
       return dirty
-        ? { kind: "notice", text: "AI vừa chấm xong bài này. Lưu phần đang nhập rồi bấm Cập nhật để xem." }
+        ? { kind: "notice", text: "AI vừa chấm xong bài này. Hãy lưu phần đang nhập để xem kết quả mới." }
         : { kind: "reload" };
     }
 
     // Bảng điểm: một bài trong phiên chấm xong thì cả bảng đổi.
     if (event.kind !== DONE) return { kind: "ignore" };
     return dirty
-      ? { kind: "notice", text: "AI vừa chấm xong một bài. Bấm Cập nhật để xem điểm mới." }
+      ? { kind: "notice", text: "AI vừa chấm xong một bài. Hãy lưu phần đang nhập để xem điểm mới." }
       : { kind: "reload" };
   };
 
