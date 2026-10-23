@@ -1,6 +1,7 @@
 using AssignmentPRN.Business.Interfaces;
 using Microsoft.AspNetCore.SignalR;
-namespace AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Hubs;
+namespace AssignmentPRN.Presentation.Realtime;
 public sealed class SignalRDocumentNotifier(IHubContext<DocumentProcessingHub> hub, ILogger<SignalRDocumentNotifier> logger) : IDocumentProgressNotifier
 {
     public async Task ChangedAsync(DocumentProgress progress, CancellationToken ct = default) {

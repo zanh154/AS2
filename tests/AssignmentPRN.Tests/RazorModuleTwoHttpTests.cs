@@ -7,9 +7,14 @@ using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
+using Da = AssignmentPRN.DataAccess.Entities;
+using DocumentStatus = AssignmentPRN.Business.Interfaces.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.Business.Interfaces.DocumentBloomLevel;
 using ExamSessionStatus = AssignmentPRN.DataAccess.Enums.ExamSessionStatus;
 using CandidateStatus = AssignmentPRN.DataAccess.Enums.CandidateStatus;
 using AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Realtime;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -64,8 +69,8 @@ public class RazorModuleTwoHttpTests
                 db.ExamCandidates.Add(new ExamCandidate { CandidateId = 1, ExamId = 1, StudentId = 3, Status = CandidateStatus.Waiting, ScheduledTime = DateTime.Now.AddHours(1) });
                 db.Questions.Add(new Question { QuestionId = 1, CourseId = 1, CreatedBy = 1, QuestionText = "Test question", Status = AssignmentPRN.DataAccess.Enums.QuestionStatus.Approved,
                     QuestionType = AssignmentPRN.DataAccess.Enums.QuestionType.Main, Options = [new QuestionOption { OptionText = "Yes", IsCorrect = true }, new QuestionOption { OptionText = "No", IsCorrect = false }] });
-                db.Documents.AddRange(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "own.docx", StoragePath = "own.docx", ContentType = "application/docx", Status = DocumentStatus.Completed }, new Document { DocumentId = 2, CourseId = 2, UploadedById = 2, FileName = "other.docx", StoragePath = "other.docx", ContentType = "application/docx", Status = DocumentStatus.Completed });
-                db.GeneratedQuestions.Add(new GeneratedQuestion { QuestionId = 1, DocumentId = 1, CourseId = 1, QuestionText = "Original generated question", AnswerKey = "Original answer", BloomLevel = DocumentBloomLevel.Understand });
+                db.Documents.AddRange(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "own.docx", StoragePath = "own.docx", ContentType = "application/docx", Status = Da.DocumentStatus.Completed }, new Document { DocumentId = 2, CourseId = 2, UploadedById = 2, FileName = "other.docx", StoragePath = "other.docx", ContentType = "application/docx", Status = Da.DocumentStatus.Completed });
+                db.GeneratedQuestions.Add(new GeneratedQuestion { QuestionId = 1, DocumentId = 1, CourseId = 1, QuestionText = "Original generated question", AnswerKey = "Original answer", BloomLevel = Da.DocumentBloomLevel.Understand });
                 await db.SaveChangesAsync();
             }
             await app.StartAsync();
@@ -104,7 +109,7 @@ public class RazorModuleTwoHttpTests
             Assert.Equal(HttpStatusCode.OK, blankReview.StatusCode);
             using (var scope = app.Services.CreateScope()) {
                 var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
-                Assert.Equal(GeneratedQuestionStatus.PendingReview, (await db.GeneratedQuestions.SingleAsync()).Status);
+                Assert.Equal(Da.GeneratedQuestionStatus.PendingReview, (await db.GeneratedQuestions.SingleAsync()).Status);
             }
             var approval = await Post(client, "/Documents/Questions/Review/1", reviewPage, new() { ["questionId"] = "1", ["documentId"] = "2", ["questionText"] = "Edited question", ["answerKey"] = "", ["bloomLevel"] = "2", ["decision"] = "1" });
             Assert.Equal(HttpStatusCode.Redirect, approval.StatusCode);

@@ -7,6 +7,10 @@ using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
+using Da = AssignmentPRN.DataAccess.Entities;
+using DocumentStatus = AssignmentPRN.Business.Interfaces.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.Business.Interfaces.DocumentBloomLevel;
 using AssignmentPRN.DataAccess.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -206,8 +210,8 @@ public partial class DocumentOperationalTests
     {
         await using var db = await OpenAsync(); var folder = TestFolder();
         try {
-            (await db.Documents.SingleAsync()).Status = DocumentStatus.Pending;
-            db.Documents.Add(new Document { DocumentId = 2, CourseId = 1, UploadedById = 1, FileName = "next.docx", StoragePath = "next.docx", ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", Status = DocumentStatus.Pending });
+            (await db.Documents.SingleAsync()).Status = Da.DocumentStatus.Pending;
+            db.Documents.Add(new Document { DocumentId = 2, CourseId = 1, UploadedById = 1, FileName = "next.docx", StoragePath = "next.docx", ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", Status = Da.DocumentStatus.Pending });
             await db.SaveChangesAsync();
             using (var word = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(Path.Combine(folder, "next.docx"), DocumentFormat.OpenXml.WordprocessingDocumentType.Document)) {
                 var part = word.AddMainDocumentPart();
@@ -226,7 +230,7 @@ public partial class DocumentOperationalTests
                 Assert.True(fault.Failures > 0);
             } finally { await worker.StopAsync(CancellationToken.None); }
             Assert.False(worker.ExecuteTask?.IsFaulted ?? false);
-            db.ChangeTracker.Clear(); Assert.Equal(DocumentStatus.Completed, (await db.Documents.SingleAsync(x => x.DocumentId == 2)).Status);
+            db.ChangeTracker.Clear(); Assert.Equal(Da.DocumentStatus.Completed, (await db.Documents.SingleAsync(x => x.DocumentId == 2)).Status);
         } finally { DeleteTestFolder(folder); }
     }
 

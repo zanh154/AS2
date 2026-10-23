@@ -7,6 +7,7 @@ using AssignmentPRN.DataAccess.Entities;
 using ExamSessionStatus = AssignmentPRN.DataAccess.Enums.ExamSessionStatus;
 using CandidateStatus = AssignmentPRN.DataAccess.Enums.CandidateStatus;
 using AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Realtime;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;

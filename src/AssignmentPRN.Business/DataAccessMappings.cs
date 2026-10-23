@@ -1,11 +1,30 @@
 using AssignmentPRN.Business.Interfaces;
 using DaContracts = AssignmentPRN.DataAccess.Contracts;
+using DaEntities = AssignmentPRN.DataAccess.Entities;
 using DaEnums = AssignmentPRN.DataAccess.Enums;
 
 namespace AssignmentPRN.Business;
 
 internal static class DataAccessMappings
 {
+    public static DaEntities.DocumentStatus ToDataAccess(this DocumentStatus value) =>
+        (DaEntities.DocumentStatus)(int)value;
+
+    public static DocumentStatus ToBusiness(this DaEntities.DocumentStatus value) =>
+        (DocumentStatus)(int)value;
+
+    public static DaEntities.GeneratedQuestionStatus ToDataAccess(this GeneratedQuestionStatus value) =>
+        (DaEntities.GeneratedQuestionStatus)(int)value;
+
+    public static GeneratedQuestionStatus ToBusiness(this DaEntities.GeneratedQuestionStatus value) =>
+        (GeneratedQuestionStatus)(int)value;
+
+    public static DaEntities.DocumentBloomLevel ToDataAccess(this DocumentBloomLevel value) =>
+        (DaEntities.DocumentBloomLevel)(int)value;
+
+    public static DocumentBloomLevel ToBusiness(this DaEntities.DocumentBloomLevel value) =>
+        (DocumentBloomLevel)(int)value;
+
     public static DaEnums.ExamSessionStatus ToDataAccess(this ExamSessionStatus value) =>
         (DaEnums.ExamSessionStatus)(int)value;
 

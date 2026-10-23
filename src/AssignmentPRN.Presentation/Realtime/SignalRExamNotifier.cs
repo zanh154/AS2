@@ -1,6 +1,7 @@
 using AssignmentPRN.Business.Interfaces;
 using Microsoft.AspNetCore.SignalR;
-namespace AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Hubs;
+namespace AssignmentPRN.Presentation.Realtime;
 public sealed class SignalRExamNotifier(IHubContext<ExamUpdatesHub> hub, ILogger<SignalRExamNotifier> logger) : IExamRealtimeNotifier
 {
     public async Task ChangedAsync(ExamChange change, CancellationToken ct = default)

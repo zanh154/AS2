@@ -8,7 +8,7 @@ const vm = require("node:vm");
 // và đúng bài của nó, tự cập nhật khi chấm xong, và không bao giờ tự tải lại khi giảng
 // viên đang gõ dở điểm hay nhận xét — tải lại lúc đó là xoá mất phần họ đang nhập.
 
-const source = readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/wwwroot/js/grading-live.js"), "utf8");
+const source = readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/UI Assets/js/grading-live.js"), "utf8");
 
 function load() {
   const window = {};

@@ -35,5 +35,5 @@ Các merge được xử lý trên ThaiBranch. Nhánh cá nhân của thành vi�
 
 - Chưa demo UI bằng trình duyệt hoặc gọi sinh câu hỏi/embedding thật qua Ollama.
 - Chưa áp dụng migrations mới của rubric/thông báo/vấn đáp/tài liệu vào database dùng chung. Nhánh tài liệu bổ sung model EF nhưng chưa có script migration trong commit nguồn; cần chuẩn bị schema tương ứng trước khi chạy module này trên MySQL.
-- Module RAG vẫn có các phần cần review nghiệp vụ riêng: quyền đọc/sửa tài liệu ở service, lưu file trong wwwroot, đưa câu hỏi GeneratedQuestion đã duyệt vào ngân hàng Question và phát thông báo tiến độ thực tế. Việc hết conflict không xác nhận các luồng này đã hoàn thiện.
+- Module RAG vẫn có các phần cần review nghiệp vụ riêng: quyền đọc/sửa tài liệu ở service, lưu file trong `UI Assets`, đưa câu hỏi GeneratedQuestion đã duyệt vào ngân hàng Question và phát thông báo tiến độ thực tế. Việc hết conflict không xác nhận các luồng này đã hoàn thiện.
 - API tài liệu hiện vẫn dùng IFormFile và enum DataAccess trong contract; chưa refactor ranh giới này vì cần thống nhất với chủ module.

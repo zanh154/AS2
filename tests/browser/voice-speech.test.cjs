@@ -13,7 +13,7 @@ function setup(supported=true) {
   result(text,final=false){this.onresult({results:[Object.assign([{transcript:text}],{isFinal:final})]})}
  }
  const window=supported?{SpeechRecognition:Recognition}:{};
- vm.runInNewContext(readFileSync(join(__dirname,'../../src/AssignmentPRN.Presentation/wwwroot/js/voice-speech.js'),'utf8'),{
+ vm.runInNewContext(readFileSync(join(__dirname,'../../src/AssignmentPRN.Presentation/UI Assets/js/voice-speech.js'),'utf8'),{
   window,Promise,setTimeout(fn){const id=Symbol();timers.set(id,fn);return id},clearTimeout(id){timers.delete(id)}
  });
  const adapter=window.createVoiceSpeechAdapter();

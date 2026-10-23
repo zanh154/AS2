@@ -104,9 +104,9 @@ flowchart LR
 | | `Services/GradingService.cs`, `GradingQueue.cs` | Chấm một lượt; hàng đợi + chấm nền + vòng quét |
 | | `Services/ResultReviewService.cs` | Xem / chốt điểm (giảng viên), báo cáo (sinh viên) |
 | Presentation | `Pages/ExamResults/*`, `Pages/MyResults/*` | Trang kết quả bằng Razor Pages |
-| | `Hubs/SignalRGradingNotifier.cs` | Gửi tiến độ chấm tới nhóm của phiên thi |
-| | `wwwroot/js/voice-room.js` | Hiện câu hỏi thêm, trạng thái "giám khảo đang xem" |
-| | `wwwroot/js/grading-live.js` | Trang giảng viên tự cập nhật khi chấm xong |
+| | `Realtime/SignalRGradingNotifier.cs` | Gửi tiến độ chấm tới nhóm của phiên thi |
+| | `UI Assets/js/voice-room.js` | Hiện câu hỏi thêm, trạng thái "giám khảo đang xem" |
+| | `UI Assets/js/grading-live.js` | Trang giảng viên tự cập nhật khi chấm xong |
 
 ---
 

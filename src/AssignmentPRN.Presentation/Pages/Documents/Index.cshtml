@@ -71,7 +71,7 @@
                                         <a asp-page="Details" asp-route-id="@doc.DocumentId" class="btn btn-outline-primary" title="Xem chi tiết">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                        @if (doc.Status == AssignmentPRN.DataAccess.Entities.DocumentStatus.Completed)
+                                        @if (doc.Status == AssignmentPRN.Business.Interfaces.DocumentStatus.Completed)
                                         {
                                             <a asp-page="Questions/Index" asp-route-documentId="@doc.DocumentId" class="btn btn-outline-success" title="Quản lý câu hỏi">
                                                 <i class="bi bi-question-circle"></i>

@@ -44,7 +44,7 @@ Không có migration/schema mới cần thực thi cho tính năng này nếu da
 7. Thu bằng WebM/Opus, Ogg/Opus hoặc MP4 tùy trình duyệt. Có dừng, nghe lại, tải về máy và thử upload lại. Microphone được giải phóng khi dừng/rời trang; tự dừng gần deadline.
 8. `createVoiceSpeechAdapter()` là contract thay thế STT: `supported`, `start({onText,onError})`, `stop()`. Adapter hiện tại dùng Web Speech, `vi-VN`, cho phép sửa/nhập transcript và vẫn lưu audio khi STT lỗi.
 9. Upload kiểm tra quyền, câu hỏi, cửa sổ thời gian, size ≤12 MiB, loại MIME, magic header, duration khai báo hữu hạn và không vượt ngân sách/thời gian server đã trôi. Request multipart bị giới hạn 13 MiB.
-10. Audio được giữ ở `<MaterialStorage:RootPath>/voice-audio`, ngoài `wwwroot`. Tên file dùng candidate/question/hash; không dùng tên upload từ client. Đường dẫn file không xuất ra JSON. Endpoint Audio kiểm tra quyền và đặt `private, no-store`, `nosniff`.
+10. Audio được giữ ở `<MaterialStorage:RootPath>/voice-audio`, ngoài `UI Assets`. Tên file dùng candidate/question/hash; không dùng tên upload từ client. Đường dẫn file không xuất ra JSON. Endpoint Audio kiểm tra quyền và đặt `private, no-store`, `nosniff`.
 11. File hoàn chỉnh được tái sử dụng khi retry; file dở do upload/ghi lỗi được giữ nguyên và tạo bản hoàn chỉnh khác. Không tự xóa/ghi đè file cũ. Chỉ một answer cho mỗi exam question.
 12. Transcript autosave 5 giây, có lưu thủ công; nộp chốt câu hỏi. Request được xếp hàng để nộp không bị bỏ qua khi autosave đang chạy. Retry submit giữ examQuestionId cũ, không nộp nhầm câu kế tiếp.
 13. Upload hết giờ có thể gắn audio vào câu vừa timeout trong `ExamSessionRules.SubmitGrace` hiện có; không mở lại câu, không nhận transcript chỉnh sửa sau deadline. Câu nộp tay chỉ chấp nhận retry cùng bản thu đã lưu.
@@ -57,7 +57,7 @@ Không có migration/schema mới cần thực thi cho tính năng này nếu da
 Làm việc trong worktree `D:\AIVES_PRN222_AS\AS2\.worktrees\GiaThuan`.
 
 1. Dùng cấu hình môi trường/secret store của dự án cho `ConnectionStrings:DefaultConnection`, trỏ DB local/test phù hợp schema. Không copy secret vào source/tài liệu.
-2. Có thể đặt `MaterialStorage:RootPath` thành đường dẫn lưu riêng, ngoài `wwwroot`; process cần quyền ghi. Nhiều app instance cần cùng DB và storage dùng chung, cùng cấu hình session/Data Protection.
+2. Có thể đặt `MaterialStorage:RootPath` thành đường dẫn lưu riêng, ngoài `UI Assets`; process cần quyền ghi. Nhiều app instance cần cùng DB và storage dùng chung, cùng cấu hình session/Data Protection.
 3. Chạy `dotnet run --project src/AssignmentPRN.Presentation`. Dùng HTTPS hoặc localhost cho microphone.
 4. Trên dữ liệu test, giảng viên tạo ca và phân sinh viên, có ngân hàng câu hỏi Approved. Chỉnh thời gian mỗi câu trước khi phát đề/vào thi theo quy tắc hiện hữu.
 5. Sinh viên vào đúng khung ca → Thi giọng nói → Đọc câu hỏi → Cho phép mic → nói → Dừng thu và lưu → kiểm tra transcript → Nộp.

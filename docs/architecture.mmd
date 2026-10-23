@@ -20,7 +20,7 @@ flowchart TB
       Store["Material / Audio File Stores"]
     end
     DB[("MySQL · Aiven · TLS<br/>Users · Exams · Questions · Scores<br/>RAG data · Embeddings")]
-    Files[("Private File Storage<br/>Materials · Audio · RAG sources<br/>Outside wwwroot")]
+    Files[("Private File Storage<br/>Materials · Audio · RAG sources<br/>Outside UI Assets")]
     AI["Ollama · HTTP JSON · :11434<br/>nomic-embed-text: Embeddings<br/>qwen2.5:3b: RAG questions<br/>qwen2.5:7b-instruct: Follow-up / Grading"]
     Browser <-->|"HTTP(S) · Session"| Pages
     Pages --> Services

@@ -2,6 +2,10 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Services;
 using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Repositories;
+using DocumentStatus = AssignmentPRN.DataAccess.Entities.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.DataAccess.Entities.DocumentBloomLevel;
+using Biz = AssignmentPRN.Business.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -238,12 +242,12 @@ public sealed class DocumentService : IDocumentService
         }, "Không thể tải danh sách câu hỏi.");
     }
 
-    public async Task<ServiceResponse<IReadOnlyList<GeneratedQuestionResponse>>> ListQuestionsByCourseAsync(int courseId, GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
+    public async Task<ServiceResponse<IReadOnlyList<GeneratedQuestionResponse>>> ListQuestionsByCourseAsync(int courseId, Biz.GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
     {
         return await ServiceExecutor.RunAsync<IReadOnlyList<GeneratedQuestionResponse>>(async () =>
         {
             await EnsureCourseAccessAsync(courseId, cancellationToken);
-            var questions = await _documentRepository.GetQuestionsByCourseAsync(courseId, status, cancellationToken);
+            var questions = await _documentRepository.GetQuestionsByCourseAsync(courseId, status?.ToDataAccess(), cancellationToken);
             return questions.Select(MapQuestionToResponse).ToList();
         }, "Không thể tải danh sách câu hỏi.");
     }
@@ -256,7 +260,7 @@ public sealed class DocumentService : IDocumentService
                 ?? throw new BusinessValidationException("Không tìm thấy câu hỏi.");
             await EnsureCourseAccessAsync(question.CourseId ?? question.Document.CourseId, cancellationToken);
 
-            if (reviewerId != _actor.UserId || request.Status is not (GeneratedQuestionStatus.Approved or GeneratedQuestionStatus.Rejected))
+            if (reviewerId != _actor.UserId || request.Status is not (Biz.GeneratedQuestionStatus.Approved or Biz.GeneratedQuestionStatus.Rejected))
                 throw new BusinessValidationException("Quyết định duyệt không hợp lệ.");
             await _documentRepository.ReviewAsync(questionId, current => {
                 if (_actor.Role != "Admin" && current.Course?.LecturerId != _actor.UserId)
@@ -266,8 +270,8 @@ public sealed class DocumentService : IDocumentService
                 if (request.AnswerKey is not null) current.AnswerKey = BusinessValidation.OptionalText(request.AnswerKey, "Đáp án", 2000);
                 if (request.Explanation is not null) current.Explanation = BusinessValidation.OptionalText(request.Explanation, "Giải thích", 2000);
                 if (request.Topic is not null) current.Topic = BusinessValidation.OptionalText(request.Topic, "Chủ đề", 200);
-                if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom; }
-                current.Status = request.Status; current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
+                if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom.ToDataAccess(); }
+                current.Status = request.Status.ToDataAccess(); current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
                 current.ReviewNotes = BusinessValidation.OptionalText(request.Notes, "Ghi chú", 1000);
             }, cancellationToken);
         }, "Không thể duyệt câu hỏi.");
@@ -303,7 +307,7 @@ public sealed class DocumentService : IDocumentService
         doc.FileName,
         doc.ContentType,
         doc.FileSize,
-        doc.Status,
+        doc.Status.ToBusiness(),
         doc.ErrorMessage,
         doc.CreatedAt,
         doc.ProcessedAt,
@@ -318,9 +322,9 @@ public sealed class DocumentService : IDocumentService
         q.QuestionText,
         q.AnswerKey,
         q.Explanation,
-        q.BloomLevel,
+        q.BloomLevel.ToBusiness(),
         q.Topic,
-        q.Status,
+        q.Status.ToBusiness(),
         q.ReviewedById,
         q.ReviewedBy?.FullName,
         q.ReviewedAt,
@@ -333,12 +337,12 @@ public sealed class DocumentService : IDocumentService
     {
         var bloomDesc = request.BloomLevel switch
         {
-            DocumentBloomLevel.Remember => "Nhớ (Remember): Nhận biết, nhớ lại thông tin",
-            DocumentBloomLevel.Understand => "Hiểu (Understand): Giải thích, tóm tắt, diễn giải",
-            DocumentBloomLevel.Apply => "Áp dụng (Apply): Sử dụng kiến thức vào tình huống mới",
-            DocumentBloomLevel.Analyze => "Phân tích (Analyze): Phân tách, so sánh, đối chiếu",
-            DocumentBloomLevel.Evaluate => "Đánh giá (Evaluate): Phán xét, critique, bảo vệ quan điểm",
-            DocumentBloomLevel.Create => "Sáng tạo (Create): Thiết kế, xây dựng, sáng tạo mới",
+            Biz.DocumentBloomLevel.Remember => "Nhớ (Remember): Nhận biết, nhớ lại thông tin",
+            Biz.DocumentBloomLevel.Understand => "Hiểu (Understand): Giải thích, tóm tắt, diễn giải",
+            Biz.DocumentBloomLevel.Apply => "Áp dụng (Apply): Sử dụng kiến thức vào tình huống mới",
+            Biz.DocumentBloomLevel.Analyze => "Phân tích (Analyze): Phân tách, so sánh, đối chiếu",
+            Biz.DocumentBloomLevel.Evaluate => "Đánh giá (Evaluate): Phán xét, critique, bảo vệ quan điểm",
+            Biz.DocumentBloomLevel.Create => "Sáng tạo (Create): Thiết kế, xây dựng, sáng tạo mới",
             _ => "Tự do"
         };
 

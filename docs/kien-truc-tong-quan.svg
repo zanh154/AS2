@@ -121,7 +121,7 @@
 <rect x="570" y="945" width="450" height="113" rx="13" fill="#fff7ed" stroke="#f59e0b"/>
 <text x="590" y="978" class="heading" >PRIVATE FILE STORAGE</text>
 <text x="590" y="1006" class="body" >Materials · Voice recordings · RAG source files</text>
-<text x="590" y="1031" class="body" >Outside wwwroot · Authorized access</text>
+<text x="590" y="1031" class="body" >Outside UI Assets · Authorized access</text>
 </g>
 <path d="M790 895 V945" class="line"/>
 <text x="803" y="925" class="small" >File I/O</text>

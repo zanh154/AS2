@@ -3,6 +3,10 @@ using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business.Policies;
 using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
+using Da = AssignmentPRN.DataAccess.Entities;
+using DocumentStatus = AssignmentPRN.Business.Interfaces.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.Business.Interfaces.DocumentBloomLevel;
 using AssignmentPRN.DataAccess.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -20,7 +24,7 @@ public partial class DocumentOperationalTests
         Assert.True(reviewed.Success, reviewed.Error);
         var pool = await new QuestionRepository(db, new ExamStatePolicy()).ListPoolIdsAsync(
             new AssignmentPRN.DataAccess.Contracts.QuestionPickRequest { CourseId = 1, Count = 1 });
-        Console.WriteLine($"Approved generated_questions={await db.GeneratedQuestions.CountAsync(x => x.Status == GeneratedQuestionStatus.Approved)}; questions={await db.Questions.CountAsync()}; dealable pool={pool.Count}");
+        Console.WriteLine($"Approved generated_questions={await db.GeneratedQuestions.CountAsync(x => x.Status == Da.GeneratedQuestionStatus.Approved)}; questions={await db.Questions.CountAsync()}; dealable pool={pool.Count}");
         Assert.NotEmpty(pool);
     }
 }

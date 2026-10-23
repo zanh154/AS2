@@ -59,12 +59,12 @@
                         <div class="col-md-6">
                             <label class="form-label">Mức độ Bloom</label>
                             <select name="bloomLevel" class="form-select">
-                                <option value="1" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Remember)">Remember (Nhớ)</option>
-                                <option value="2" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Understand)">Understand (Hiểu)</option>
-                                <option value="3" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Apply)">Apply (Áp dụng)</option>
-                                <option value="4" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Analyze)">Analyze (Phân tích)</option>
-                                <option value="5" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Evaluate)">Evaluate (Đánh giá)</option>
-                                <option value="6" selected="@(Model.Question.BloomLevel == AssignmentPRN.DataAccess.Entities.DocumentBloomLevel.Create)">Create (Sáng tạo)</option>
+                                <option value="1" selected="@(Model.Question.BloomLevel == AssignmentPRN.Business.Interfaces.DocumentBloomLevel.Remember)">Remember (Nhớ)</option>
+                                <option value="2" selected="@(Model.Question.BloomLevel == AssignmentPRN.Business.Interfaces.DocumentBloomLevel.Understand)">Understand (Hiểu)</option>
+                                <option value="3" selected="@(Model.Question.BloomLevel == AssignmentPRN.Business.Interfaces.DocumentBloomLevel.Apply)">Apply (Áp dụng)</option>
+                                <option value="4" selected="@(Model.Question.BloomLevel == AssignmentPRN.Business.Interfaces.DocumentBloomLevel.Analyze)">Analyze (Phân tích)</option>
+                                <option value="5" selected="@(Model.Question.BloomLevel == AssignmentPRN.Business.Interfaces.DocumentBloomLevel.Evaluate)">Evaluate (Đánh giá)</option>
+                                <option value="6" selected="@(Model.Question.BloomLevel == AssignmentPRN.Business.Interfaces.DocumentBloomLevel.Create)">Create (Sáng tạo)</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -93,7 +93,7 @@
                                 <span class="badge @Model.GetQuestionStatusBadgeClass(Model.Question.Status)">
                                     @Model.GetQuestionStatusText(Model.Question.Status)
                                 </span>
-                                @if (Model.Question.Status != AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus.PendingReview)
+                                @if (Model.Question.Status != AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus.PendingReview)
                                 {
                                     <span class="ms-2 text-muted">
                                         Đã duyệt bởi @Model.Question.ReviewedByName vào @Model.Question.ReviewedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
@@ -102,7 +102,7 @@
                             </div>
                         </div>
 
-                        @if (Model.Question.Status == AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus.PendingReview)
+                        @if (Model.Question.Status == AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus.PendingReview)
                         {
                             <div class="mb-3">
                                 <label class="form-label">Quyết định <span class="text-danger">*</span></label>

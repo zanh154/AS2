@@ -49,7 +49,7 @@ function harness({ denied = false, uploadGate } = {}) {
     Date, Math, Event, CustomEvent, AbortSignal,
     setInterval(callback) { intervals.push(callback); },
     fetch: async (url, options) => { uploads.push(options.body); if (uploadGate) await uploadGate; return { ok: true, json: async () => ({}) }; } };
-  vm.runInNewContext(readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/wwwroot/js/voice-capture.js"), "utf8"), context);
+  vm.runInNewContext(readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/UI Assets/js/voice-capture.js"), "utf8"), context);
   const state = id => ({ serverNow: new Date().toISOString(), completed: false,
     question: { examQuestionId: id, text: `Question ${id}`, deadline: new Date(Date.now() + 30000).toISOString() } });
   return { get, window, recorders, uploads, local, state, intervals, released: () => released,

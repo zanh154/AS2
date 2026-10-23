@@ -75,7 +75,7 @@ Ollama được gọi qua HTTP JSON, mặc định cổng 11434. STT / TTS trong
 | Storage/voice-audio | Bản ghi câu trả lời qua LocalVoiceAudioStore. |
 | Storage/rag | Tệp nguồn của luồng tài liệu RAG; DocumentService / tiến trình xử lý tài liệu quản lý trực tiếp. |
 
-Kho tệp riêng nằm ngoài wwwroot; tải / đọc tệp đi qua điểm vào có kiểm tra quyền. Session và hai hàng đợi xử lý nền hiện dùng bộ nhớ của tiến trình ứng dụng. Khởi động lại không bảo toàn session hoặc nội dung hàng đợi như một message broker bền vững.
+Kho tệp riêng nằm ngoài `UI Assets`; tải / đọc tệp đi qua điểm vào có kiểm tra quyền. Session và hai hàng đợi xử lý nền hiện dùng bộ nhớ của tiến trình ứng dụng. Khởi động lại không bảo toàn session hoặc nội dung hàng đợi như một message broker bền vững.
 
 Kiểm tra database lúc khởi động chỉ xác nhận kết nối / dữ liệu. Nâng cấp schema dùng các script trong database/ và scripts/ theo [hướng dẫn database](../database/README.md), không phải tự động chạy toàn bộ migration khi mở web.
 

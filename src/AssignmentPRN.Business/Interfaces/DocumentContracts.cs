@@ -1,4 +1,3 @@
-using AssignmentPRN.DataAccess.Entities;
 using Microsoft.AspNetCore.Http;
 namespace AssignmentPRN.Business.Interfaces;
 

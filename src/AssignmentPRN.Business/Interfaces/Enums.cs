@@ -62,3 +62,28 @@ public enum MaterialFileType
     DOCX,
     PPTX
 }
+
+public enum DocumentStatus
+{
+    Pending = 0,
+    Processing = 1,
+    Completed = 2,
+    Failed = 3
+}
+
+public enum GeneratedQuestionStatus
+{
+    PendingReview = 0,
+    Approved = 1,
+    Rejected = 2
+}
+
+public enum DocumentBloomLevel
+{
+    Remember = 1,
+    Understand = 2,
+    Apply = 3,
+    Analyze = 4,
+    Evaluate = 5,
+    Create = 6
+}

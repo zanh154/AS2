@@ -2,7 +2,7 @@ namespace AssignmentPRN.DataAccess.Services;
 
 /// <summary>
 /// Stores course-material bytes under <paramref name="storageRootPath"/>. That root must
-/// stay outside the web root: everything under wwwroot is served by the static-file
+/// stay outside the web root: everything under UI Assets (the web root) is served by the static-file
 /// middleware without passing through the controller, which would hand the files to
 /// anyone holding the URL, signed in or not.
 /// </summary>

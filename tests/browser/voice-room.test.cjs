@@ -25,7 +25,7 @@ function harness(recovery = []) {
     setInterval: (callback, delay) => { intervals.push({ callback, delay }); }, setTimeout: () => {},
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({
       body: JSON.parse(options.body), resolve: data => resolve({ ok: true, json: async () => data }), reject })) };
-  vm.runInNewContext(readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/wwwroot/js/voice-room.js"), "utf8"), context);
+  vm.runInNewContext(readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/UI Assets/js/voice-room.js"), "utf8"), context);
   return { get, requests, window, intervals, type(value) { get("voice-transcript").value = value; get("voice-transcript").dispatchEvent(new Event("input")); } };
 }
 

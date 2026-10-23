@@ -3,17 +3,23 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Presentation talks to Business only; DataAccess must not be reachable from here. -->
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssignmentPRN.Business\AssignmentPRN.Business.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Compiles Styles/site.scss into wwwroot/css/site.css on every build. -->
+    <!-- Compiles Styles/site.scss into UI Assets/css/site.css on every build. -->
     <PackageReference Include="AspNetCore.SassCompiler" Version="1.77.8" />
   </ItemGroup>
   <ItemGroup>
     <!-- Partials are inputs to the compiler, never served directly. -->
     <Content Remove="Styles\**" />
     <None Include="Styles\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The Web SDK does not automatically publish a custom-named web root. -->
+    <Content Include="UI Assets\**" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

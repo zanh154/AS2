@@ -3,8 +3,10 @@ using AssignmentPRN.Business;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Policies;
 using AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Realtime;
 
-var builder = WebApplication.CreateBuilder(args);
+// Static files (Bootstrap, jQuery, site JS/CSS) live in the custom UI Assets/ web root.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, WebRootPath = "UI Assets" });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
@@ -12,17 +14,17 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 // Every screen is a Razor Page; there are no MVC controllers.
 builder.Services.AddRazorPages();
 
-// Course materials live in the data access project, deliberately outside wwwroot so the
+// Course materials live in the data access project, deliberately outside UI Assets so the
 // static-file middleware cannot serve them: every download goes through the controller,
 // which checks the session first. A relative value is resolved against the content root;
 // a deployment sets an absolute path, because the project folder only exists in a checkout.
 var storageRoot = builder.Configuration["MaterialStorage:RootPath"]
     ?? "../AssignmentPRN.DataAccess/Storage";
 storageRoot = Path.GetFullPath(storageRoot, builder.Environment.ContentRootPath);
-var publicStorageRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+var publicStorageRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "UI Assets"));
 if (storageRoot.Equals(publicStorageRoot, StringComparison.OrdinalIgnoreCase)
     || storageRoot.StartsWith(publicStorageRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-    throw new InvalidOperationException("MaterialStorage:RootPath must be outside wwwroot to protect private recordings.");
+    throw new InvalidOperationException("MaterialStorage:RootPath must be outside UI Assets to protect private recordings.");
 
 builder.Services.AddBusiness(connectionString, storageRoot);
 // Allow a configured-size file plus multipart overhead; Business validates the file itself.
@@ -40,9 +42,9 @@ builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.S
 builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
 builder.Services.PostConfigure<DocumentStorageOptions>(options => {
     options.BasePath = Path.GetFullPath(options.BasePath, builder.Environment.ContentRootPath);
-    var publicRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot")).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+    var publicRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "UI Assets")).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
     if (options.BasePath.Equals(publicRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) || options.BasePath.StartsWith(publicRoot, StringComparison.OrdinalIgnoreCase))
-        throw new InvalidOperationException("DocumentStorage:BasePath must be outside wwwroot.");
+        throw new InvalidOperationException("DocumentStorage:BasePath must be outside UI Assets.");
 });
 
 builder.Services.AddDistributedMemoryCache();

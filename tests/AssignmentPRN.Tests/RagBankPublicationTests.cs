@@ -4,6 +4,10 @@ using AssignmentPRN.Business.Services;
 using AssignmentPRN.Business.Policies;
 using AssignmentPRN.DataAccess.Repositories;
 using AssignmentPRN.DataAccess.Entities;
+using Da = AssignmentPRN.DataAccess.Entities;
+using DocumentStatus = AssignmentPRN.Business.Interfaces.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.Business.Interfaces.DocumentBloomLevel;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 namespace AssignmentPRN.Tests;
@@ -32,7 +36,7 @@ public partial class DocumentOperationalTests
   await db.Database.ExecuteSqlRawAsync("CREATE TRIGGER fail_bank BEFORE INSERT ON questions BEGIN SELECT RAISE(ABORT,'audit bank failure'); END;");
   var result=await Service(db).ReviewQuestionAsync(1,1,new(GeneratedQuestionStatus.Approved,null));
   Assert.False(result.Success);db.ChangeTracker.Clear();
-  Assert.Equal(GeneratedQuestionStatus.PendingReview,(await db.GeneratedQuestions.SingleAsync()).Status);
+  Assert.Equal(Da.GeneratedQuestionStatus.PendingReview,(await db.GeneratedQuestions.SingleAsync()).Status);
   Assert.Empty(await db.Questions.ToListAsync());
  }
 }

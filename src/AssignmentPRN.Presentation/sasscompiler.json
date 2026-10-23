@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/koenvzeijl/AspNetCore.SassCompiler/master/schema.json",
   "SourceFolder": "Styles",
-  "TargetFolder": "wwwroot/css",
+  "TargetFolder": "UI Assets/css",
   "Arguments": "--style=compressed --no-source-map",
   "GenerateScopedCss": false,
   "IncludePaths": []

@@ -9,6 +9,7 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Realtime;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -178,7 +179,7 @@ public sealed class VoiceRoomHttpTests
     }
 
     private static string PresentationWebRoot([System.Runtime.CompilerServices.CallerFilePath] string source = "") =>
-        Path.GetFullPath("../../src/AssignmentPRN.Presentation/wwwroot", Path.GetDirectoryName(source)!);
+        Path.GetFullPath("../../src/AssignmentPRN.Presentation/UI Assets", Path.GetDirectoryName(source)!);
 
     private static Task Send(ClientWebSocket socket, string message) =>
         socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message + "\u001e")), WebSocketMessageType.Text, true, default);
