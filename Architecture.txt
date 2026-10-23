@@ -1,0 +1,139 @@
+Bạn là Senior ASP.NET Core Architect và chuyên gia PRN222 tại FPT University.
+
+## Bối cảnh
+
+Project PRN222 của tôi phát triển từ Assignment 1 sang Assignment 2.
+
+Kiến trúc ban đầu:
+- ASP.NET Core MVC (.NET 10)
+- MySQL
+- 3-Layer Architecture: Presentation → Business Logic → Data Access
+- Entity Framework Core
+- Repository Pattern
+
+Ở Assignment 1, tôi đã có sơ đồ kiến trúc 3 tầng. Assignment 2 mở rộng thêm các chức năng:
+
+1. Nền tảng ASM2, quản lý phiên thi, SignalR và tích hợp hệ thống.
+2. Tài khoản, phân quyền, quản lý lớp và sinh viên.
+3. Quản lý tài liệu, RAG và sinh câu hỏi bằng AI.
+4. Ngân hàng câu hỏi, rubric, duyệt câu hỏi và phát đề.
+5. Phòng thi vấn đáp bằng giọng nói, TTS/STT, audio và transcript.
+6. AI hỏi xoáy, chấm điểm và kết quả.
+
+Nhiều chức năng dự kiến chuyển sang Razor Pages.
+
+## Nhiệm vụ 1 — Phân tích source code
+
+Đọc project hiện tại, ưu tiên các file:
+- .sln / .slnx
+- .csproj
+- Program.cs
+- appsettings.json (không tiết lộ secrets)
+- Controllers, Pages, PageModels, ViewModels
+- Hubs (SignalR)
+- Services, Interfaces, DTOs
+- Repositories, Entities, DbContext
+- Cấu hình DI, Authentication, Authorization
+- Các thành phần tích hợp AI, RAG, STT, TTS, Storage
+
+Xác định:
+- Kiến trúc đang dùng thực tế.
+- Các project/layer hiện có và dependency giữa chúng.
+- Framework, database, ORM và thư viện được sử dụng.
+- Những chức năng Assignment 2 đã triển khai.
+- Những chức năng chưa triển khai hoặc mới triển khai một phần.
+- Luồng request/response và SignalR.
+- Các dịch vụ AI hoặc bên ngoài đang sử dụng.
+- Số lượng Controller, Razor Pages, Service, Repository, Entity nếu xác định được.
+
+Không lấy số lượng từ sơ đồ Assignment 1 làm số liệu hiện tại.
+
+## Nhiệm vụ 2 — Đề xuất kiến trúc Assignment 2
+
+Giữ kiến trúc 3-Layer làm nền tảng:
+
+Presentation Layer:
+- Razor Pages / PageModels
+- MVC Controllers / API Controllers nếu có
+- SignalR Hubs
+- ViewModels và UI-related components
+
+Business Logic Layer:
+- Services và service interfaces
+- DTOs, validation, business rules
+- Auth/Student, Exam/Session, Document/RAG
+- Question/Rubric, Voice Exam, AI Scoring/Report
+
+Data Access Layer:
+- Repositories
+- Entity Framework Core DbContext
+- Entity Models
+- Persistence và file storage implementations nếu có
+
+External Dependencies:
+- MySQL
+- File Storage
+- AI/LLM
+- STT/TTS providers hoặc browser speech APIs nếu có
+
+LƯU Ý:
+- Đây là danh sách định hướng, không được coi là các class đã tồn tại.
+- Chỉ hiển thị thành phần có thật trong code ở sơ đồ AS-IS.
+- Thành phần mới dự kiến phải ghi Planned hoặc Proposed, không trộn lẫn.
+- Không ép code phải phù hợp với sơ đồ cũ.
+- Nếu các layer có dependency bất thường, phản ánh đúng thực tế và báo cáo.
+- SignalR Hub thuộc Presentation, không tự động đặt trong Business.
+- Không giả định tất cả external APIs thuộc Data Access.
+
+## Nhiệm vụ 3 — Vẽ Architecture Diagram
+
+Tạo file:
+
+docs/architecture/assignment2_system_architecture.drawio
+
+Yêu cầu:
+- File XML draw.io hợp lệ, mở và chỉnh sửa được trên diagrams.net.
+- Landscape, trình bày rõ ràng, phù hợp báo cáo PRN222.
+- Có tiêu đề "Assignment PRN222 - Assignment 2 System Architecture".
+- Sử dụng 3 khối layer chính theo chiều từ trên xuống.
+- Presentation màu xanh dương.
+- Business Logic màu xanh lá.
+- Data Access màu cam.
+- Database dạng cylinder.
+- External Services đặt bên cạnh với đường kết nối tương ứng.
+- Thể hiện luồng request, response, SignalR real-time và external API calls khi có.
+- Mũi tên rõ ràng, tránh đường nối chồng chéo.
+- Có Legend giải thích đường liền, nét đứt.
+- Ghi tên class/service/module thật từ source, ưu tiên tên dễ hiểu.
+- Số liệu đếm phải lấy từ code.
+- Giữ sơ đồ đủ chi tiết nhưng không quá dày đặc.
+- Chỉ ghi nhãn DLL cho project được build thành assembly riêng nếu phù hợp.
+
+Tạo thêm:
+docs/architecture/assignment2_architecture_notes.md
+
+Trong Markdown phải có:
+1. Danh sách thành phần theo từng layer.
+2. Mapping giữa 6 nhóm chức năng Assignment 2 và các class/file hiện có.
+3. Luồng xử lý chính của phòng thi, SignalR và AI (nếu có).
+4. External services và công nghệ thực tế.
+5. Những phần còn thiếu, Planned hoặc chưa xác minh.
+6. Các điểm khác biệt so với sơ đồ Assignment 1.
+7. Giải thích ngắn để tôi thuyết trình với giảng viên PRN222.
+
+Nếu có sẵn công cụ export draw.io thì xuất thêm PNG hoặc SVG. Không tự cài công cụ nếu chưa cần.
+
+## Quy tắc thực hiện
+
+- Chỉ phân tích và tạo tài liệu kiến trúc.
+- Không sửa business logic, database, migrations hay cấu hình đang hoạt động.
+- Không refactor, không xóa file.
+- Nếu cần ghi đè hoặc xóa file cũ, phải hỏi tôi trước.
+- Không tạo class/service giả chỉ để khớp sơ đồ.
+- Không giả định tính năng trong đề bài đã được triển khai.
+- Tiết kiệm token: không in toàn bộ source code.
+- Trước khi vẽ, báo cáo ngắn cấu trúc tìm được và kiến trúc dự kiến.
+- Nếu không có vướng mắc, tiếp tục tạo sơ đồ.
+- Sau khi hoàn thành, kiểm tra file draw.io hợp lệ và tóm tắt kết quả ngắn gọn.
+
+Mục tiêu cuối cùng: Có sơ đồ kiến trúc Assignment 2 đúng với project PRN222 hiện tại, đẹp, rõ ràng, có thể chỉnh sửa và sử dụng để thuyết trình trước giảng viên.
