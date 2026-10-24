@@ -6,7 +6,6 @@ using DocumentStatus = AssignmentPRN.DataAccess.Entities.DocumentStatus;
 using GeneratedQuestionStatus = AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus;
 using DocumentBloomLevel = AssignmentPRN.DataAccess.Entities.DocumentBloomLevel;
 using Biz = AssignmentPRN.Business.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -45,69 +44,6 @@ public sealed class DocumentService : IDocumentService
         _processingQueue = processingQueue;
         _logger = logger;
         _actor = actor; _courses = courses; _rag = rag.Value;
-    }
-
-    public async Task<ServiceResponse<DocumentResponse>> UploadAsync(int courseId, int userId, IFormFile file, CancellationToken cancellationToken = default)
-    {
-        return await ServiceExecutor.RunAsync(async () =>
-        {
-            await EnsureCourseAccessAsync(courseId, cancellationToken);
-            if (userId != _actor.UserId) throw new BusinessValidationException("Tài khoản tải lên không hợp lệ.");
-            // Validate course exists and user has access
-            var courseExists = await _catalogRepository.CourseExistsAsync(courseId, cancellationToken);
-            if (!courseExists)
-            {
-                throw new BusinessValidationException("Không tìm thấy môn học.");
-            }
-
-            // Validate file
-            ValidateFile(file);
-
-            // Generate unique filename and save
-            var fileId = Guid.NewGuid().ToString("N");
-            var extension = Path.GetExtension(file.FileName);
-            var storedFileName = $"{fileId}{extension}";
-            var relativePath = Path.Combine("documents", courseId.ToString(), storedFileName);
-            var fullPath = Path.Combine(_storageOptions.BasePath, relativePath);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-
-            // Only remove a file created by this request when compensating a failure.
-            var ownsFile = false;
-            try
-            {
-                using (var stream = new FileStream(fullPath, FileMode.CreateNew))
-                {
-                    ownsFile = true;
-                    await file.CopyToAsync(stream, cancellationToken);
-                }
-
-                // Create document record
-                var document = new Document
-                {
-                    CourseId = courseId,
-                    UploadedById = userId,
-                    FileName = file.FileName,
-                    ContentType = extension.ToLowerInvariant() switch { ".pdf" => "application/pdf", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", _ => file.ContentType },
-                    FileSize = file.Length,
-                    StoragePath = relativePath,
-                    Status = DocumentStatus.Pending
-                };
-
-                var created = await _documentRepository.CreateAsync(document, cancellationToken);
-
-                // Queue for background processing
-                await _processingQueue.QueueDocumentAsync(created.DocumentId, CancellationToken.None);
-
-                return MapToResponse(created, 0, 0);
-            }
-            catch
-            {
-                try { if (ownsFile) File.Delete(fullPath); }
-                catch (Exception cleanup) { _logger.LogWarning(cleanup, "Cannot clean up failed upload {File}", storedFileName); }
-                throw;
-            }
-        }, "Không thể tải lên tài liệu.");
     }
 
     public async Task<ServiceResponse<DocumentResponse>> GetAsync(int documentId, CancellationToken cancellationToken = default)
@@ -174,6 +110,9 @@ public sealed class DocumentService : IDocumentService
             await EnsureCourseAccessAsync(doc.CourseId, cancellationToken);
 
             if (userId != _actor.UserId) throw new BusinessValidationException("Tài khoản không hợp lệ.");
+            // A material's index goes with the material; deleting it alone would leave the
+            // file listed without its AI data.
+            if (doc.MaterialId is not null) throw new BusinessValidationException("Tài liệu này thuộc Tài liệu môn, hãy xoá ở trang Tài liệu môn.");
 
             var fullPath = ResolvePath(doc.StoragePath);
             await _documentRepository.DeleteDocumentAsync(documentId, cancellationToken);
@@ -273,28 +212,8 @@ public sealed class DocumentService : IDocumentService
                 if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom.ToDataAccess(); }
                 current.Status = request.Status.ToDataAccess(); current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
                 current.ReviewNotes = BusinessValidation.OptionalText(request.Notes, "Ghi chú", 1000);
-            }, cancellationToken);
+            }, request.MaterialId, cancellationToken);
         }, "Không thể duyệt câu hỏi.");
-    }
-
-    private void ValidateFile(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-        {
-            throw new BusinessValidationException("Vui lòng chọn file.");
-        }
-
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!_storageOptions.AllowedExtensions.Contains(extension))
-        {
-            throw new BusinessValidationException($"Định dạng file không được hỗ trợ. Chỉ chấp nhận: {string.Join(", ", _storageOptions.AllowedExtensions)}");
-        }
-
-        var maxSizeBytes = _storageOptions.MaxFileSizeMB * 1024L * 1024L;
-        if (file.Length > maxSizeBytes)
-        {
-            throw new BusinessValidationException($"File quá lớn. Kích thước tối đa: {_storageOptions.MaxFileSizeMB} MB.");
-        }
     }
 
     private static DocumentResponse MapToResponse(Document doc, int chunkCount, int questionCount) => new(
@@ -312,7 +231,8 @@ public sealed class DocumentService : IDocumentService
         doc.CreatedAt,
         doc.ProcessedAt,
         chunkCount,
-        questionCount
+        questionCount,
+        doc.MaterialId
     );
 
     private static GeneratedQuestionResponse MapQuestionToResponse(GeneratedQuestion q) => new(

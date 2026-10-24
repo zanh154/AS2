@@ -45,6 +45,10 @@ public class ExamQuestionAssignViewModel
     /// <summary>Number of distinct, still-free questions matching the current filter.</summary>
     public int AvailableCount { get; set; }
 
+    public int AvailableManualCount { get; set; }
+
+    public int AvailableAiCount { get; set; }
+
     public int CandidateCount => Papers.Count;
 
     public int AssignedCandidateCount => Papers.Count(paper => paper.Questions.Count > 0);

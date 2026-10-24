@@ -5,10 +5,11 @@
 }
 
 <div class="page-header">
-    <h1>Chi tiết tài liệu</h1>
-    <a asp-page="Index" asp-route-courseId="@Model.Document?.CourseId" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Quay lại danh sách
-    </a>
+    <div>
+        <a class="back-link" asp-page="/CourseMaterials/Index" asp-route-courseId="@Model.Document?.CourseId">← Tài liệu môn</a>
+        <h1>AI của tài liệu</h1>
+        <p>Trạng thái xử lý và câu hỏi AI sinh từ tài liệu này. Câu được duyệt vào ngân hàng với chủ đề là chính tài liệu này.</p>
+    </div>
 </div>
 
 @if (Model.Error != null)

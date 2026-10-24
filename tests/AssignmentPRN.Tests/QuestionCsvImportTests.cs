@@ -40,6 +40,26 @@ public class QuestionCsvImportTests
     }
 
     [Fact]
+    public void A_row_without_options_is_read_as_an_oral_question()
+    {
+        var rows = Parse("Giải thích stack và heap?;Medium;Analyze;demo.pdf;Stack giữ giá trị, heap giữ đối tượng;;;;;", out var errors);
+
+        Assert.Empty(errors);
+        var row = Assert.Single(rows);
+        Assert.Empty(row.Options);
+        Assert.Equal("Stack giữ giá trị, heap giữ đối tượng", row.ExpectedAnswer);
+    }
+
+    [Fact]
+    public void A_single_option_is_still_rejected()
+    {
+        var rows = Parse("Câu lỗi?;Easy;Remember;demo.pdf;;Chỉ một;;;;A", out var errors);
+
+        Assert.Empty(rows);
+        Assert.Single(errors);
+    }
+
+    [Fact]
     public void Accepts_a_numeric_correct_column()
     {
         var rows = Parse("Câu hỏi;Medium;Apply;demo.pdf;;A;B;C;D;3", out var errors);

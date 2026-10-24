@@ -101,7 +101,7 @@ flowchart LR
 | | `Services/OllamaAnswerGrader.cs` | Prompt + đọc kết quả chấm; bỏ mã tiêu chí khỏi nhận xét |
 | | `Services/OllamaWarmUpService.cs` | Nạp sẵn model lúc khởi động app |
 | Business — nghiệp vụ | `Services/VoiceRoomService.cs` | Cắm hỏi xoáy vào phòng thi |
-| | `Services/GradingService.cs`, `GradingQueue.cs` | Chấm một lượt; hàng đợi + chấm nền + vòng quét |
+| | `Services/GradingService.cs`, `Services/Grading/GradingBackgroundService.cs`, `Queues/GradingQueue.cs` | Chấm một lượt; hàng đợi + chấm nền + vòng quét |
 | | `Services/ResultReviewService.cs` | Xem / chốt điểm (giảng viên), báo cáo (sinh viên) |
 | Presentation | `Pages/ExamResults/*`, `Pages/MyResults/*` | Trang kết quả bằng Razor Pages |
 | | `Realtime/SignalRGradingNotifier.cs` | Gửi tiến độ chấm tới nhóm của phiên thi |

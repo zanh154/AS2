@@ -139,24 +139,6 @@ public partial class DocumentOperationalTests
         Assert.Equal("Test", Assert.Single((await svc.ListQuestionsByCourseAsync(1)).Data!).ReviewedByName);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Failed_upload_leaves_no_orphan_file(bool failDatabase)
-    {
-        await using var db = await OpenAsync();
-        var folder = TestFolder();
-        try {
-            var repo = DispatchProxy.Create<IDocumentRepository, RepositoryFault>();
-            ((RepositoryFault)repo).Inner = new DocumentRepository(db);
-            ((RepositoryFault)repo).FailMethod = failDatabase ? nameof(IDocumentRepository.CreateAsync) : "never";
-            IFormFile file = failDatabase ? new FormFile(new MemoryStream([1, 2]), 0, 2, "file", "test.pdf") : new BrokenUpload();
-            Assert.False((await Service(db, root: folder, repository: repo).UploadAsync(1, 1, file)).Success);
-            Assert.Empty(Directory.GetFiles(folder, "*", SearchOption.AllDirectories));
-            Assert.Equal(1, await db.Documents.CountAsync());
-        } finally { DeleteTestFolder(folder); }
-    }
-
     [Fact]
     public async Task Database_delete_failure_preserves_existing_file()
     {
@@ -240,17 +222,6 @@ public partial class DocumentOperationalTests
         public Task ChangedAsync(DocumentProgress progress, CancellationToken ct = default) { if (progress.Status == "Completed") Completed.TrySetResult(progress); return Task.CompletedTask; }
     }
 
-    [Fact]
-    public async Task Oversized_upload_is_rejected_before_writing_any_file()
-    {
-        await using var db = await OpenAsync();
-        var file = new FormFile(Stream.Null, 0, 51L * 1024 * 1024, "file", "large.pdf");
-        var response = await Service(db).UploadAsync(1, 1, file);
-        Assert.False(response.Success);
-        Assert.Contains("File quá lớn", response.Error);
-        Assert.Single(await db.Documents.ToListAsync());
-    }
-
     private static async Task<AivesDbContext> WithChunksAsync()
     {
         var db = await OpenAsync();
@@ -300,17 +271,5 @@ public partial class DocumentOperationalTests
             if (method!.Name == FailMethod && (!FailId.HasValue || Convert.ToInt32(args![0]) == FailId.Value)) { Failures++; throw new IOException("Simulated database error"); }
             return method.Invoke(Inner, args);
         }
-    }
-    private sealed class BrokenUpload : IFormFile
-    {
-        public string ContentType => "application/pdf";
-        public string ContentDisposition => "";
-        public IHeaderDictionary Headers => new HeaderDictionary();
-        public long Length => 2;
-        public string Name => "file";
-        public string FileName => "test.pdf";
-        public Stream OpenReadStream() => throw new IOException("Broken stream");
-        public void CopyTo(Stream target) => throw new IOException("Broken stream");
-        public async Task CopyToAsync(Stream target, CancellationToken ct = default) { await target.WriteAsync(new byte[] { 1 }, ct); throw new IOException("Broken stream"); }
     }
 }

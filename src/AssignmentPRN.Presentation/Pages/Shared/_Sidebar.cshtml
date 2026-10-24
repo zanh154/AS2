@@ -35,13 +35,12 @@
             </a>
 
             <span class="sidebar-nav__label">Ngân hàng câu hỏi</span>
-            <a class="sidebar-link" asp-page="/Documents/Index"><partial name="_Icon" model="@("file-text")" /><span>Tài liệu &amp; AI</span></a>
             <a class="sidebar-link @(current == "Questions" ? "is-active" : null)"
                asp-page="/Questions/Index">
                 <partial name="_Icon" model="@("question")" />
                 <span>Câu hỏi</span>
             </a>
-            <a class="sidebar-link @(current == "CourseMaterials" ? "is-active" : null)"
+            <a class="sidebar-link @(current is "CourseMaterials" or "Documents" ? "is-active" : null)"
                asp-page="/CourseMaterials/Index">
                 <partial name="_Icon" model="@("file-text")" />
                 <span>Tài liệu môn</span>

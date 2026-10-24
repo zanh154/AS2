@@ -5,9 +5,13 @@
 }
 
 <div class="page-header">
-    <h1>@(Model.IsNew ? "Duyệt câu hỏi mới" : "Xem/Xét duyệt câu hỏi")</h1>
-    <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-secondary">
-        <i class="bi bi-arrow-left"></i> Quay lại danh sách
+    <div>
+        <span class="eyebrow">Tài liệu &amp; AI</span>
+        <h1>@(Model.IsNew ? "Duyệt câu hỏi mới" : "Xem/Xét duyệt câu hỏi")</h1>
+        <p>Kiểm tra nội dung AI đề xuất trước khi đưa câu hỏi vào ngân hàng.</p>
+    </div>
+    <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-outline-secondary">
+        <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại danh sách
     </a>
 </div>
 
@@ -27,13 +31,16 @@
 {
     <div class="alert alert-info">Câu hỏi đã có trong ngân hàng. <a href="@Url.Page("/Rubrics/Edit", new { questionId = bankId })">Cấu hình rubric chấm điểm</a> trước khi sử dụng cho bài vấn đáp.</div>
 }
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h5>Nội dung câu hỏi</h5>
+<div class="question-review-layout">
+    <div class="question-review-main">
+        <div class="content-card question-review-card">
+            <div class="question-review-card__header">
+                <div>
+                    <span class="eyebrow">Nội dung</span>
+                    <h2>Câu hỏi và đáp án</h2>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="question-review-card__body">
                 <form method="post">
                     <div asp-validation-summary="All" class="text-danger"></div>
                     <fieldset disabled="@(!Model.IsNew)">
@@ -68,20 +75,39 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Chủ đề</label>
+                            <label class="form-label">Chủ đề AI gợi ý</label>
                             <input type="text" name="topic" class="form-control" value="@Model.Question.Topic" placeholder="Ví dụ: Lập trình hướng đối tượng" />
                         </div>
                     </div>
+
+                    @if (Model.Question.BankQuestionId is null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label" for="materialId">Chủ đề trong ngân hàng (tài liệu môn)</label>
+                            <select id="materialId" name="materialId" class="form-select" asp-items="Model.MaterialOptions">
+                                @if (!Model.HasSourceMaterial)
+                                {
+                                    <option value="">Không gắn chủ đề</option>
+                                }
+                            </select>
+                            <p class="form-text">Mặc định là tài liệu đã sinh ra câu hỏi. Câu hỏi được duyệt sẽ vào ngân hàng với chủ đề này; câu đào sâu chỉ bám theo câu có chủ đề.
+                                <a asp-page="/CourseMaterials/Index">Quản lý tài liệu môn</a></p>
+                        </div>
+                    }
 
                     @if (Model.IsNew)
                     {
                         <div class="mb-3">
                             <label class="form-label">Quyết định <span class="text-danger">*</span></label>
-                            <div class="btn-group w-100" role="group">
+                            <div class="review-decision-grid" role="group" aria-label="Quyết định duyệt">
                                 <input type="radio" class="btn-check" name="decision" id="approve" value="1" checked />
-                                <label class="btn btn-success" for="approve"><i class="bi bi-check-circle"></i> Duyệt</label>
+                                <label class="review-decision review-decision--approve" for="approve">
+                                    <strong>Duyệt câu hỏi</strong><span>Đưa vào ngân hàng câu hỏi</span>
+                                </label>
                                 <input type="radio" class="btn-check" name="decision" id="reject" value="2" />
-                                <label class="btn btn-danger" for="reject"><i class="bi bi-x-circle"></i> Từ chối</label>
+                                <label class="review-decision review-decision--reject" for="reject">
+                                    <strong>Từ chối</strong><span>Không sử dụng nội dung này</span>
+                                </label>
                             </div>
                         </div>
                     }
@@ -106,11 +132,15 @@
                         {
                             <div class="mb-3">
                                 <label class="form-label">Quyết định <span class="text-danger">*</span></label>
-                                <div class="btn-group w-100" role="group">
+                                <div class="review-decision-grid" role="group" aria-label="Quyết định duyệt">
                                     <input type="radio" class="btn-check" name="decision" id="approve" value="1" checked />
-                                    <label class="btn btn-success" for="approve"><i class="bi bi-check-circle"></i> Duyệt</label>
+                                    <label class="review-decision review-decision--approve" for="approve">
+                                        <strong>Duyệt câu hỏi</strong><span>Đưa vào ngân hàng câu hỏi</span>
+                                    </label>
                                     <input type="radio" class="btn-check" name="decision" id="reject" value="2" />
-                                    <label class="btn btn-danger" for="reject"><i class="bi bi-x-circle"></i> Từ chối</label>
+                                    <label class="review-decision review-decision--reject" for="reject">
+                                        <strong>Từ chối</strong><span>Không sử dụng nội dung này</span>
+                                    </label>
                                 </div>
                             </div>
                         }
@@ -121,11 +151,11 @@
                         <textarea name="notes" class="form-control" rows="2" placeholder="Lý do duyệt/từ chối..."></textarea>
                     </div>
 
-                    <div class="d-flex gap-2">
+                    <div class="review-actions">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Lưu quyết định
+                            Lưu quyết định
                         </button>
-                        <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-secondary">Hủy</a>
+                        <a asp-page="Index" asp-route-documentId="@Model.DocumentId" class="btn btn-outline-secondary">Hủy</a>
                     </div>
                     </fieldset>
                 </form>
@@ -133,24 +163,27 @@
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5>Thông tin</h5>
+    <aside class="question-review-aside">
+        <div class="content-card question-review-card question-review-card--meta">
+            <div class="question-review-card__header">
+                <div>
+                    <span class="eyebrow">Tổng quan</span>
+                    <h2>Thông tin</h2>
+                </div>
             </div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">ID</dt>
-                    <dd class="col-sm-8">@Model.Question.QuestionId</dd>
+            <div class="question-review-card__body">
+                <dl class="review-meta">
+                    <dt>ID câu hỏi</dt>
+                    <dd>#@Model.Question.QuestionId</dd>
 
-                    <dt class="col-sm-4">Tài liệu gốc</dt>
-                    <dd class="col-sm-8">@Model.Question.DocumentId</dd>
+                    <dt>Tài liệu gốc</dt>
+                    <dd>#@Model.Question.DocumentId</dd>
 
-                    <dt class="col-sm-4">Ngày tạo</dt>
-                    <dd class="col-sm-8">@Model.Question.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                    <dt>Ngày tạo</dt>
+                    <dd>@Model.Question.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
 
-                    <dt class="col-sm-4">Trạng thái</dt>
-                    <dd class="col-sm-8">
+                    <dt>Trạng thái</dt>
+                    <dd>
                         <span class="badge @Model.GetQuestionStatusBadgeClass(Model.Question.Status)">
                             @Model.GetQuestionStatusText(Model.Question.Status)
                         </span>
@@ -158,6 +191,6 @@
                 </dl>
             </div>
         </div>
-    </div>
+    </aside>
 </div>
 }

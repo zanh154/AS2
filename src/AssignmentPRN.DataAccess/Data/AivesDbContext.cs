@@ -853,6 +853,16 @@ public class AivesDbContext(DbContextOptions<AivesDbContext> options) : DbContex
                 .HasColumnName("created_at");
             entity.Property(d => d.ProcessedAt)
                 .HasColumnName("processed_at");
+            entity.Property(d => d.MaterialId)
+                .HasColumnName("material_id");
+
+            // One material, one index. Deleting the material drops its chunks and the
+            // AI questions still waiting for review along with it.
+            entity.HasOne(d => d.Material)
+                .WithOne(material => material.Document)
+                .HasForeignKey<Document>(d => d.MaterialId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(d => d.MaterialId).IsUnique();
 
             entity.HasOne(d => d.Course)
                 .WithMany()

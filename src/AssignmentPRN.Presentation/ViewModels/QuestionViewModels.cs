@@ -42,8 +42,10 @@ public class QuestionListViewModel
 /// </summary>
 public sealed class QuestionOptionViewModel
 {
+    // Rows may stay blank: an oral question has none, a multiple-choice one needs two or
+    // more. The count is checked by QuestionEditViewModel.Validate, not per row.
     [Display(Name = "Phương án")]
-    [Required(ErrorMessage = "Vui lòng nhập phương án.")]
+    [DisplayFormat(ConvertEmptyStringToNull = false)]
     [StringLength(500, ErrorMessage = "Phương án không được vượt quá 500 ký tự.")]
     public string Text { get; set; } = string.Empty;
 }
@@ -113,9 +115,15 @@ public class QuestionEditViewModel : IValidatableObject
         }
 
         var filled = Options.Count(option => !string.IsNullOrWhiteSpace(option.Text));
-        if (filled < 2)
+        // No choices at all makes it an oral question, graded against the expected answer.
+        if (filled == 0 && string.IsNullOrWhiteSpace(ExpectedAnswer))
         {
-            yield return new ValidationResult("Câu hỏi cần ít nhất 2 phương án trả lời.", [nameof(Options)]);
+            yield return new ValidationResult(
+                "Câu hỏi vấn đáp (không có phương án) cần có đáp án mong đợi.", [nameof(ExpectedAnswer)]);
+        }
+        else if (filled == 1)
+        {
+            yield return new ValidationResult("Câu hỏi trắc nghiệm cần ít nhất 2 phương án trả lời.", [nameof(Options)]);
         }
 
         // The pick must land on a row that actually has text, so ticking an answer and

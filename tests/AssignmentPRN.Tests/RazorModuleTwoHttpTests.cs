@@ -81,28 +81,36 @@ public class RazorModuleTwoHttpTests
             var login = await client.GetStringAsync("/Account/Login");
             Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "/Account/Login", login, new() { ["Input.Email"] = "test1@example.test", ["Input.Password"] = "Test@123" })).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Rubrics")).StatusCode);
-            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Documents")).StatusCode);
+            // The document list and upload form merged into the course material pages.
+            var documentsList = await client.GetAsync("/Documents?courseId=1");
+            Assert.Equal(HttpStatusCode.Redirect, documentsList.StatusCode);
+            Assert.StartsWith("/CourseMaterials", documentsList.Headers.Location!.ToString());
+            var oldUpload = await client.GetAsync("/Documents/Upload?courseId=1");
+            Assert.Equal(HttpStatusCode.Redirect, oldUpload.StatusCode);
+            Assert.StartsWith("/CourseMaterials/Upload", oldUpload.Headers.Location!.ToString());
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Documents/Questions/Review/999?documentId=1")).StatusCode);
             var documentStatus = await client.GetStringAsync("/Documents/Details/1?handler=Status");
             Assert.Contains("Completed", documentStatus);
             Assert.DoesNotContain("own.docx", documentStatus);
             Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/Documents/Details/2?handler=Status")).StatusCode);
-            var uploadPage = await client.GetStringAsync("/Documents/Upload?courseId=1");
-            var courseField = Regex.Match(uploadPage, "name=\"Input.CourseId\"[^>]*value=\"([^\"]+)\"");
-            Assert.True(courseField.Success, "Upload form must post the bound course field");
-            Assert.Equal("1", courseField.Groups[1].Value);
-            async Task<HttpResponseMessage> Upload(string name) {
+            var uploadPage = await client.GetStringAsync("/CourseMaterials/Upload?courseId=1");
+            async Task<HttpResponseMessage> Upload(string name, string courseId = "1") {
                 using var form = new MultipartFormDataContent();
-                form.Add(new StringContent(courseField.Groups[1].Value), "Input.CourseId");
+                form.Add(new StringContent(courseId), "CourseId");
                 form.Add(new StringContent(WebUtility.HtmlDecode(Regex.Match(uploadPage, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"").Groups[1].Value)), "__RequestVerificationToken");
-                form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("Isolated HTTP upload fixture")), "Input.File", name);
-                return await client.PostAsync("/Documents/Upload", form);
+                form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("Isolated HTTP upload fixture")), "File", name);
+                return await client.PostAsync("/CourseMaterials/Upload", form);
             }
             Assert.Equal(HttpStatusCode.Redirect, (await Upload("form-fixture.pdf")).StatusCode);
             var invalidUpload = await Upload("form-fixture.exe");
             Assert.Equal(HttpStatusCode.OK, invalidUpload.StatusCode);
-            Assert.Contains("TEST1", await invalidUpload.Content.ReadAsStringAsync());
-            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/Documents/Upload?courseId=2")).StatusCode);
+            Assert.Contains("Chỉ nhận", WebUtility.HtmlDecode(await invalidUpload.Content.ReadAsStringAsync()));
+            var foreignUpload = await Upload("foreign.pdf", courseId: "2");
+            Assert.Equal(HttpStatusCode.OK, foreignUpload.StatusCode);
+            Assert.Contains("không có quyền", WebUtility.HtmlDecode(await foreignUpload.Content.ReadAsStringAsync()));
+            var materialList = WebUtility.HtmlDecode(await client.GetStringAsync("/CourseMaterials?courseId=1"));
+            Assert.Contains("form-fixture.pdf", materialList);
+            Assert.Contains("Đang xử lý", materialList);
             var reviewPage = await client.GetStringAsync("/Documents/Questions/Review/1?documentId=2");
             Assert.Matches("name=\"documentId\"[^>]*value=\"1\"", reviewPage);
             var blankReview = await Post(client, "/Documents/Questions/Review/1", reviewPage, new() { ["questionId"] = "1", ["documentId"] = "2", ["questionText"] = "", ["bloomLevel"] = "2", ["decision"] = "1" });
@@ -117,7 +125,12 @@ public class RazorModuleTwoHttpTests
             using (var scope = app.Services.CreateScope()) {
                 var db = scope.ServiceProvider.GetRequiredService<AivesDbContext>();
                 Assert.Null((await db.GeneratedQuestions.SingleAsync()).AnswerKey);
-                Assert.True(await db.Documents.AnyAsync(x => x.FileName == "form-fixture.pdf" && x.CourseId == 1));
+                var indexed = await db.Documents.Include(x => x.Material).SingleAsync(x => x.FileName == "form-fixture.pdf");
+                Assert.Equal(1, indexed.CourseId);
+                Assert.Equal("form-fixture.pdf", indexed.Material!.FileName);
+                Assert.Equal(indexed.Material.FilePath, indexed.StoragePath);
+                Assert.False(await db.Documents.AnyAsync(x => x.FileName == "foreign.pdf"));
+                Assert.False(await db.CourseMaterials.AnyAsync(x => x.FileName == "foreign.pdf"));
             }
             var index = await client.GetStringAsync("/ExamSessions");
             Assert.Contains("Own exam", index); Assert.DoesNotContain("Other exam", index);

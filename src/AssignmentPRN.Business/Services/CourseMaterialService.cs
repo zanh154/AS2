@@ -5,17 +5,22 @@ using AssignmentPRN.DataAccess.Repositories;
 using AssignmentPRN.DataAccess.Services;
 
 using MaterialFileType = AssignmentPRN.Business.Interfaces.MaterialFileType;
+using DaDocument = AssignmentPRN.DataAccess.Entities.Document;
+using DaDocumentStatus = AssignmentPRN.DataAccess.Entities.DocumentStatus;
 
 namespace AssignmentPRN.Business.Services;
 
 /// <summary>
 /// Owns the course material list, which doubles as the topic a question is filed under.
-/// The file itself is written to disk by the controller before this service records it.
+/// Every uploaded material is also queued for the AI index (chunks and embeddings) that
+/// question generation reads, so a lecturer uploads a file once for both uses.
 /// </summary>
 public class CourseMaterialService(
     ICourseMaterialRepository materialRepository,
     ICatalogRepository catalogRepository,
-    IMaterialFileStore fileStore) : ICourseMaterialService
+    IMaterialFileStore fileStore,
+    IDocumentRepository? documents = null,
+    DocumentProcessingQueue? processingQueue = null) : ICourseMaterialService
 {
     /// <summary>Longest stored file name, matching course_materials.file_name.</summary>
     public const int MaxFileNameLength = 255;
@@ -124,13 +129,109 @@ public class CourseMaterialService(
             uploaderId,
             cancellationToken);
 
-        if (!result.Success)
+        if (!result.Success || result.Data is null)
         {
             await fileStore.DeleteAsync(storedPath, cancellationToken);
+            return result;
         }
 
-        return result;
+        if (documents is null)
+        {
+            return result;
+        }
+
+        var material = result.Data;
+        try
+        {
+            var document = await documents.CreateAsync(
+                new DaDocument
+                {
+                    CourseId = material.CourseId,
+                    UploadedById = uploaderId,
+                    MaterialId = material.MaterialId,
+                    FileName = material.FileName,
+                    ContentType = ContentTypeOf(fileType),
+                    FileSize = fileSize ?? 0,
+                    StoragePath = storedPath,
+                    Status = DaDocumentStatus.Pending
+                },
+                cancellationToken);
+            if (processingQueue is not null)
+            {
+                await processingQueue.QueueDocumentAsync(document.DocumentId, CancellationToken.None);
+            }
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Without its index the material could never feed question generation, so the
+            // upload is undone rather than left half done.
+            await materialRepository.DeleteAsync(material.MaterialId, CancellationToken.None);
+            await fileStore.DeleteAsync(storedPath, CancellationToken.None);
+            return ServiceResponse<CourseMaterialResponse>.Fail("Không thể ghi nhận tài liệu để AI xử lý.");
+        }
+
+        var indexed = await materialRepository.GetAsync(material.MaterialId, cancellationToken);
+        return indexed is null ? result : ServiceResponse<CourseMaterialResponse>.Ok(MapMaterial(indexed));
     }
+
+    public Task<ServiceResponse> IndexAsync(
+        int materialId,
+        int? lecturerId,
+        int requestedBy,
+        CancellationToken cancellationToken = default)
+    {
+        return ServiceExecutor.RunAsync(
+            async () =>
+            {
+                if (documents is null || processingQueue is null)
+                {
+                    throw new BusinessValidationException("Chưa bật xử lý AI cho tài liệu.");
+                }
+
+                var material = await materialRepository.GetAsync(materialId, cancellationToken)
+                    ?? throw new BusinessValidationException("Không tìm thấy tài liệu.");
+                await EnsureCourseVisibleAsync(material.CourseId, lecturerId, cancellationToken);
+
+                int documentId;
+                if (material.DocumentId is int existing)
+                {
+                    if (material.AiStatus != DaDocumentStatus.Failed)
+                    {
+                        throw new BusinessValidationException("Tài liệu này đã được AI xử lý hoặc đang xử lý.");
+                    }
+
+                    await documents.UpdateStatusAsync(existing, DaDocumentStatus.Pending, null, cancellationToken);
+                    documentId = existing;
+                }
+                else
+                {
+                    var created = await documents.CreateAsync(
+                        new DaDocument
+                        {
+                            CourseId = material.CourseId,
+                            UploadedById = requestedBy,
+                            MaterialId = material.MaterialId,
+                            FileName = material.FileName,
+                            ContentType = ContentTypeOf(material.FileType.ToBusiness()),
+                            FileSize = material.FileSize ?? 0,
+                            StoragePath = material.FilePath,
+                            Status = DaDocumentStatus.Pending
+                        },
+                        cancellationToken);
+                    documentId = created.DocumentId;
+                }
+
+                await processingQueue.QueueDocumentAsync(documentId, CancellationToken.None);
+            },
+            "Không thể đưa tài liệu vào hàng chờ AI.");
+    }
+
+    private static string ContentTypeOf(MaterialFileType fileType) => fileType switch
+    {
+        MaterialFileType.PDF => "application/pdf",
+        MaterialFileType.DOCX => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        _ => "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    };
 
     public Task<ServiceResponse<MaterialDownload>> DownloadAsync(
         int materialId,
@@ -299,6 +400,14 @@ public class CourseMaterialService(
         FileSize = item.FileSize,
         UploaderName = item.UploaderName,
         UploadedAt = item.UploadedAt,
-        QuestionCount = item.QuestionCount
+        QuestionCount = item.QuestionCount,
+        ManualQuestionCount = item.ManualQuestionCount,
+        AiQuestionCount = item.AiQuestionCount,
+        DocumentId = item.DocumentId,
+        AiStatus = item.AiStatus?.ToBusiness(),
+        GeneratedQuestionCount = item.GeneratedQuestionCount,
+        PendingGeneratedQuestionCount = item.PendingGeneratedQuestionCount,
+        ApprovedGeneratedQuestionCount = item.ApprovedGeneratedQuestionCount,
+        RejectedGeneratedQuestionCount = item.RejectedGeneratedQuestionCount
     };
 }

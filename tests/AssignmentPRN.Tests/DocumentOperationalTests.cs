@@ -86,10 +86,33 @@ public partial class DocumentOperationalTests
     public async Task Review_page_uses_question_document_for_navigation(int suppliedDocumentId)
     {
         await using var db = await OpenAsync();
-        var page = new AssignmentPRN.Presentation.Pages.Documents.Questions.ReviewModel(Service(db));
+        var materials = new CourseMaterialService(new CourseMaterialRepository(db), new CatalogRepository(db), new AssignmentPRN.DataAccess.Services.LocalMaterialFileStore(Path.GetTempPath()));
+        var page = new AssignmentPRN.Presentation.Pages.Documents.Questions.ReviewModel(Service(db), materials);
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        http.Features.Set<Microsoft.AspNetCore.Http.Features.ISessionFeature>(new SessionFeature { Session = new MemorySession() });
+        page.PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext { HttpContext = http };
         await page.OnGetAsync(1, suppliedDocumentId, CancellationToken.None);
         Assert.NotNull(page.Question);
         Assert.Equal(page.Question.DocumentId, page.DocumentId);
+    }
+
+    private sealed class SessionFeature : Microsoft.AspNetCore.Http.Features.ISessionFeature
+    {
+        public Microsoft.AspNetCore.Http.ISession Session { get; set; } = null!;
+    }
+
+    private sealed class MemorySession : Microsoft.AspNetCore.Http.ISession
+    {
+        private readonly Dictionary<string, byte[]> values = [];
+        public bool IsAvailable => true;
+        public string Id => "test";
+        public IEnumerable<string> Keys => values.Keys;
+        public void Clear() => values.Clear();
+        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void Remove(string key) => values.Remove(key);
+        public void Set(string key, byte[] value) => values[key] = value;
+        public bool TryGetValue(string key, out byte[] value) => values.TryGetValue(key, out value!);
     }
 
     [Fact]

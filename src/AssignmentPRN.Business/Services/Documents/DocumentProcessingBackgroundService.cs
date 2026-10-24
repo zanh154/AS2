@@ -2,6 +2,7 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Services;
 using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Repositories;
+using AssignmentPRN.DataAccess.Services;
 using DocumentStatus = AssignmentPRN.DataAccess.Entities.DocumentStatus;
 using GeneratedQuestionStatus = AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus;
 using DocumentBloomLevel = AssignmentPRN.DataAccess.Entities.DocumentBloomLevel;
@@ -60,12 +61,13 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var documentRepository = scope.ServiceProvider.GetRequiredService<IDocumentRepository>();
             var catalogRepository = scope.ServiceProvider.GetRequiredService<ICatalogRepository>();
+            var materialFiles = scope.ServiceProvider.GetService<IMaterialFileStore>();
 
-            await ProcessDocumentAsync(documentId, documentRepository, catalogRepository, stoppingToken);
+            await ProcessDocumentAsync(documentId, documentRepository, catalogRepository, materialFiles, stoppingToken);
         }
     }
 
-    private async Task ProcessDocumentAsync(int documentId, IDocumentRepository documentRepository, ICatalogRepository catalogRepository, CancellationToken cancellationToken)
+    private async Task ProcessDocumentAsync(int documentId, IDocumentRepository documentRepository, ICatalogRepository catalogRepository, IMaterialFileStore? materialFiles, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Processing document {DocumentId}", documentId);
 
@@ -79,17 +81,11 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
             }
 
             await documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Processing, null, cancellationToken);
-            var root = Path.GetFullPath(_storageOptions.BasePath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            var fullPath = Path.GetFullPath(Path.Combine(root, doc.StoragePath));
-            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Đường dẫn tài liệu không hợp lệ.");
-            if (!File.Exists(fullPath))
-            {
-                throw new FileNotFoundException($"File not found: {fullPath}");
-            }
+            await using var content = await OpenSourceAsync(doc, materialFiles, cancellationToken);
 
             if (_progress is not null) await _progress.ChangedAsync(new(doc.DocumentId, doc.CourseId, "Processing"), cancellationToken);
             // Extract text based on file type
-            var text = ExtractText(fullPath, doc.ContentType);
+            var text = ExtractText(content, doc.ContentType);
             if (string.IsNullOrWhiteSpace(text))
             {
                 throw new InvalidOperationException("Không thể trích xuất nội dung từ file.");
@@ -146,21 +142,53 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         }
     }
 
-    private string ExtractText(string filePath, string contentType)
+    /// <summary>
+    /// The bytes to index, buffered so the PDF and Office readers can seek. A material's
+    /// file is read through the material store; only documents from before the merge
+    /// with the material list still live under <see cref="DocumentStorageOptions.BasePath"/>.
+    /// </summary>
+    private async Task<Stream> OpenSourceAsync(AssignmentPRN.DataAccess.Entities.Document doc, IMaterialFileStore? materialFiles, CancellationToken cancellationToken)
+    {
+        Stream? source;
+        if (doc.Material is not null)
+        {
+            source = materialFiles is null
+                ? throw new InvalidOperationException("Chưa cấu hình kho tài liệu môn.")
+                : await materialFiles.OpenReadAsync(doc.Material.FilePath, cancellationToken);
+        }
+        else
+        {
+            var root = Path.GetFullPath(_storageOptions.BasePath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var fullPath = Path.GetFullPath(Path.Combine(root, doc.StoragePath));
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Đường dẫn tài liệu không hợp lệ.");
+            source = File.Exists(fullPath) ? File.OpenRead(fullPath) : null;
+        }
+
+        if (source is null) throw new FileNotFoundException($"Không tìm thấy tệp của tài liệu {doc.FileName}.");
+        await using (source)
+        {
+            var buffer = new MemoryStream();
+            await source.CopyToAsync(buffer, cancellationToken);
+            buffer.Position = 0;
+            return buffer;
+        }
+    }
+
+    private string ExtractText(Stream content, string contentType)
     {
         return contentType switch
         {
-            "application/pdf" => ExtractPdfText(filePath),
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ExtractDocxText(filePath),
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation" => ExtractPptxText(filePath),
+            "application/pdf" => ExtractPdfText(content),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ExtractDocxText(content),
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" => ExtractPptxText(content),
             _ => throw new NotSupportedException($"Unsupported content type: {contentType}")
         };
     }
 
-    private string ExtractPdfText(string filePath)
+    private string ExtractPdfText(Stream content)
     {
         var sb = new StringBuilder();
-        using var pdf = PdfDocument.Open(filePath);
+        using var pdf = PdfDocument.Open(content);
 
         foreach (var page in pdf.GetPages())
         {
@@ -177,10 +205,10 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         return sb.ToString();
     }
 
-    private string ExtractDocxText(string filePath)
+    private string ExtractDocxText(Stream content)
     {
         var sb = new StringBuilder();
-        using var doc = WordprocessingDocument.Open(filePath, false);
+        using var doc = WordprocessingDocument.Open(content, false);
         var body = doc.MainDocumentPart?.Document.Body;
 
         if (body is not null)
@@ -198,10 +226,10 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         return sb.ToString();
     }
 
-    private string ExtractPptxText(string filePath)
+    private string ExtractPptxText(Stream content)
     {
         var sb = new StringBuilder();
-        using var doc = PresentationDocument.Open(filePath, false);
+        using var doc = PresentationDocument.Open(content, false);
         var presentationPart = doc.PresentationPart;
 
         if (presentationPart is not null)

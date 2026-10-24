@@ -2,34 +2,31 @@
 @{
     var prefix = $"Criteria[{Model.Index}]";
 }
-<div class="criteria-row card mb-2" data-index="@Model.Index">
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-4">
+<article class="rubric-criterion" data-index="@Model.Index">
+    <div class="rubric-criterion__number" aria-hidden="true">@(Model.Index + 1)</div>
+    <div class="rubric-criterion__fields">
+            <div class="rubric-field rubric-field--name">
                 <label class="form-label">Tên tiêu chí <span class="text-danger">*</span></label>
                 <input type="text" name="@($"{prefix}.CriteriaName")" value="@Model.Criteria.CriteriaName" class="form-control" required maxlength="200" />
                 <input type="hidden" name="@($"{prefix}.CriteriaId")" value="@Model.Criteria.CriteriaId" />
             </div>
-            <div class="col-md-4">
+            <div class="rubric-field rubric-field--description">
                 <label class="form-label">Mô tả</label>
-                <textarea name="@($"{prefix}.Description")" class="form-control" rows="1" maxlength="1000">@Model.Criteria.Description</textarea>
+                <textarea name="@($"{prefix}.Description")" class="form-control" rows="2" maxlength="1000">@Model.Criteria.Description</textarea>
             </div>
-            <div class="col-md-2">
+            <div class="rubric-field rubric-field--score">
                 <label class="form-label">Điểm tối đa <span class="text-danger">*</span></label>
                 <input type="number" step="0.25" min="0.25" name="@($"{prefix}.MaxScore")" value="@Model.Criteria.MaxScore" class="form-control" required />
             </div>
-            <div class="col-md-1">
+            <div class="rubric-field rubric-field--order">
                 <label class="form-label">Thứ tự</label>
                 <input type="number" min="1" name="@($"{prefix}.DisplayOrder")" value="@Model.Criteria.DisplayOrder" class="form-control" required />
             </div>
-            <div class="col-md-1 d-flex align-items-end">
-                <button type="submit" name="index" value="@Model.Index" asp-page="/Rubrics/Edit" asp-page-handler="RemoveCriterion" class="btn btn-outline-danger btn-sm w-100" title="Xoá tiêu chí này">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                    </svg>
+            <div class="rubric-field rubric-field--remove">
+                <span class="form-label" aria-hidden="true">&nbsp;</span>
+                <button type="submit" name="index" value="@Model.Index" asp-page="/Rubrics/Edit" asp-page-handler="RemoveCriterion" class="btn btn-outline-danger btn-icon" title="Xoá tiêu chí này" aria-label="Xoá tiêu chí @(Model.Index + 1)">
+                    <partial name="/Pages/Shared/_Icon.cshtml" model="@("trash")" />
                 </button>
             </div>
-        </div>
     </div>
-</div>
+</article>

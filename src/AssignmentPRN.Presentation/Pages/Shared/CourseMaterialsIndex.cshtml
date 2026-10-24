@@ -3,7 +3,7 @@
     <div>
         <span class="eyebrow">Module 5</span>
         <h1>Tài liệu môn</h1>
-        <p>Tài liệu là nguồn của chủ đề, câu hỏi trong ngân hàng được gắn vào một tài liệu.</p>
+        <p>Mỗi tài liệu là một chủ đề của ngân hàng câu hỏi và cũng là nguồn để AI sinh câu hỏi. Tải lên một lần là dùng được cho cả hai.</p>
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" asp-page="/Questions/Index">Ngân hàng câu hỏi</a>
@@ -62,7 +62,8 @@
                         <th>Môn học</th>
                         <th>Loại</th>
                         <th>Dung lượng</th>
-                        <th>Câu hỏi</th>
+                        <th>Trong ngân hàng</th>
+                        <th>AI đã sinh</th>
                         <th>Người tải lên</th>
                         <th>Thao tác</th>
                     </tr>
@@ -78,13 +79,52 @@
                             <td><strong>@material.CourseCode</strong><div class="text-muted">@material.CourseName</div></td>
                             <td><span class="status-chip status-chip--muted">@QuestionText.FileType(material.FileType)</span></td>
                             <td>@QuestionText.FileSize(material.FileSize)</td>
-                            <td>@material.QuestionCount</td>
+                            <td>
+                                <strong>@material.QuestionCount câu tổng</strong>
+                                <div class="text-muted small">
+                                    @material.ManualQuestionCount thủ công · @material.AiQuestionCount AI đã duyệt
+                                </div>
+                            </td>
+                            <td>
+                                @switch (material.AiStatus)
+                                {
+                                    case DocumentStatus.Completed:
+                                        <span class="status-chip status-chip--success">Sẵn sàng</span>
+                                        <div class="text-muted">@material.GeneratedQuestionCount câu đã sinh</div>
+                                        <div class="small">
+                                            <span class="text-warning">@material.PendingGeneratedQuestionCount chờ duyệt</span>
+                                            · <span class="text-success">@material.ApprovedGeneratedQuestionCount đã duyệt</span>
+                                            · <span class="text-danger">@material.RejectedGeneratedQuestionCount từ chối</span>
+                                        </div>
+                                        break;
+                                    case DocumentStatus.Pending:
+                                    case DocumentStatus.Processing:
+                                        <span class="status-chip status-chip--warning">Đang xử lý</span>
+                                        break;
+                                    case DocumentStatus.Failed:
+                                        <span class="status-chip status-chip--danger">Lỗi</span>
+                                        break;
+                                    default:
+                                        <span class="status-chip status-chip--muted">Chưa xử lý</span>
+                                        break;
+                                }
+                            </td>
                             <td>@material.UploaderName</td>
                             <td>
                                 <div class="d-flex gap-2">
+                                    @if (material.DocumentId is int documentId)
+                                    {
+                                        <a class="btn btn-outline-primary btn-sm" asp-page="/Documents/Details" asp-route-id="@documentId">Câu hỏi AI</a>
+                                    }
+                                    @if (material.AiStatus is null or DocumentStatus.Failed)
+                                    {
+                                        <form asp-page="/CourseMaterials/Index" asp-page-handler="Ai" asp-route-id="@material.MaterialId" asp-route-courseId="@Model.CourseId" method="post">
+                                            <button class="btn btn-outline-primary btn-sm">@(material.AiStatus is null ? "Xử lý AI" : "Xử lý lại")</button>
+                                        </form>
+                                    }
                                     <a class="btn btn-outline-secondary btn-sm" asp-page="/CourseMaterials/Download" asp-route-id="@material.MaterialId">Mở</a>
                                     <a class="btn btn-outline-secondary btn-sm" asp-page="/CourseMaterials/Edit" asp-route-id="@material.MaterialId">Sửa</a>
-                                    <form asp-page="/CourseMaterials/Index" asp-page-handler="Delete" asp-route-id="@material.MaterialId" method="post" data-confirm="Xoá tài liệu này? Tệp sẽ bị xoá khỏi máy chủ.">
+                                    <form asp-page="/CourseMaterials/Index" asp-page-handler="Delete" asp-route-id="@material.MaterialId" method="post" data-confirm="Xoá tài liệu này? Tệp và các câu hỏi AI chưa duyệt của nó sẽ bị xoá khỏi máy chủ.">
                                         <button class="btn btn-outline-danger btn-sm">Xoá</button>
                                     </form>
                                 </div>

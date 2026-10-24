@@ -1,4 +1,19 @@
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-file-picker]").forEach((picker) => {
+    const input = picker.querySelector("[data-file-input]");
+    const name = picker.querySelector("[data-file-name]");
+    if (!input || !name) return;
+
+    const refreshFileName = () => {
+      const file = input.files?.[0];
+      name.textContent = file?.name || "Chưa có tệp được chọn";
+      picker.classList.toggle("has-file", Boolean(file));
+    };
+
+    input.addEventListener("change", refreshFileName);
+    refreshFileName();
+  });
+
   // ── Custom confirm dialog (replaces window.confirm) ─────────────────────
   const backdrop = document.getElementById("confirm-backdrop");
   const messageEl = document.getElementById("confirm-message");

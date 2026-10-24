@@ -82,7 +82,7 @@ Kiểm tra database lúc khởi động chỉ xác nhận kết nối / dữ li�
 ## Đọc code khi thuyết trình
 
 - [Program.cs](../src/AssignmentPRN.Presentation/Program.cs): đăng ký Razor Pages, session, middleware và ba hub.
-- [Business registration](../src/AssignmentPRN.Business/ServiceCollectionExtensions.cs): ghép services, policies, AI adapters và background services.
+- [Business registration](../src/AssignmentPRN.Business/Configuration/ServiceCollectionExtensions.cs): ghép services, policies, AI adapters và background services.
 - [Pages](../src/AssignmentPRN.Presentation/Pages): giao diện Razor Pages / PageModels.
 - [Business services](../src/AssignmentPRN.Business/Services): nghiệp vụ và xử lý AI / RAG.
 - [Repositories](../src/AssignmentPRN.DataAccess/Repositories): truy vấn, cập nhật và transaction dữ liệu.

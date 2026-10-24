@@ -7,7 +7,7 @@
     <div>
         <span class="eyebrow">Module 5</span>
         <h1>Ngân hàng câu hỏi</h1>
-        <p>Câu hỏi trắc nghiệm dùng để phát đề thi. Câu đã gán cho lịch thi sẽ được ẩn thay vì xoá.</p>
+        <p>Ngân hàng chỉ nhận câu AI sau khi đã duyệt. Câu chờ duyệt nằm ở khu vực Câu hỏi AI; câu đã gán cho lịch thi sẽ được ẩn thay vì xoá.</p>
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" asp-page="/CourseMaterials/Index">Tài liệu môn</a>
@@ -104,7 +104,7 @@
     {
         <div class="empty-state">
             <h2>Chưa có câu hỏi nào</h2>
-            <p>Thêm câu hỏi trắc nghiệm hoặc nhập hàng loạt từ file CSV để bắt đầu.</p>
+            <p>Thêm câu hỏi hoặc nhập hàng loạt từ file CSV để bắt đầu.</p>
         </div>
     }
     else
@@ -117,6 +117,7 @@
                         <th>Môn / Chủ đề</th>
                         <th>Độ khó</th>
                         <th>Bloom</th>
+                        <th>Nguồn</th>
                         <th>Trạng thái</th>
                         <th>Người tạo</th>
                         <th>Thao tác</th>
@@ -139,6 +140,11 @@
                             </td>
                             <td><span class="status-chip @QuestionText.DifficultyChip(question.Difficulty)">@QuestionText.Difficulty(question.Difficulty)</span></td>
                             <td>@QuestionText.Bloom(question.BloomLevel)</td>
+                            <td>
+                                <span class="status-chip @(question.Source == QuestionSource.AI ? "status-chip--warning" : "status-chip--muted")">
+                                    @QuestionText.Source(question.Source)
+                                </span>
+                            </td>
                             <td>
                                 <span class="status-chip @(question.Status == QuestionStatus.Archived ? "status-chip--muted" : "status-chip--success")">
                                     @QuestionText.Status(question.Status)

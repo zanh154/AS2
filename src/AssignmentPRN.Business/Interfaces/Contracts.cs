@@ -384,6 +384,23 @@ public sealed class CourseMaterialResponse
     public DateTime UploadedAt { get; init; }
 
     public int QuestionCount { get; init; }
+
+    public int ManualQuestionCount { get; init; }
+
+    public int AiQuestionCount { get; init; }
+
+    /// <summary>The AI index of the file (chunks, generated questions), when there is one.</summary>
+    public int? DocumentId { get; init; }
+
+    public DocumentStatus? AiStatus { get; init; }
+
+    public int GeneratedQuestionCount { get; init; }
+
+    public int PendingGeneratedQuestionCount { get; init; }
+
+    public int ApprovedGeneratedQuestionCount { get; init; }
+
+    public int RejectedGeneratedQuestionCount { get; init; }
 }
 
 /// <summary>
@@ -547,6 +564,10 @@ public sealed class QuestionAvailabilityResponse
     public int Requested { get; init; }
 
     public int Available { get; init; }
+
+    public int AvailableManual { get; init; }
+
+    public int AvailableAi { get; init; }
 
     public int Missing => Math.Max(0, Requested - Available);
 

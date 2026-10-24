@@ -6,7 +6,7 @@
     <div>
         <a class="back-link" asp-page="/Questions/Index">← Ngân hàng câu hỏi</a>
         <h1>@ViewData["Title"]</h1>
-        <p>Chỉ hỗ trợ trắc nghiệm, mỗi câu có đúng một phương án đúng.</p>
+        <p>Câu vấn đáp chỉ cần đáp án mong đợi. Muốn dùng cả cho phòng thi trắc nghiệm thì nhập thêm phương án, mỗi câu đúng một phương án đúng.</p>
     </div>
 </div>
 
@@ -90,13 +90,14 @@
         <div class="col-12">
             <label asp-for="ExpectedAnswer" class="form-label"></label>
             <textarea asp-for="ExpectedAnswer" class="form-control" rows="2"></textarea>
-            <p class="text-muted">Dùng cho AI chấm câu hỏi đào sâu sau này, không bắt buộc với trắc nghiệm.</p>
+            <p class="text-muted">AI dùng đáp án này để chấm khi thi vấn đáp. Bắt buộc nếu câu hỏi không có phương án.</p>
+            <span asp-validation-for="ExpectedAnswer" class="text-danger"></span>
         </div>
     </div>
 
     <fieldset class="option-editor">
-        <legend class="section-heading">Phương án trả lời</legend>
-        <p class="text-muted">Bỏ trống phương án không dùng, tick vào ô của phương án đúng.</p>
+        <legend class="section-heading">Phương án trả lời <span class="text-muted">(tuỳ chọn, cho thi trắc nghiệm)</span></legend>
+        <p class="text-muted">Câu vấn đáp thì để trống cả 4 ô. Câu trắc nghiệm cần ít nhất 2 phương án và tick vào ô của phương án đúng.</p>
         @for (var index = 0; index < Model.Options.Count; index++)
         {
             <div class="option-row">
