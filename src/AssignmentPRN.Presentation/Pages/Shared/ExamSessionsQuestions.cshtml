@@ -36,6 +36,7 @@
     <div class="metric-card">
         <span>Câu còn dùng được</span>
         <strong class="@(Model.IsEnough ? null : "text-danger")">@Model.AvailableCount</strong>
+        <small class="text-muted">@Model.AvailableManualCount thủ công · @Model.AvailableAiCount AI đã duyệt</small>
     </div>
 </section>
 

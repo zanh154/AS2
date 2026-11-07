@@ -7,12 +7,12 @@ vẫn như một sản phẩm.
 ## Cách hoạt động
 
 ```
-Styles/site.scss  ──(build)──▶  wwwroot/css/site.css  ──▶  _Layout.cshtml
+Styles/site.scss  ──(build)──▶  UI Assets/css/site.css  ──▶  _Layout.cshtml
 ```
 
 `AspNetCore.SassCompiler` biên dịch SCSS **mỗi lần build** (cấu hình trong
 `sasscompiler.json`). Không cần cài thêm gì — cứ `dotnet build` hoặc bấm F5
-trong Visual Studio. File `wwwroot/css/site.css` là file sinh ra, **không sửa
+trong Visual Studio. File `UI Assets/css/site.css` là file sinh ra, **không sửa
 tay và không commit**.
 
 ## Cấu trúc

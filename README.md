@@ -57,9 +57,7 @@ Thứ tự chạy đầy đủ, cách nâng cấp schema đã có, cách xuất 
 dotnet test AssignmentPRN.slnx
 ```
 
-
 ## ASM2 integration notes
-# assignment_prn
 
 ## Phân quyền
 

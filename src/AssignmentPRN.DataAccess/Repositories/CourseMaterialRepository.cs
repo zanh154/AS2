@@ -109,6 +109,21 @@ public class CourseMaterialRepository(AivesDbContext context) : ICourseMaterialR
 
         material.CourseId = courseId;
         material.FileName = fileName;
+
+        // The AI index follows its file, so chunk search and generated questions stay
+        // in the material's course.
+        var document = await context.Documents.Include(x => x.GeneratedQuestions)
+            .SingleOrDefaultAsync(x => x.MaterialId == materialId, cancellationToken);
+        if (document is not null)
+        {
+            document.CourseId = courseId;
+            document.FileName = fileName;
+            foreach (var question in document.GeneratedQuestions)
+            {
+                question.CourseId = courseId;
+            }
+        }
+
         await context.SaveChangesAsync(cancellationToken);
     }
 
@@ -140,6 +155,21 @@ public class CourseMaterialRepository(AivesDbContext context) : ICourseMaterialR
             FileSize = material.FileSize,
             UploaderName = material.Uploader.FullName,
             UploadedAt = material.UploadedAt,
-            QuestionCount = material.Questions.Count(question => question.Status != AssignmentPRN.DataAccess.Enums.QuestionStatus.Archived)
+            QuestionCount = material.Questions.Count(question => question.Status != AssignmentPRN.DataAccess.Enums.QuestionStatus.Archived),
+            ManualQuestionCount = material.Questions.Count(question =>
+                question.Status != AssignmentPRN.DataAccess.Enums.QuestionStatus.Archived
+                && question.Source == AssignmentPRN.DataAccess.Enums.QuestionSource.Manual),
+            AiQuestionCount = material.Questions.Count(question =>
+                question.Status != AssignmentPRN.DataAccess.Enums.QuestionStatus.Archived
+                && question.Source == AssignmentPRN.DataAccess.Enums.QuestionSource.AI),
+            DocumentId = material.Document == null ? null : material.Document.DocumentId,
+            AiStatus = material.Document == null ? null : material.Document.Status,
+            GeneratedQuestionCount = material.Document == null ? 0 : material.Document.GeneratedQuestions.Count,
+            PendingGeneratedQuestionCount = material.Document == null ? 0 : material.Document.GeneratedQuestions.Count(
+                question => question.Status == GeneratedQuestionStatus.PendingReview),
+            ApprovedGeneratedQuestionCount = material.Document == null ? 0 : material.Document.GeneratedQuestions.Count(
+                question => question.Status == GeneratedQuestionStatus.Approved),
+            RejectedGeneratedQuestionCount = material.Document == null ? 0 : material.Document.GeneratedQuestions.Count(
+                question => question.Status == GeneratedQuestionStatus.Rejected)
         });
 }

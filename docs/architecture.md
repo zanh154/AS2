@@ -75,14 +75,14 @@ Ollama được gọi qua HTTP JSON, mặc định cổng 11434. STT / TTS trong
 | Storage/voice-audio | Bản ghi câu trả lời qua LocalVoiceAudioStore. |
 | Storage/rag | Tệp nguồn của luồng tài liệu RAG; DocumentService / tiến trình xử lý tài liệu quản lý trực tiếp. |
 
-Kho tệp riêng nằm ngoài wwwroot; tải / đọc tệp đi qua điểm vào có kiểm tra quyền. Session và hai hàng đợi xử lý nền hiện dùng bộ nhớ của tiến trình ứng dụng. Khởi động lại không bảo toàn session hoặc nội dung hàng đợi như một message broker bền vững.
+Kho tệp riêng nằm ngoài `UI Assets`; tải / đọc tệp đi qua điểm vào có kiểm tra quyền. Session và hai hàng đợi xử lý nền hiện dùng bộ nhớ của tiến trình ứng dụng. Khởi động lại không bảo toàn session hoặc nội dung hàng đợi như một message broker bền vững.
 
 Kiểm tra database lúc khởi động chỉ xác nhận kết nối / dữ liệu. Nâng cấp schema dùng các script trong database/ và scripts/ theo [hướng dẫn database](../database/README.md), không phải tự động chạy toàn bộ migration khi mở web.
 
 ## Đọc code khi thuyết trình
 
 - [Program.cs](../src/AssignmentPRN.Presentation/Program.cs): đăng ký Razor Pages, session, middleware và ba hub.
-- [Business registration](../src/AssignmentPRN.Business/ServiceCollectionExtensions.cs): ghép services, policies, AI adapters và background services.
+- [Business registration](../src/AssignmentPRN.Business/Configuration/ServiceCollectionExtensions.cs): ghép services, policies, AI adapters và background services.
 - [Pages](../src/AssignmentPRN.Presentation/Pages): giao diện Razor Pages / PageModels.
 - [Business services](../src/AssignmentPRN.Business/Services): nghiệp vụ và xử lý AI / RAG.
 - [Repositories](../src/AssignmentPRN.DataAccess/Repositories): truy vấn, cập nhật và transaction dữ liệu.

@@ -9,7 +9,7 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
 {
     public async Task<IReadOnlyList<int>> PendingIdsAsync(CancellationToken ct) =>
         await context.Documents.AsNoTracking().Where(x => x.Status == DocumentStatus.Pending || x.Status == DocumentStatus.Processing).Select(x => x.DocumentId).ToListAsync(ct);
-    public async Task ReviewAsync(int questionId, Action<GeneratedQuestion> update, CancellationToken ct = default) {
+    public async Task ReviewAsync(int questionId, Action<GeneratedQuestion> update, int? sourceMaterialId = null, CancellationToken ct = default) {
         await using var tx = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var question = await context.GeneratedQuestions.Include(x => x.Course).Include(x => x.Document).SingleOrDefaultAsync(x => x.QuestionId == questionId, ct)
             ?? throw new KeyNotFoundException("Không tìm thấy câu hỏi.");
@@ -17,8 +17,15 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
         if (question.Status == GeneratedQuestionStatus.Approved && question.BankQuestionId is null)
         {
             if (!Enum.IsDefined(question.BloomLevel)) throw new ArgumentException("Bloom không hợp lệ.");
+            var courseId = question.CourseId ?? question.Document.CourseId;
+            // The bank's topic is a course material; it must come from the same course.
+            if (sourceMaterialId is int materialId
+                && !await context.CourseMaterials.AnyAsync(x => x.MaterialId == materialId && x.CourseId == courseId, ct))
+                throw new ArgumentException("Chủ đề được chọn không thuộc môn học này.");
             question.BankQuestion = new Question {
-                CourseId = question.CourseId ?? question.Document.CourseId,
+                CourseId = courseId,
+                // A question generated from a material is filed under it unless the reviewer picked another topic.
+                SourceMaterialId = sourceMaterialId ?? question.Document.MaterialId,
                 CreatedBy = question.Document.UploadedById,
                 QuestionText = question.QuestionText, ExpectedAnswer = question.AnswerKey,
                 BloomLevel = (AssignmentPRN.DataAccess.Enums.BloomLevel)((int)question.BloomLevel - 1),
@@ -45,6 +52,7 @@ public sealed class DocumentRepository(AivesDbContext context) : IDocumentReposi
         return await context.Documents
             .Include(d => d.Course)
             .Include(d => d.UploadedBy)
+            .Include(d => d.Material)
             .FirstOrDefaultAsync(d => d.DocumentId == documentId, cancellationToken);
     }
 

@@ -3,6 +3,10 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Services;
 using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
+using Da = AssignmentPRN.DataAccess.Entities;
+using DocumentStatus = AssignmentPRN.Business.Interfaces.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.Business.Interfaces.DocumentBloomLevel;
 using AssignmentPRN.DataAccess.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,7 +30,7 @@ public partial class DocumentOperationalTests
         Assert.False((await service.ReviewQuestionAsync(1, id, new(GeneratedQuestionStatus.Approved, null))).Success);
         Assert.False((await service.DeleteAsync(1, id)).Success);
         Assert.Single(await db.Documents.ToListAsync());
-        Assert.Equal(GeneratedQuestionStatus.PendingReview, (await db.GeneratedQuestions.SingleAsync()).Status);
+        Assert.Equal(Da.GeneratedQuestionStatus.PendingReview, (await db.GeneratedQuestions.SingleAsync()).Status);
     }
 
     [Fact]
@@ -40,12 +44,12 @@ public partial class DocumentOperationalTests
         Assert.Equal("Edited", question.QuestionText);
         Assert.Equal("Answer", question.AnswerKey);
         Assert.Equal("Reason", question.Explanation);
-        Assert.Equal(DocumentBloomLevel.Analyze, question.BloomLevel);
+        Assert.Equal(Da.DocumentBloomLevel.Analyze, question.BloomLevel);
         Assert.Equal("OOP", question.Topic);
         Assert.Equal(1, question.ReviewedById);
         Assert.NotNull(question.ReviewedAt);
         Assert.False((await service.ReviewQuestionAsync(1, 1, new(GeneratedQuestionStatus.Rejected, "second"))).Success);
-        Assert.Equal(GeneratedQuestionStatus.Approved, (await db.GeneratedQuestions.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(Da.GeneratedQuestionStatus.Approved, (await db.GeneratedQuestions.AsNoTracking().SingleAsync()).Status);
     }
 
     [Theory]
@@ -82,10 +86,33 @@ public partial class DocumentOperationalTests
     public async Task Review_page_uses_question_document_for_navigation(int suppliedDocumentId)
     {
         await using var db = await OpenAsync();
-        var page = new AssignmentPRN.Presentation.Pages.Documents.Questions.ReviewModel(Service(db));
+        var materials = new CourseMaterialService(new CourseMaterialRepository(db), new CatalogRepository(db), new AssignmentPRN.DataAccess.Services.LocalMaterialFileStore(Path.GetTempPath()));
+        var page = new AssignmentPRN.Presentation.Pages.Documents.Questions.ReviewModel(Service(db), materials);
+        var http = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        http.Features.Set<Microsoft.AspNetCore.Http.Features.ISessionFeature>(new SessionFeature { Session = new MemorySession() });
+        page.PageContext = new Microsoft.AspNetCore.Mvc.RazorPages.PageContext { HttpContext = http };
         await page.OnGetAsync(1, suppliedDocumentId, CancellationToken.None);
         Assert.NotNull(page.Question);
         Assert.Equal(page.Question.DocumentId, page.DocumentId);
+    }
+
+    private sealed class SessionFeature : Microsoft.AspNetCore.Http.Features.ISessionFeature
+    {
+        public Microsoft.AspNetCore.Http.ISession Session { get; set; } = null!;
+    }
+
+    private sealed class MemorySession : Microsoft.AspNetCore.Http.ISession
+    {
+        private readonly Dictionary<string, byte[]> values = [];
+        public bool IsAvailable => true;
+        public string Id => "test";
+        public IEnumerable<string> Keys => values.Keys;
+        public void Clear() => values.Clear();
+        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void Remove(string key) => values.Remove(key);
+        public void Set(string key, byte[] value) => values[key] = value;
+        public bool TryGetValue(string key, out byte[] value) => values.TryGetValue(key, out value!);
     }
 
     [Fact]
@@ -111,7 +138,7 @@ public partial class DocumentOperationalTests
         db.Roles.AddRange(new Role { RoleId = 1, RoleName = "Lecturer" }, new Role { RoleId = 2, RoleName = "Student" });
         foreach (var id in new[] { 1, 2, 3 }) db.Users.Add(new User { UserId = id, RoleId = id == 3 ? 2 : 1, FullName = "Test", Email = $"test{id}@example.test", PasswordHash = "unused", Status = "Active" });
         db.Courses.Add(new Course { CourseId = 1, LecturerId = 1, CourseCode = "TEST", CourseName = "Test", IsActive = true });
-        db.Documents.Add(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "test.docx", StoragePath = "test.docx", Status = DocumentStatus.Completed });
+        db.Documents.Add(new Document { DocumentId = 1, CourseId = 1, UploadedById = 1, FileName = "test.docx", StoragePath = "test.docx", Status = Da.DocumentStatus.Completed });
         db.GeneratedQuestions.Add(new GeneratedQuestion { QuestionId = 1, DocumentId = 1, CourseId = 1, QuestionText = "Original", AnswerKey = "Original answer" });
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();

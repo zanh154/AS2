@@ -277,6 +277,23 @@ public sealed class CourseMaterialItem
 
     /// <summary>How many questions are filed under this topic.</summary>
     public int QuestionCount { get; init; }
+
+    public int ManualQuestionCount { get; init; }
+
+    public int AiQuestionCount { get; init; }
+
+    /// <summary>The AI index of this file, when there is one.</summary>
+    public int? DocumentId { get; init; }
+
+    public Entities.DocumentStatus? AiStatus { get; init; }
+
+    public int GeneratedQuestionCount { get; init; }
+
+    public int PendingGeneratedQuestionCount { get; init; }
+
+    public int ApprovedGeneratedQuestionCount { get; init; }
+
+    public int RejectedGeneratedQuestionCount { get; init; }
 }
 
 /// <summary>

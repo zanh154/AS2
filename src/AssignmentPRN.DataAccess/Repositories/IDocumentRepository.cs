@@ -34,7 +34,7 @@ public interface IDocumentRepository
 
     Task UpdateQuestionStatusAsync(int questionId, GeneratedQuestionStatus status, int? reviewedById = null, string? reviewNotes = null, CancellationToken cancellationToken = default);
 
-    Task ReviewAsync(int questionId, Action<GeneratedQuestion> update, CancellationToken ct = default);
+    Task ReviewAsync(int questionId, Action<GeneratedQuestion> update, int? sourceMaterialId = null, CancellationToken ct = default);
 
     Task DeleteDocumentAsync(int documentId, CancellationToken cancellationToken = default);
 }

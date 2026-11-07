@@ -479,6 +479,8 @@ public abstract class ExamSessionsPage(
             cancellationToken);
 
         model.AvailableCount = availability.Data?.Available ?? 0;
+        model.AvailableManualCount = availability.Data?.AvailableManual ?? 0;
+        model.AvailableAiCount = availability.Data?.AvailableAi ?? 0;
         model.LoadError = materials.Success && papers.Success && availability.Success
             ? null
             : materials.Error ?? papers.Error ?? availability.Error;

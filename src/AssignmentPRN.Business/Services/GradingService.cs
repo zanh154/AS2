@@ -11,6 +11,9 @@ namespace AssignmentPRN.Business.Services;
 /// <param name="UnmarkedCriteria">Criteria the model did not touch, across the slot.</param>
 public sealed record GradingOutcome(int GradedAnswers, int SkippedAnswers, int UnmarkedCriteria, decimal? SlotScore);
 
+/// <summary>The slot being graded, as the notifier sees it: no rows from the data layer.</summary>
+public sealed record GradingSlotInfo(int ExamId, int CandidateId, int TotalAnswers);
+
 public interface IGradingService
 {
     /// <summary>
@@ -45,6 +48,7 @@ public sealed class GradingService(
             if (slot.Status != CandidateStatus.Completed)
                 throw new BusinessValidationException("Chỉ chấm được lượt thi đã hoàn thành.");
 
+            var info = new GradingSlotInfo(slot.ExamId, slot.CandidateId, slot.Answers.Count);
             var evaluations = new List<AnswerEvaluation>();
             var weighted = new List<(bool IsFollowUp, decimal? Score)>();
             var unmarked = 0;
@@ -78,7 +82,7 @@ public sealed class GradingService(
                 {
                     skipped++;
                     weighted.Add((answer.IsFollowUpQuestion, null));
-                    notifier?.Progress(slot, done + skipped);
+                    notifier?.Progress(info, done + skipped);
                     continue;
                 }
 
@@ -96,7 +100,7 @@ public sealed class GradingService(
                     grade.MissingPoints,
                     scored.Criteria.Select(x => (x.CriteriaId, x.Awarded, x.Comment)).ToArray()));
                 done++;
-                notifier?.Progress(slot, done + skipped);
+                notifier?.Progress(info, done + skipped);
             }
 
             // A retry may grade only part of the paper. Do not replace a previous total
@@ -109,7 +113,7 @@ public sealed class GradingService(
             }
 
             var outcome = new GradingOutcome(done, skipped, unmarked, slotScore);
-            notifier?.Finished(slot, outcome);
+            notifier?.Finished(info, outcome);
             return outcome;
         }, "Không thể chấm lượt thi này.");
 
@@ -128,7 +132,7 @@ public sealed class GradingService(
 /// </summary>
 public interface IGradingNotifier
 {
-    void Progress(GradingSlotRow slot, int answersDone);
+    void Progress(GradingSlotInfo slot, int answersDone);
 
-    void Finished(GradingSlotRow slot, GradingOutcome outcome);
+    void Finished(GradingSlotInfo slot, GradingOutcome outcome);
 }

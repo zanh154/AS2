@@ -3,12 +3,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Keep the Web SDK/static-assets manifest aligned with Program.cs. -->
+    <WebRoot>UI Assets</WebRoot>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssignmentPRN.Business\AssignmentPRN.Business.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Compiles Styles/site.scss into wwwroot/css/site.css on every build. -->
+    <!-- Compiles Styles/site.scss into UI Assets/css/site.css on every build. -->
     <PackageReference Include="AspNetCore.SassCompiler" Version="1.77.8" />
   </ItemGroup>
   <ItemGroup>
@@ -16,4 +18,18 @@
     <Content Remove="Styles\**" />
     <None Include="Styles\**" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The Web SDK does not automatically publish a custom-named web root. -->
+    <Content Include="UI Assets\**" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!--
+    Presentation talks to Business only. DataAccess still ships with the app (Business needs
+    it at run time, so it stays in the deps file), but it is taken off the compiler's
+    reference list: any page that tries to use it directly fails to build.
+  -->
+  <Target Name="HideDataAccessFromPresentation" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" Condition="'%(Filename)' == 'AssignmentPRN.DataAccess'" />
+    </ItemGroup>
+  </Target>
 </Project>

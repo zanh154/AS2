@@ -1,5 +1,3 @@
-using AssignmentPRN.DataAccess.Entities;
-using Microsoft.AspNetCore.Http;
 namespace AssignmentPRN.Business.Interfaces;
 
 public sealed record DocumentResponse(
@@ -17,7 +15,8 @@ public sealed record DocumentResponse(
     DateTime CreatedAt,
     DateTime? ProcessedAt,
     int ChunkCount,
-    int QuestionCount
+    int QuestionCount,
+    int? MaterialId = null
 );
 
 public sealed record GenerateQuestionsRequest(
@@ -34,7 +33,8 @@ public sealed record ReviewQuestionRequest(
     string? AnswerKey = null,
     string? Explanation = null,
     DocumentBloomLevel? BloomLevel = null,
-    string? Topic = null
+    string? Topic = null,
+    int? MaterialId = null
 );
 
 public sealed record GeneratedQuestionResponse(
@@ -57,8 +57,6 @@ public sealed record GeneratedQuestionResponse(
 
 public interface IDocumentService
 {
-    Task<ServiceResponse<DocumentResponse>> UploadAsync(int courseId, int userId, IFormFile file, CancellationToken cancellationToken = default);
-
     Task<ServiceResponse<DocumentResponse>> GetAsync(int documentId, CancellationToken cancellationToken = default);
 
     Task<ServiceResponse<IReadOnlyList<DocumentResponse>>> ListByCourseAsync(int courseId, CancellationToken cancellationToken = default);

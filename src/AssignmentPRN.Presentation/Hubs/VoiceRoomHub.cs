@@ -30,12 +30,3 @@ public sealed class VoiceRoomHub(IVoiceRoomService service) : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, Group(candidateId, studentId));
     }
 }
-
-public sealed class SignalRVoiceRoomNotifier(IHubContext<VoiceRoomHub> hub, ILogger<SignalRVoiceRoomNotifier> logger) : IVoiceRoomNotifier
-{
-    public async Task ChangedAsync(int candidateId, int studentId, CancellationToken ct)
-    {
-        try { await hub.Clients.Group(VoiceRoomHub.Group(candidateId, studentId)).SendAsync("VoiceRoomChanged", new { candidateId }, ct); }
-        catch (Exception ex) { logger.LogWarning(ex, "Voice room notification failed for candidate {CandidateId}", candidateId); }
-    }
-}

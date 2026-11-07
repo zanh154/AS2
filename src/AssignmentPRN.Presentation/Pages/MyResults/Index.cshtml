@@ -5,7 +5,8 @@
     ViewData["Title"] = "Kết quả bài thi của tôi";
     var review = Model.Review;
 }
-<div class="exam-result-page">
+<div class="exam-result-page" data-live-page="ExamResults"
+     data-exam-id="@review.ExamId" data-candidate-id="@review.CandidateId">
     <div class="page-header exam-result-header">
         <div>
             <a class="back-link" asp-page="/StudentSchedule/Mine">
@@ -118,3 +119,7 @@
         }
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/grading-live.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,21 @@
+question_text;difficulty;bloom;material;expected_answer;option_a;option_b;option_c;option_d;correct
+Kiểu dữ liệu nào dùng để lưu số nguyên 32 bit trong C#?;Easy;Remember;bai-giang-01.pdf;int;int;float;decimal;bool;A
+Từ khóa nào dùng để khai báo một hằng số tại thời điểm biên dịch?;Easy;Remember;bai-giang-01.pdf;const;readonly;const;static;sealed;B
+Phương thức nào là điểm bắt đầu của một ứng dụng console C#?;Easy;Remember;bai-giang-01.pdf;Main;Start;Run;Main;Init;C
+Toán tử nào trả về vế phải khi vế trái là null?;Easy;Understand;bai-giang-01.pdf;??;?.;??;?:;=>;B
+Kết quả của biểu thức 7 / 2 khi cả hai toán hạng là int là gì?;Easy;Apply;bai-giang-01.pdf;3;3;3.5;4;2;A
+Từ khóa nào tạo một thể hiện mới của lớp?;Easy;Remember;bai-giang-01.pdf;new;this;base;new;create;C
+Kiểu nào chỉ nhận hai giá trị true và false?;Easy;Remember;bai-giang-01.pdf;bool;bit;boolean;bool;binary;C
+Thuộc tính nào trả về số phần tử hiện có trong List<T>?;Easy;Remember;bai-giang-01.pdf;Count;Length;Size;Count;Capacity;C
+Vòng lặp nào phù hợp nhất để duyệt từng phần tử của một collection?;Easy;Understand;bai-giang-01.pdf;foreach;while;foreach;do while;goto;B
+Phương thức nào chuyển chuỗi hợp lệ thành số nguyên và ném lỗi nếu không hợp lệ?;Medium;Understand;bai-giang-01.pdf;int.Parse;int.TryParse;Convert.ToString;int.Parse;ToInt;C
+Khối nào luôn được thực thi sau try dù có ngoại lệ hay không?;Easy;Remember;bai-giang-01.pdf;finally;catch;throw;finally;using;C
+Phạm vi truy cập nào chỉ cho phép dùng thành viên bên trong cùng một lớp?;Easy;Remember;bai-giang-01.pdf;private;public;internal;protected;private;D
+Khi truyền một biến kiểu int vào phương thức không có ref hoặc out điều gì xảy ra?;Medium;Understand;bai-giang-01.pdf;Giá trị được sao chép;Địa chỉ bộ nhớ được truyền;Giá trị được sao chép;Biến trở thành static;Biến bị khóa;B
+Từ khóa nào cho phép một phương thức lớp con thay thế triển khai virtual của lớp cha?;Medium;Understand;bai-giang-01.pdf;override;overload;override;replace;newclass;B
+Chuỗi string trong C# có đặc điểm nào?;Medium;Understand;bai-giang-01.pdf;Bất biến;Có thể sửa trực tiếp từng ký tự;Bất biến;Luôn nằm trên stack;Chỉ chứa ASCII;B
+Phương thức LINQ nào lọc phần tử theo điều kiện?;Easy;Remember;bai-giang-01.pdf;Where;Select;Where;OrderBy;GroupBy;B
+Phương thức LINQ nào kiểm tra collection có ít nhất một phần tử phù hợp?;Medium;Apply;bai-giang-01.pdf;Any;All;Any;Count;First;B
+using statement thường được dùng để làm gì?;Medium;Understand;bai-giang-01.pdf;Đảm bảo tài nguyên IDisposable được giải phóng;Tạo namespace mới;Bắt mọi ngoại lệ;Đảm bảo tài nguyên IDisposable được giải phóng;Chạy mã song song;C
+Sự khác nhau chính giữa class và struct là gì?;Medium;Analyze;bai-giang-01.pdf;Class là kiểu tham chiếu còn struct là kiểu giá trị;Cả hai luôn là kiểu tham chiếu;Class là kiểu tham chiếu còn struct là kiểu giá trị;Struct hỗ trợ đa kế thừa lớp;Class không có constructor;B
+Đoạn int.TryParse(text, out var value) hữu ích vì lý do nào?;Medium;Apply;bai-giang-01.pdf;Không ném ngoại lệ khi chuỗi không hợp lệ;Luôn trả về số 0;Không ném ngoại lệ khi chuỗi không hợp lệ;Chỉ nhận số dương;Tự làm tròn số;B

@@ -6,4 +6,5 @@ public sealed class IndexModel(ICourseMaterialService materials, ICatalogService
 {
     public Task<IActionResult> OnGetAsync(int? courseId, CancellationToken ct) => Index(courseId, ct);
     public Task<IActionResult> OnPostDeleteAsync(int id, CancellationToken ct) => Delete(id, ct);
+    public Task<IActionResult> OnPostAiAsync(int id, int? courseId, CancellationToken ct) => QueueForAi(id, courseId, ct);
 }

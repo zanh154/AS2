@@ -103,7 +103,7 @@
                                 <td>@(q.ReviewedByName ?? "-")</td>
                                 <td>
                                     <a asp-page="Review" asp-route-id="@q.QuestionId" asp-route-documentId="@Model.DocumentId" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil-square"></i> @(q.Status == AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus.PendingReview ? "Duyệt" : "Xem")
+                                        <i class="bi bi-pencil-square"></i> @(q.Status == AssignmentPRN.Business.Interfaces.GeneratedQuestionStatus.PendingReview ? "Duyệt" : "Xem")
                                     </a>
                                 </td>
                             </tr>

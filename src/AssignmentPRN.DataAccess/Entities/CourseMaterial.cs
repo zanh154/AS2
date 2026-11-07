@@ -36,4 +36,7 @@ public class CourseMaterial
     public User Uploader { get; set; } = null!;
 
     public ICollection<Question> Questions { get; set; } = new List<Question>();
+
+    /// <summary>The AI index (chunks and generated questions) built from this file.</summary>
+    public Document? Document { get; set; }
 }

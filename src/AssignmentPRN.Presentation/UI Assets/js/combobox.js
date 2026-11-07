@@ -282,6 +282,8 @@
       });
     };
     value.addEventListener("sync", sync);
+    value.addEventListener("change", sync);
+    value.form?.addEventListener("reset", () => window.setTimeout(sync));
 
     const select = (option) => {
       value.value = option.dataset.value;
@@ -343,8 +345,97 @@
     });
   };
 
+  // Convert the remaining plain Bootstrap selects to the same predictable picker.
+  // Native Windows/Chromium popups can clip long Vietnamese labels and render outside
+  // the control. The original select stays in the form as the source of truth.
+  const upgradeNativeSelect = (value) => {
+    if (value.multiple || value.size > 1 || value.dataset.nativeSelect === "true"
+        || value.closest("[data-select-picker]")) return;
+
+    const root = document.createElement("div");
+    root.className = "select-picker select-picker--plain";
+    root.dataset.selectPicker = "";
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "select-picker__trigger";
+    trigger.dataset.selectTrigger = "";
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+
+    const label = document.createElement("span");
+    label.className = "select-picker__value";
+    label.dataset.selectLabel = "";
+    const chevron = document.createElement("span");
+    chevron.className = "select-picker__chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    trigger.append(label, chevron);
+
+    const panel = document.createElement("div");
+    panel.className = "select-picker__panel";
+    panel.dataset.selectPanel = "";
+    panel.setAttribute("role", "listbox");
+    panel.setAttribute("aria-hidden", "true");
+
+    const searchWrap = document.createElement("div");
+    searchWrap.className = "select-picker__search-wrap select-picker__search-wrap--full";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "select-picker__search";
+    search.placeholder = "Tìm trong danh sách";
+    search.autocomplete = "off";
+    search.dataset.selectSearch = "";
+    search.setAttribute("aria-label", "Tìm trong danh sách");
+    searchWrap.append(search);
+
+    const optionsRoot = document.createElement("div");
+    optionsRoot.className = "select-picker__options";
+    optionsRoot.dataset.selectOptions = "";
+    [...value.options].forEach((nativeOption) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "select-picker__option";
+      option.dataset.selectOption = "";
+      option.dataset.value = nativeOption.value;
+      option.dataset.label = nativeOption.text;
+      option.dataset.searchText = nativeOption.text;
+      option.setAttribute("role", "option");
+      option.disabled = nativeOption.disabled;
+
+      const identity = document.createElement("span");
+      identity.className = "select-picker__identity";
+      const text = document.createElement("strong");
+      text.textContent = nativeOption.text;
+      identity.append(text);
+      const check = document.createElement("span");
+      check.className = "select-picker__check";
+      check.setAttribute("aria-hidden", "true");
+      check.textContent = "✓";
+      option.append(identity, check);
+      optionsRoot.append(option);
+    });
+
+    const empty = document.createElement("div");
+    empty.className = "select-picker__empty";
+    empty.dataset.selectEmpty = "";
+    empty.hidden = true;
+    empty.textContent = "Không tìm thấy lựa chọn phù hợp";
+    optionsRoot.append(empty);
+    panel.append(searchWrap, optionsRoot);
+
+    value.before(root);
+    value.classList.remove("form-select");
+    value.classList.add("visually-hidden");
+    value.tabIndex = -1;
+    value.dataset.selectValue = "";
+    root.append(trigger, value, panel);
+    setupSelectPicker(root);
+    value.dispatchEvent(new Event("sync"));
+  };
+
   document.addEventListener("DOMContentLoaded", () => {
     setupAll();
+    document.querySelectorAll("select.form-select").forEach(upgradeNativeSelect);
     document.querySelectorAll("[data-select-picker]").forEach(setupSelectPicker);
   });
 

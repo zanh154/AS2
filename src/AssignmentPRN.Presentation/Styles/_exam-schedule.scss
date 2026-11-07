@@ -778,6 +778,10 @@
   }
 }
 
+.select-picker__search-wrap--full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .select-picker__search {
   width: 100%;
   min-width: 0;

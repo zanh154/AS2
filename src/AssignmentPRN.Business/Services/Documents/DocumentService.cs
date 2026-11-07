@@ -2,7 +2,10 @@ using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Services;
 using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Repositories;
-using Microsoft.AspNetCore.Http;
+using DocumentStatus = AssignmentPRN.DataAccess.Entities.DocumentStatus;
+using GeneratedQuestionStatus = AssignmentPRN.DataAccess.Entities.GeneratedQuestionStatus;
+using DocumentBloomLevel = AssignmentPRN.DataAccess.Entities.DocumentBloomLevel;
+using Biz = AssignmentPRN.Business.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -41,69 +44,6 @@ public sealed class DocumentService : IDocumentService
         _processingQueue = processingQueue;
         _logger = logger;
         _actor = actor; _courses = courses; _rag = rag.Value;
-    }
-
-    public async Task<ServiceResponse<DocumentResponse>> UploadAsync(int courseId, int userId, IFormFile file, CancellationToken cancellationToken = default)
-    {
-        return await ServiceExecutor.RunAsync(async () =>
-        {
-            await EnsureCourseAccessAsync(courseId, cancellationToken);
-            if (userId != _actor.UserId) throw new BusinessValidationException("Tài khoản tải lên không hợp lệ.");
-            // Validate course exists and user has access
-            var courseExists = await _catalogRepository.CourseExistsAsync(courseId, cancellationToken);
-            if (!courseExists)
-            {
-                throw new BusinessValidationException("Không tìm thấy môn học.");
-            }
-
-            // Validate file
-            ValidateFile(file);
-
-            // Generate unique filename and save
-            var fileId = Guid.NewGuid().ToString("N");
-            var extension = Path.GetExtension(file.FileName);
-            var storedFileName = $"{fileId}{extension}";
-            var relativePath = Path.Combine("documents", courseId.ToString(), storedFileName);
-            var fullPath = Path.Combine(_storageOptions.BasePath, relativePath);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-
-            // Only remove a file created by this request when compensating a failure.
-            var ownsFile = false;
-            try
-            {
-                using (var stream = new FileStream(fullPath, FileMode.CreateNew))
-                {
-                    ownsFile = true;
-                    await file.CopyToAsync(stream, cancellationToken);
-                }
-
-                // Create document record
-                var document = new Document
-                {
-                    CourseId = courseId,
-                    UploadedById = userId,
-                    FileName = file.FileName,
-                    ContentType = extension.ToLowerInvariant() switch { ".pdf" => "application/pdf", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", _ => file.ContentType },
-                    FileSize = file.Length,
-                    StoragePath = relativePath,
-                    Status = DocumentStatus.Pending
-                };
-
-                var created = await _documentRepository.CreateAsync(document, cancellationToken);
-
-                // Queue for background processing
-                await _processingQueue.QueueDocumentAsync(created.DocumentId, CancellationToken.None);
-
-                return MapToResponse(created, 0, 0);
-            }
-            catch
-            {
-                try { if (ownsFile) File.Delete(fullPath); }
-                catch (Exception cleanup) { _logger.LogWarning(cleanup, "Cannot clean up failed upload {File}", storedFileName); }
-                throw;
-            }
-        }, "Không thể tải lên tài liệu.");
     }
 
     public async Task<ServiceResponse<DocumentResponse>> GetAsync(int documentId, CancellationToken cancellationToken = default)
@@ -170,6 +110,9 @@ public sealed class DocumentService : IDocumentService
             await EnsureCourseAccessAsync(doc.CourseId, cancellationToken);
 
             if (userId != _actor.UserId) throw new BusinessValidationException("Tài khoản không hợp lệ.");
+            // A material's index goes with the material; deleting it alone would leave the
+            // file listed without its AI data.
+            if (doc.MaterialId is not null) throw new BusinessValidationException("Tài liệu này thuộc Tài liệu môn, hãy xoá ở trang Tài liệu môn.");
 
             var fullPath = ResolvePath(doc.StoragePath);
             await _documentRepository.DeleteDocumentAsync(documentId, cancellationToken);
@@ -238,12 +181,12 @@ public sealed class DocumentService : IDocumentService
         }, "Không thể tải danh sách câu hỏi.");
     }
 
-    public async Task<ServiceResponse<IReadOnlyList<GeneratedQuestionResponse>>> ListQuestionsByCourseAsync(int courseId, GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
+    public async Task<ServiceResponse<IReadOnlyList<GeneratedQuestionResponse>>> ListQuestionsByCourseAsync(int courseId, Biz.GeneratedQuestionStatus? status = null, CancellationToken cancellationToken = default)
     {
         return await ServiceExecutor.RunAsync<IReadOnlyList<GeneratedQuestionResponse>>(async () =>
         {
             await EnsureCourseAccessAsync(courseId, cancellationToken);
-            var questions = await _documentRepository.GetQuestionsByCourseAsync(courseId, status, cancellationToken);
+            var questions = await _documentRepository.GetQuestionsByCourseAsync(courseId, status?.ToDataAccess(), cancellationToken);
             return questions.Select(MapQuestionToResponse).ToList();
         }, "Không thể tải danh sách câu hỏi.");
     }
@@ -256,7 +199,7 @@ public sealed class DocumentService : IDocumentService
                 ?? throw new BusinessValidationException("Không tìm thấy câu hỏi.");
             await EnsureCourseAccessAsync(question.CourseId ?? question.Document.CourseId, cancellationToken);
 
-            if (reviewerId != _actor.UserId || request.Status is not (GeneratedQuestionStatus.Approved or GeneratedQuestionStatus.Rejected))
+            if (reviewerId != _actor.UserId || request.Status is not (Biz.GeneratedQuestionStatus.Approved or Biz.GeneratedQuestionStatus.Rejected))
                 throw new BusinessValidationException("Quyết định duyệt không hợp lệ.");
             await _documentRepository.ReviewAsync(questionId, current => {
                 if (_actor.Role != "Admin" && current.Course?.LecturerId != _actor.UserId)
@@ -266,31 +209,11 @@ public sealed class DocumentService : IDocumentService
                 if (request.AnswerKey is not null) current.AnswerKey = BusinessValidation.OptionalText(request.AnswerKey, "Đáp án", 2000);
                 if (request.Explanation is not null) current.Explanation = BusinessValidation.OptionalText(request.Explanation, "Giải thích", 2000);
                 if (request.Topic is not null) current.Topic = BusinessValidation.OptionalText(request.Topic, "Chủ đề", 200);
-                if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom; }
-                current.Status = request.Status; current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
+                if (request.BloomLevel is { } bloom) { if (!Enum.IsDefined(bloom)) throw new BusinessValidationException("Bloom không hợp lệ."); current.BloomLevel = bloom.ToDataAccess(); }
+                current.Status = request.Status.ToDataAccess(); current.ReviewedById = reviewerId; current.ReviewedAt = DateTime.UtcNow;
                 current.ReviewNotes = BusinessValidation.OptionalText(request.Notes, "Ghi chú", 1000);
-            }, cancellationToken);
+            }, request.MaterialId, cancellationToken);
         }, "Không thể duyệt câu hỏi.");
-    }
-
-    private void ValidateFile(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-        {
-            throw new BusinessValidationException("Vui lòng chọn file.");
-        }
-
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!_storageOptions.AllowedExtensions.Contains(extension))
-        {
-            throw new BusinessValidationException($"Định dạng file không được hỗ trợ. Chỉ chấp nhận: {string.Join(", ", _storageOptions.AllowedExtensions)}");
-        }
-
-        var maxSizeBytes = _storageOptions.MaxFileSizeMB * 1024L * 1024L;
-        if (file.Length > maxSizeBytes)
-        {
-            throw new BusinessValidationException($"File quá lớn. Kích thước tối đa: {_storageOptions.MaxFileSizeMB} MB.");
-        }
     }
 
     private static DocumentResponse MapToResponse(Document doc, int chunkCount, int questionCount) => new(
@@ -303,12 +226,13 @@ public sealed class DocumentService : IDocumentService
         doc.FileName,
         doc.ContentType,
         doc.FileSize,
-        doc.Status,
+        doc.Status.ToBusiness(),
         doc.ErrorMessage,
         doc.CreatedAt,
         doc.ProcessedAt,
         chunkCount,
-        questionCount
+        questionCount,
+        doc.MaterialId
     );
 
     private static GeneratedQuestionResponse MapQuestionToResponse(GeneratedQuestion q) => new(
@@ -318,9 +242,9 @@ public sealed class DocumentService : IDocumentService
         q.QuestionText,
         q.AnswerKey,
         q.Explanation,
-        q.BloomLevel,
+        q.BloomLevel.ToBusiness(),
         q.Topic,
-        q.Status,
+        q.Status.ToBusiness(),
         q.ReviewedById,
         q.ReviewedBy?.FullName,
         q.ReviewedAt,
@@ -333,12 +257,12 @@ public sealed class DocumentService : IDocumentService
     {
         var bloomDesc = request.BloomLevel switch
         {
-            DocumentBloomLevel.Remember => "Nhớ (Remember): Nhận biết, nhớ lại thông tin",
-            DocumentBloomLevel.Understand => "Hiểu (Understand): Giải thích, tóm tắt, diễn giải",
-            DocumentBloomLevel.Apply => "Áp dụng (Apply): Sử dụng kiến thức vào tình huống mới",
-            DocumentBloomLevel.Analyze => "Phân tích (Analyze): Phân tách, so sánh, đối chiếu",
-            DocumentBloomLevel.Evaluate => "Đánh giá (Evaluate): Phán xét, critique, bảo vệ quan điểm",
-            DocumentBloomLevel.Create => "Sáng tạo (Create): Thiết kế, xây dựng, sáng tạo mới",
+            Biz.DocumentBloomLevel.Remember => "Nhớ (Remember): Nhận biết, nhớ lại thông tin",
+            Biz.DocumentBloomLevel.Understand => "Hiểu (Understand): Giải thích, tóm tắt, diễn giải",
+            Biz.DocumentBloomLevel.Apply => "Áp dụng (Apply): Sử dụng kiến thức vào tình huống mới",
+            Biz.DocumentBloomLevel.Analyze => "Phân tích (Analyze): Phân tách, so sánh, đối chiếu",
+            Biz.DocumentBloomLevel.Evaluate => "Đánh giá (Evaluate): Phán xét, critique, bảo vệ quan điểm",
+            Biz.DocumentBloomLevel.Create => "Sáng tạo (Create): Thiết kế, xây dựng, sáng tạo mới",
             _ => "Tự do"
         };
 

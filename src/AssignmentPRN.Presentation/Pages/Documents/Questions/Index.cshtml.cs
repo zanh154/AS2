@@ -1,6 +1,5 @@
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business;
-using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.Presentation.Constants;
 using AssignmentPRN.Presentation.Filters;
 using Microsoft.AspNetCore.Mvc;

@@ -49,9 +49,7 @@
                             <span class="nav-user__meta d-none d-sm-flex">
                                 <span class="nav-user__name">@fullName</span>
                                 <span class="nav-user__role">@roleLabel</span>
-                                <span class="badge bg-danger ms-2 notif-badge" role="status">
-                                    <partial name="_NotificationBadge" />
-                                </span>
+                                <partial name="_NotificationBadge" />
                             </span>
                             <form method="post" asp-page="/Account/Logout">
                                 <button class="nav-logout" type="submit">
@@ -106,7 +104,6 @@
 
     <div class="realtime-notice" id="realtime-notice" role="status" aria-live="polite" hidden>
         <span id="realtime-notice-message">Danh sách vừa thay đổi.</span>
-        <button type="button" id="realtime-notice-refresh">Cập nhật</button>
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

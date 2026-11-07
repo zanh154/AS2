@@ -42,18 +42,18 @@ public sealed class GradingServiceTests
         public List<(int ExamId, int CandidateId, int Done, int Total)> Progress { get; } = [];
         public List<GradingOutcome> Finished { get; } = [];
 
-        void IGradingNotifier.Progress(GradingSlotRow slot, int answersDone) =>
-            Progress.Add((slot.ExamId, slot.CandidateId, answersDone, slot.Answers.Count));
+        void IGradingNotifier.Progress(GradingSlotInfo slot, int answersDone) =>
+            Progress.Add((slot.ExamId, slot.CandidateId, answersDone, slot.TotalAnswers));
 
-        void IGradingNotifier.Finished(GradingSlotRow slot, GradingOutcome outcome) => Finished.Add(outcome);
+        void IGradingNotifier.Finished(GradingSlotInfo slot, GradingOutcome outcome) => Finished.Add(outcome);
     }
 
     /// <summary>A notifier whose transport is broken.</summary>
     private sealed class ThrowingNotifier : IGradingNotifier
     {
-        public void Progress(GradingSlotRow slot, int answersDone) => throw new InvalidOperationException("hub is gone");
+        public void Progress(GradingSlotInfo slot, int answersDone) => throw new InvalidOperationException("hub is gone");
 
-        public void Finished(GradingSlotRow slot, GradingOutcome outcome) => throw new InvalidOperationException("hub is gone");
+        public void Finished(GradingSlotInfo slot, GradingOutcome outcome) => throw new InvalidOperationException("hub is gone");
     }
 
     private static GradingService Service(AivesDbContext db, IAnswerGrader grader, IGradingNotifier? notifier = null) =>

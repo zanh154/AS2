@@ -32,6 +32,14 @@ public class Document
 
     public DateTime? ProcessedAt { get; set; }
 
+    /// <summary>
+    /// The course material this is the AI index of. Every upload now goes through the
+    /// material list; only rows from before the merge can still be without one.
+    /// </summary>
+    public int? MaterialId { get; set; }
+
+    public CourseMaterial? Material { get; set; }
+
     public Course Course { get; set; } = null!;
 
     public User UploadedBy { get; set; } = null!;

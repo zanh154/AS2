@@ -149,7 +149,7 @@ public class QuestionService(
                     request.ExpectedAnswer,
                     "đáp án mong đợi",
                     MaxExpectedAnswerLength);
-                var options = NormaliseOptions(request.Options);
+                var options = NormaliseOptions(request.Options, expectedAnswer);
 
                 // A follow-up is picked by topic, so without one it could never be asked.
                 if (request.QuestionType == QuestionType.FollowUp && request.MaterialId is null)
@@ -303,7 +303,7 @@ public class QuestionService(
                             row.ExpectedAnswer,
                             "đáp án mong đợi",
                             MaxExpectedAnswerLength);
-                        var options = NormaliseOptions(row.Options);
+                        var options = NormaliseOptions(row.Options, expectedAnswer);
 
                         if (row.MaterialId is int materialId)
                         {
@@ -374,14 +374,16 @@ public class QuestionService(
             {
                 var count = BusinessValidation.InRange(request.Count, 1, 50, "Số câu hỏi mỗi sinh viên");
                 var courseId = BusinessValidation.PositiveId(request.CourseId, "môn học");
-                var pool = await questionRepository.ListPoolIdsAsync(
-                    BuildPoolRequest(courseId, count, request),
-                    cancellationToken);
+                var poolRequest = BuildPoolRequest(courseId, count, request);
+                var pool = await questionRepository.ListPoolIdsAsync(poolRequest, cancellationToken);
+                var sources = await questionRepository.ListPoolSourcesAsync(poolRequest, cancellationToken);
 
                 return new QuestionAvailabilityResponse
                 {
                     Requested = count,
-                    Available = CountAvailableQuestions(pool, request.TakenQuestionIds)
+                    Available = CountAvailableQuestions(pool, request.TakenQuestionIds),
+                    AvailableManual = sources.Count(source => source == AssignmentPRN.DataAccess.Enums.QuestionSource.Manual),
+                    AvailableAi = sources.Count(source => source == AssignmentPRN.DataAccess.Enums.QuestionSource.AI)
                 };
             },
             "Không thể kiểm tra số câu hỏi của ngân hàng.");
@@ -1082,13 +1084,11 @@ public class QuestionService(
     private static string DescribeStatus(AssignmentPRN.DataAccess.Enums.QuestionStatus status) =>
         DescribeStatus(status.ToBusiness());
 
-    private static IReadOnlyList<QuestionOptionInput> NormaliseOptions(        IReadOnlyList<QuestionOptionInput> options)
+    private static IReadOnlyList<QuestionOptionInput> NormaliseOptions(
+        IReadOnlyList<QuestionOptionInput>? options,
+        string? expectedAnswer)
     {
-        if (options is null || options.Count == 0)
-        {
-            throw new BusinessValidationException("Câu hỏi cần ít nhất 2 phương án trả lời.");
-        }
-
+        options ??= [];
         if (options.Count > MaxOptions)
         {
             throw new BusinessValidationException($"Câu hỏi chỉ được có tối đa {MaxOptions} phương án.");
@@ -1112,9 +1112,18 @@ public class QuestionService(
             cleaned.Add(new QuestionOptionInput { Text = text, IsCorrect = option.IsCorrect });
         }
 
+        // No choices at all makes it an oral question: the expected answer is what the
+        // AI grades against, so it cannot be left out as well.
+        if (cleaned.Count == 0)
+        {
+            return expectedAnswer is null
+                ? throw new BusinessValidationException("Câu hỏi vấn đáp (không có phương án) cần có đáp án mong đợi.")
+                : cleaned;
+        }
+
         if (cleaned.Count < MinOptions)
         {
-            throw new BusinessValidationException($"Câu hỏi cần ít nhất {MinOptions} phương án trả lời.");
+            throw new BusinessValidationException($"Câu hỏi trắc nghiệm cần ít nhất {MinOptions} phương án trả lời.");
         }
 
         if (cleaned.Count(item => item.IsCorrect) != 1)
@@ -1559,12 +1568,13 @@ public class QuestionService(
             .Where(option => !string.IsNullOrWhiteSpace(option.Text))
             .ToList();
 
-        if (options.Count < 2)
+        // A row with no options is an oral question; one lone option is a mistake.
+        if (options.Count == 1)
         {
-            throw new BusinessValidationException("Cần ít nhất 2 phương án trả lời.");
+            throw new BusinessValidationException("Câu trắc nghiệm cần ít nhất 2 phương án trả lời.");
         }
 
-        var correctIndex = ResolveCorrectIndex(Value(header, cells, CorrectColumn), options.Count);
+        var correctIndex = options.Count == 0 ? -1 : ResolveCorrectIndex(Value(header, cells, CorrectColumn), options.Count);
         var marked = new List<QuestionOptionInput>(options.Count);
         for (var index = 0; index < options.Count; index++)
         {

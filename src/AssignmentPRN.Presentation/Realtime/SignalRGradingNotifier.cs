@@ -1,8 +1,8 @@
 using AssignmentPRN.Business.Services;
-using AssignmentPRN.DataAccess.Repositories;
 using Microsoft.AspNetCore.SignalR;
 
-namespace AssignmentPRN.Presentation.Hubs;
+using AssignmentPRN.Presentation.Hubs;
+namespace AssignmentPRN.Presentation.Realtime;
 
 /// <summary>
 /// Tells the examiner's screen how the AI marking of a slot is going. It goes to the
@@ -19,16 +19,16 @@ public sealed class SignalRGradingNotifier(
     IHubContext<ExamUpdatesHub> hub,
     ILogger<SignalRGradingNotifier> logger) : IGradingNotifier
 {
-    public void Progress(GradingSlotRow slot, int answersDone) => Send(slot.ExamId, new
+    public void Progress(GradingSlotInfo slot, int answersDone) => Send(slot.ExamId, new
     {
         examId = slot.ExamId,
         candidateId = slot.CandidateId,
         kind = "grading-progress",
         done = answersDone,
-        total = slot.Answers.Count
+        total = slot.TotalAnswers
     });
 
-    public void Finished(GradingSlotRow slot, GradingOutcome outcome) => Send(slot.ExamId, new
+    public void Finished(GradingSlotInfo slot, GradingOutcome outcome) => Send(slot.ExamId, new
     {
         examId = slot.ExamId,
         candidateId = slot.CandidateId,

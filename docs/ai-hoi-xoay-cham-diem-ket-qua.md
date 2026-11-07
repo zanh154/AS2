@@ -6,8 +6,8 @@ Nhánh: `TriDev`, cắt từ `GiaThuan` (`200f5c0`). Ngày cập nhật: 2026-10
 > Đây là **nhật ký làm việc**: kế hoạch, roadmap, từng lần đo, từng lỗi. Bản tổng kết ngắn
 > gọn để đọc trước nằm ở [phan-6-tong-ket.md](phan-6-tong-ket.md).
 
-Tài liệu này chỉ mô tả phần việc số 6 trong bảng phân công ASM2. Các phần đã có nằm ở
-[README](../README.md); không chép lại nội dung của chúng ở đây.
+Tài liệu này chỉ mô tả phần việc số 6 trong bảng phân công ASM2; không chép lại nội dung
+của các phần khác ở đây.
 
 ---
 
@@ -240,7 +240,7 @@ dọn dẹp, làm kèm hoặc bỏ nếu nhóm chưa muốn đụng file chung.
 | Lưu điểm từng tiêu chí và nhận xét | `ai_evaluations` + `ai_evaluation_criteria` |
 | Trang kết quả sang Razor Pages | `Pages/ExamResults/*`, URL giữ nguyên |
 | Giảng viên sửa điểm có dấu vết | `ResultReviewService` + `final_results` + `exam_logs` (`result.adjusted`) |
-| Thông báo tiến độ qua SignalR | Server: `SignalRGradingNotifier`, nhóm `exam:{id}`. Trình duyệt: `wwwroot/js/grading-live.js` — trang bài làm hiện "AI đang chấm x/y câu" rồi tự tải lại khi xong; bảng điểm tự tải lại khi một bài trong phiên chấm xong; đang gõ dở điểm/nhận xét thì chỉ báo, không tải lại |
+| Thông báo tiến độ qua SignalR | Server: `SignalRGradingNotifier`, nhóm `exam:{id}`. Trình duyệt: `UI Assets/js/grading-live.js` — trang bài làm hiện "AI đang chấm x/y câu" rồi tự tải lại khi xong; bảng điểm tự tải lại khi một bài trong phiên chấm xong; đang gõ dở điểm/nhận xét thì chỉ báo, không tải lại |
 
 ### Quyết định đáng chú ý
 

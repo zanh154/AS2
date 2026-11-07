@@ -7,10 +7,10 @@
     </div>
 </div>
 
-<form asp-page="/CourseMaterials/Upload" method="post" enctype="multipart/form-data" class="content-card">
+<form asp-page="/CourseMaterials/Upload" method="post" enctype="multipart/form-data" class="content-card upload-form">
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
-    <div class="row g-3">
-        <div class="col-md-6">
+    <div class="upload-grid">
+        <div>
             <label asp-for="CourseId" class="form-label"></label>
             <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
             {
@@ -23,9 +23,16 @@
             })" />
             <span asp-validation-for="CourseId" class="text-danger"></span>
         </div>
-        <div class="col-md-6">
+        <div>
             <label asp-for="File" class="form-label"></label>
-            <input asp-for="File" class="form-control" accept="@MaterialFileRules.AcceptAttribute" />
+            <div class="file-picker" data-file-picker>
+                <input asp-for="File" class="file-picker__native" accept="@MaterialFileRules.AcceptAttribute" data-file-input />
+                <label for="File" class="file-picker__control">
+                    <span class="file-picker__button">Chọn tài liệu</span>
+                    <span class="file-picker__name" data-file-name>Chưa có tệp được chọn</span>
+                </label>
+                <span class="file-picker__hint">PDF, DOCX hoặc PPTX · tối đa 20 MB</span>
+            </div>
             <span asp-validation-for="File" class="text-danger"></span>
         </div>
     </div>
@@ -34,9 +41,8 @@
         Tài liệu tải lên được dùng làm chủ đề ngay, không cần chờ xử lý và được lưu an toàn trên máy chủ.
     </div>
 
-    <div class="form-actions">
+    <div class="form-actions upload-actions">
         <button class="btn btn-primary">Tải lên</button>
         <a asp-page="/CourseMaterials/Index" class="btn btn-outline-secondary">Huỷ</a>
     </div>
 </form>
-

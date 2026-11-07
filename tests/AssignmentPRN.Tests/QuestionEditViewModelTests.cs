@@ -61,6 +61,23 @@ public class QuestionEditViewModelTests
     }
 
     [Fact]
+    public void An_oral_question_needs_no_options_when_it_has_an_expected_answer()
+    {
+        var model = Model(-1, string.Empty, string.Empty, string.Empty, string.Empty);
+        model.ExpectedAnswer = "Stack giữ kiểu giá trị, heap giữ đối tượng tham chiếu.";
+
+        Assert.Empty(Validate(model));
+    }
+
+    [Fact]
+    public void An_oral_question_without_an_expected_answer_is_rejected()
+    {
+        var errors = Validate(Model(-1, string.Empty, string.Empty, string.Empty, string.Empty));
+
+        Assert.Contains(nameof(QuestionEditViewModel.ExpectedAnswer), Assert.Single(errors).MemberNames);
+    }
+
+    [Fact]
     public void Fewer_than_two_filled_options_is_rejected()
     {
         var errors = Validate(Model(0, "Chỉ một phương án", string.Empty, string.Empty, string.Empty));

@@ -47,7 +47,7 @@ Các controller mới chỉ hiện với vai trò `Admin` và `Lecturer`.
 - **Random:** mỗi sinh viên có bộ câu riêng, không trùng nhau trong cùng phiên.
   Kết quả được ghi snapshot vào `exam_questions` ngay khi tạo lượt thi.
 - **Tài liệu:** chỉ PDF/DOCX/PPTX, tối đa 20 MB. CSV tối đa 2 MB.
-  File lưu ở `src/AssignmentPRN.DataAccess/Storage/materials` (ngoài `wwwroot` để không bị phục vụ tĩnh), `file_name` giữ tên gốc (để CSV trỏ tới được),
+  File lưu ở `src/AssignmentPRN.DataAccess/Storage/materials` (ngoài `UI Assets` để không bị phục vụ tĩnh), `file_name` giữ tên gốc (để CSV trỏ tới được),
   `file_path` chứa tên GUID duy nhất trên đĩa.
 - `course_materials.processing_status` luôn ghi `Completed` vì không có bước xử lý;
   cột được giữ lại cho tính năng đọc nội dung tài liệu bằng AI ở module sau.

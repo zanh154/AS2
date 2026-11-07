@@ -3,15 +3,15 @@
     <div>
         <a class="back-link" asp-page="/Questions/Index">← Ngân hàng câu hỏi</a>
         <h1>@ViewData["Title"]</h1>
-        <p>Mỗi dòng là một câu trắc nghiệm. Dòng sai bị bỏ qua và được liệt kê bên dưới, các dòng còn lại vẫn được nhập.</p>
+        <p>Mỗi dòng là một câu hỏi, vấn đáp hoặc trắc nghiệm. Dòng sai bị bỏ qua và được liệt kê bên dưới, các dòng còn lại vẫn được nhập.</p>
     </div>
     <a class="btn btn-outline-primary" asp-page="/Questions/Template">Tải file mẫu</a>
 </div>
 
-<form asp-page="/Questions/Import" method="post" enctype="multipart/form-data" class="content-card">
+<form asp-page="/Questions/Import" method="post" enctype="multipart/form-data" class="content-card upload-form">
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
-    <div class="row g-3">
-        <div class="col-md-6">
+    <div class="upload-grid">
+        <div>
             <label asp-for="CourseId" class="form-label"></label>
             <partial name="_SearchableSelect" model="@(new SearchableSelectViewModel
             {
@@ -24,9 +24,16 @@
             })" />
             <span asp-validation-for="CourseId" class="text-danger"></span>
         </div>
-        <div class="col-md-6">
+        <div>
             <label asp-for="File" class="form-label"></label>
-            <input asp-for="File" class="form-control" accept=".csv,text/csv" />
+            <div class="file-picker" data-file-picker>
+                <input asp-for="File" class="file-picker__native" accept=".csv,text/csv" data-file-input />
+                <label for="File" class="file-picker__control">
+                    <span class="file-picker__button">Chọn tệp CSV</span>
+                    <span class="file-picker__name" data-file-name>Chưa có tệp được chọn</span>
+                </label>
+                <span class="file-picker__hint">CSV · tối đa 5 MB</span>
+            </div>
             <span asp-validation-for="File" class="text-danger"></span>
         </div>
     </div>
@@ -38,9 +45,9 @@
             <dt>difficulty</dt><dd>Easy / Medium / Hard, thiếu thì mặc định Medium.</dd>
             <dt>bloom</dt><dd>Remember / Understand / Apply / Analyze, thiếu thì mặc định Understand.</dd>
             <dt>material</dt><dd>Tên tệp tài liệu đã có trong hệ thống, dùng làm chủ đề.</dd>
-            <dt>expected_answer</dt><dd>Đáp án mong đợi, không bắt buộc.</dd>
-            <dt>option_a … option_d</dt><dd>Các phương án, cần ít nhất 2 phương án.</dd>
-            <dt>correct</dt><dd>Phương án đúng: A–D hoặc 1–4.</dd>
+            <dt>expected_answer</dt><dd>Đáp án mong đợi, bắt buộc với câu vấn đáp (không có phương án).</dd>
+            <dt>option_a … option_d</dt><dd>Các phương án, tuỳ chọn. Để trống hết là câu vấn đáp; câu trắc nghiệm cần ít nhất 2 phương án.</dd>
+            <dt>correct</dt><dd>Phương án đúng: A–D hoặc 1–4. Bỏ trống với câu vấn đáp.</dd>
         </dl>
     </details>
 
@@ -61,9 +68,8 @@
         </div>
     }
 
-    <div class="form-actions">
+    <div class="form-actions upload-actions">
         <button class="btn btn-primary">Nhập câu hỏi</button>
         <a asp-page="/Questions/Index" class="btn btn-outline-secondary">Huỷ</a>
     </div>
 </form>
-

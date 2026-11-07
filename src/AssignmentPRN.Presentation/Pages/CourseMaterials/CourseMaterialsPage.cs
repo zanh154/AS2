@@ -103,7 +103,7 @@ public abstract class CourseMaterialsPage(
 
                 if (result.Success)
                 {
-                    TempData["Success"] = "Đã tải lên tài liệu.";
+                    TempData["Success"] = "Đã tải lên tài liệu. AI đang đọc tài liệu trong nền để sinh câu hỏi.";
                     return Go(nameof(Index), new { courseId = model.CourseId });
                 }
 
@@ -196,6 +196,16 @@ public abstract class CourseMaterialsPage(
             ? "Đã xoá tài liệu."
             : result.Error;
         return Go(nameof(Index));
+    }
+
+    /// <summary>Sends a material uploaded before the AI index existed, or one that failed, to the AI.</summary>
+    protected async Task<IActionResult> QueueForAi(int id, int? courseId, CancellationToken ct)
+    {
+        var result = await materialService.IndexAsync(id, LecturerId, CurrentUserId, ct);
+        TempData[result.Success ? "Success" : "Error"] = result.Success
+            ? "Đã đưa tài liệu vào hàng chờ AI xử lý."
+            : result.Error;
+        return Go(nameof(Index), new { courseId });
     }
 
     /// <summary>Opens the stored file so the lecturer can check what they uploaded.</summary>

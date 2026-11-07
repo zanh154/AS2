@@ -27,6 +27,30 @@ public sealed class QuestionRealtimeNotificationTests
     }
 
     [Fact]
+    public async Task An_oral_question_saves_without_options_when_it_has_an_expected_answer()
+    {
+        var service = CreateService(new RecordingNotifier());
+
+        var result = await service.SaveAsync(
+            new QuestionSaveRequest { CourseId = 17, QuestionText = "Phân biệt stack và heap", ExpectedAnswer = "Stack giữ giá trị" },
+            lecturerId: 7, ownerLecturerId: 7);
+
+        Assert.True(result.Success, result.Error);
+    }
+
+    [Fact]
+    public async Task A_question_with_neither_options_nor_expected_answer_is_rejected()
+    {
+        var service = CreateService(new RecordingNotifier());
+
+        var result = await service.SaveAsync(
+            new QuestionSaveRequest { CourseId = 17, QuestionText = "Phân biệt stack và heap" },
+            lecturerId: 7, ownerLecturerId: 7);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
     public async Task Failed_save_does_not_notify()
     {
         var notifier = new RecordingNotifier();

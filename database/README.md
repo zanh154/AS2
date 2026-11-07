@@ -110,3 +110,27 @@ Ngày 15/10/2026, schema ASM2 đã được áp dụng trên Aiven đang cấu h
 Before running the updated application, run `pwsh scripts/update-rag-bank.ps1 -WhatIf`, then `pwsh scripts/update-rag-bank.ps1`. The script reads the ignored appsettings.json, applies `20261017_rag_question_bank.sql` and publishes previously approved RAG questions exactly once. It adds a nullable unique bank_question_id link and supports all six Bloom levels. The script does not update existing exam scores. Re-running is safe.
 
 Running SQL alone updates the schema; run the PowerShell script as well to backfill old approvals. New approvals publish to the canonical bank in the same transaction. Published questions are oral questions; configure their rubric before an exam. Deleting a source document preserves published bank questions.
+
+## Gộp "Tài liệu & AI" vào "Tài liệu môn" (23/10/2026)
+
+**Phải chạy `20261023_merge_documents_into_materials.sql` trước khi chạy bản ứng dụng mới**,
+vì code mới đọc cột `documents.material_id`. Chạy sau `20261017_rag_question_bank.sql`.
+Script kiểm tra phần đã tồn tại nên chạy lại nhiều lần vẫn an toàn.
+
+Script làm 3 việc:
+
+1. Thêm cột `documents.material_id` (unique, khoá ngoại tới `course_materials`, `ON DELETE CASCADE`).
+   Mỗi tài liệu môn có tối đa một bản chỉ mục AI; xoá tài liệu môn thì chunk và câu hỏi AI
+   chưa duyệt của nó bị xoá theo.
+2. Nối các `documents` cũ vào tài liệu môn: trùng tên file trong cùng môn thì nối vào tài liệu
+   môn đó, còn lại thì tạo tài liệu môn mới với `file_path = /materials/legacy-rag/<storage_path>`
+   (tên trùng được thêm tiền tố mã document). File không phải PDF/DOCX/PPTX giữ nguyên, không nối.
+3. Câu hỏi AI đã duyệt vào ngân hàng mà chưa có chủ đề được gắn chủ đề là tài liệu môn tương ứng.
+
+Sau khi chạy, chép thư mục `documents` trong `DocumentStorage:BasePath` vào
+`<MaterialStorage:RootPath>/materials/legacy-rag/` trên máy chạy ứng dụng để tải xuống được file
+cũ. Chunk đã có sẵn trong DB nên AI vẫn sinh câu hỏi được dù chưa chép file.
+
+Script đã được chạy thử trên MySQL 8.0 với dump `aives_20261002.sql` + các migration ASM2 và
+các trường hợp: trùng tên, hai document cùng tên, đường dẫn dùng `\`, file `.txt`, chạy lại
+lần hai, xoá dây chuyền.

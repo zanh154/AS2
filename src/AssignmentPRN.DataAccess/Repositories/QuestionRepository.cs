@@ -64,6 +64,9 @@ public interface IQuestionRepository
     /// <summary>Identifiers of every approved question still free for the exam being built.</summary>
     Task<IReadOnlyList<int>> ListPoolIdsAsync(QuestionPickRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>Sources of the approved questions in the same filtered pool, used for an explainable availability count.</summary>
+    Task<IReadOnlyList<QuestionSource>> ListPoolSourcesAsync(QuestionPickRequest request, CancellationToken cancellationToken = default);
+
     /// <summary>How many approved main questions the course can deal from, the same pool <see cref="ListPoolIdsAsync"/> reads.</summary>
     Task<int> CountMainPoolAsync(int courseId, CancellationToken cancellationToken = default);
 
@@ -591,6 +594,21 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
         QuestionPickRequest request,
         CancellationToken cancellationToken = default)
     {
+        return await BuildPool(request)
+            .OrderBy(question => question.QuestionId)
+            .Select(question => question.QuestionId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<QuestionSource>> ListPoolSourcesAsync(
+        QuestionPickRequest request,
+        CancellationToken cancellationToken = default) =>
+        await BuildPool(request)
+            .Select(question => question.Source)
+            .ToListAsync(cancellationToken);
+
+    private IQueryable<Question> BuildPool(QuestionPickRequest request)
+    {
         var pool = context.Questions
             .AsNoTracking()
             .Where(question => question.CourseId == request.CourseId
@@ -616,10 +634,7 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
             pool = pool.Where(question => !taken.Contains(question.QuestionId));
         }
 
-        return await pool
-            .OrderBy(question => question.QuestionId)
-            .Select(question => question.QuestionId)
-            .ToListAsync(cancellationToken);
+        return pool;
     }
 
     public Task<int> CountMainPoolAsync(int courseId, CancellationToken cancellationToken = default) =>

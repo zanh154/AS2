@@ -322,6 +322,12 @@ public interface ICourseMaterialService
         CancellationToken cancellationToken = default);
 
     Task<ServiceResponse> DeleteAsync(int materialId, int? lecturerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Queues a material for the AI index: one uploaded before the index existed, or one
+    /// whose last run failed. A material already indexed or in progress is left alone.
+    /// </summary>
+    Task<ServiceResponse> IndexAsync(int materialId, int? lecturerId, int requestedBy, CancellationToken cancellationToken = default);
 }
 
 public interface ICatalogService
