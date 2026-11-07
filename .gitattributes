@@ -1,0 +1,8 @@
+# Git đoán nhầm PDF là văn bản vì phần lớn nội dung là ASCII, rồi chèn CR khi
+# checkout làm hỏng tệp. Đánh dấu rõ các định dạng nhị phân.
+*.pdf   binary
+*.docx  binary
+*.pptx  binary
+*.png   binary
+*.jpg   binary
+*.ico   binary

@@ -1,3 +1,4 @@
+using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
 
 namespace AssignmentPRN.DataAccess.Repositories;

@@ -1,0 +1,71 @@
+@model StudentScheduleViewModel
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Tra cứu</span>
+        <h1>Lịch thi của sinh viên</h1>
+        <p>Nhập email sinh viên để xem toàn bộ ca thi đã xếp cho họ.</p>
+    </div>
+</div>
+
+
+<div class="lookup-layout">
+    <section class="content-card lookup-card">
+        <form method="get">
+            <label asp-for="Query" class="form-label"></label>
+            <div class="combobox" data-combobox
+                 data-combobox-url="@Url.Page("/ExamSessions/Details", "SearchStudents")">
+                <div class="input-group">
+                    <input asp-for="Query" name="q" class="form-control"
+                           placeholder="Gõ email hoặc tên sinh viên"
+                           autocomplete="off" autofocus data-combobox-input />
+                    <button class="btn btn-primary" type="submit">
+                        <partial name="_Icon" model="@("search")" /> Tra cứu
+                    </button>
+                </div>
+                <div class="combobox__panel" data-combobox-panel hidden></div>
+            </div>
+            <span asp-validation-for="Query" class="field-validation-error"></span>
+        </form>
+    </section>
+
+    @if (Model.Matches.Count > 0)
+    {
+        <section class="content-card">
+            <div class="section-heading">
+                <div>
+                    <h2>Tìm thấy @Model.Matches.Count sinh viên</h2>
+                    <p>Chọn một người để xem lịch thi.</p>
+                </div>
+            </div>
+
+            <div class="person-list">
+                @foreach (var person in Model.Matches)
+                {
+                    var initial = string.IsNullOrEmpty(person.FullName)
+                        ? "?"
+                        : person.FullName[..1].ToUpperInvariant();
+
+                    <a class="person-row" asp-page="/StudentSchedule/Index" asp-route-studentId="@person.UserId">
+                        <span class="avatar" aria-hidden="true">@initial</span>
+                        <span class="person-row__body">
+                            <strong>@person.FullName</strong>
+                            <span>@person.Email</span>
+                        </span>
+                        <span class="person-row__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+    else if (Model.HasSearched && Model.Schedule is null && string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="content-card empty-state">
+            <div class="empty-icon"><partial name="_Icon" model="@("search")" /></div>
+            <h3>Không tìm thấy sinh viên</h3>
+            <p>Không có sinh viên nào có email khớp với "@Model.Query".</p>
+        </div>
+    }
+
+    <partial name="/Pages/Shared/StudentScheduleList.cshtml" model="Model" />
+</div>

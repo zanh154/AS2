@@ -1,0 +1,38 @@
+@* Trail set by each view through ViewData["Breadcrumb"]. The last hop is the current page.
+   A single hop would only repeat the page title, so the trail starts at two. *@
+@model IReadOnlyList<BreadcrumbItem>
+@if (Model.Count > 1)
+{
+    <nav class="breadcrumb-trail" aria-label="Đường dẫn">
+        <ol>
+            @for (var i = 0; i < Model.Count; i++)
+            {
+                var item = Model[i];
+                var isLast = i == Model.Count - 1;
+                <li>
+                    @if (isLast || item.Page is null)
+                    {
+                        <span aria-current="@(isLast ? "page" : null)">@item.Text</span>
+                    }
+                    else
+                    {
+                        <a asp-page="@item.Page" asp-all-route-data="@RouteDataFor(item)">@item.Text</a>
+                    }
+                    @if (!isLast)
+                    {
+                        <span class="breadcrumb-trail__sep" aria-hidden="true">
+                            <partial name="_Icon" model="@("chevron-right")" />
+                        </span>
+                    }
+                </li>
+            }
+        </ol>
+    </nav>
+}
+@functions {
+    private static Dictionary<string, string> RouteDataFor(BreadcrumbItem item) =>
+        item.RouteValues is null
+            ? new Dictionary<string, string>()
+            : new Microsoft.AspNetCore.Routing.RouteValueDictionary(item.RouteValues)
+                .ToDictionary(pair => pair.Key, pair => pair.Value?.ToString() ?? string.Empty);
+}

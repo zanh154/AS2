@@ -1,0 +1,77 @@
+@* Primary navigation. Collapses behind the header toggler below the md breakpoint. *@
+@{
+    var role = Context.Session.GetString(SessionKeys.Role);
+    var current = (ViewContext.RouteData.Values["page"] as string)?.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+    var isStaff = role is RoleNames.Admin or RoleNames.Lecturer;
+    var homeController = role switch
+    {
+        RoleNames.Admin => "Admin",
+        RoleNames.Lecturer => "Lecturer",
+        _ => "Student"
+    };
+}
+
+<aside class="app-sidebar collapse d-md-block" id="sidebarNav">
+    <nav class="sidebar-nav" aria-label="Điều hướng chính">
+        <span class="sidebar-nav__label">Tổng quan</span>
+        <a class="sidebar-link @(current == homeController ? "is-active" : null)"
+           asp-page="/@homeController/Index">
+            <partial name="_Icon" model="@("home")" />
+            <span>Bảng điều khiển</span>
+        </a>
+
+        @if (isStaff)
+        {
+            <span class="sidebar-nav__label">Quản lý đào tạo</span>
+            <a class="sidebar-link @(current == "Courses" ? "is-active" : null)"
+                asp-page="/Courses/Index">
+                <partial name="_Icon" model="@("book")" />
+                <span>Môn học</span>
+            </a>
+            <a class="sidebar-link @(current == "Classes" ? "is-active" : null)"
+               asp-page="/Classes/Index">
+                <partial name="_Icon" model="@("users")" />
+                <span>Lớp học</span>
+            </a>
+
+            <span class="sidebar-nav__label">Ngân hàng câu hỏi</span>
+            <a class="sidebar-link" asp-page="/Documents/Index"><partial name="_Icon" model="@("file-text")" /><span>Tài liệu &amp; AI</span></a>
+            <a class="sidebar-link @(current == "Questions" ? "is-active" : null)"
+               asp-page="/Questions/Index">
+                <partial name="_Icon" model="@("question")" />
+                <span>Câu hỏi</span>
+            </a>
+            <a class="sidebar-link @(current == "CourseMaterials" ? "is-active" : null)"
+               asp-page="/CourseMaterials/Index">
+                <partial name="_Icon" model="@("file-text")" />
+                <span>Tài liệu môn</span>
+            </a>
+
+            <span class="sidebar-nav__label">Phiên thi</span>
+            <a class="sidebar-link @(current == "ExamSessions" ? "is-active" : null)"
+                asp-page="/ExamSessions/Index">
+                <partial name="_Icon" model="@("calendar")" />
+                <span>Lịch thi</span>
+            </a>
+            <a class="sidebar-link @(current == "StudentSchedule" ? "is-active" : null)"
+               asp-page="/StudentSchedule/Index">
+                <partial name="_Icon" model="@("search")" />
+                <span>Tra cứu sinh viên</span>
+            </a>
+            <a class="sidebar-link @(current == "ExamStudents" ? "is-active" : null)"
+               asp-page="/ExamStudents/Index">
+                <partial name="_Icon" model="@("users")" />
+                <span>Sinh viên trong phiên thi</span>
+            </a>
+        }
+        else if (role == RoleNames.Student)
+        {
+            <span class="sidebar-nav__label">Phiên thi</span>
+            <a class="sidebar-link @(current == "StudentSchedule" ? "is-active" : null)"
+               asp-page="/StudentSchedule/Mine">
+                <partial name="_Icon" model="@("calendar")" />
+                <span>Lịch thi của tôi</span>
+            </a>
+        }
+    </nav>
+</aside>

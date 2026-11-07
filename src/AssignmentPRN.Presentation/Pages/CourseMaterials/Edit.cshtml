@@ -1,0 +1,13 @@
+@page "{id:int?}"
+@model AssignmentPRN.Presentation.Pages.CourseMaterials.EditModel
+@{
+    var form = (CourseMaterialEditViewModel)Model.Data;
+    ViewData["Title"] = "Sửa tài liệu";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Tài liệu môn", "/CourseMaterials/Index"),
+        new(form.FileName)
+    };
+}
+<partial name="/Pages/Shared/CourseMaterialsEdit.cshtml" model="Model.Data" />
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

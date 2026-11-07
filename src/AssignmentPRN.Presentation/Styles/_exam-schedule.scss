@@ -1,6 +1,57 @@
 @use "tokens" as *;
 @use "mixins" as *;
 
+.exam-student-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-4;
+  padding: $space-4;
+  margin-bottom: $space-4;
+  background: $color-surface-alt;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  @include respond-below($breakpoint-md) { grid-template-columns: 1fr; }
+}
+[data-roster-row][hidden] { display: none !important; }
+[data-search-results][aria-busy="true"] { opacity: .6; }
+
+.student-add-card {
+  border-top: 3px solid $color-primary;
+
+  .combobox__option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    .combobox__separator { display: none; }
+  }
+}
+
+.student-add-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: $space-4;
+
+  > .btn { margin-top: 2rem; }
+
+  @include respond-below($breakpoint-md) {
+    grid-template-columns: 1fr;
+    > .btn { margin-top: 0; }
+  }
+}
+
+.student-add-note {
+  margin-top: $space-4;
+  padding: $space-3;
+  border-radius: $radius-lg;
+  background: $color-primary-soft;
+  color: $color-text;
+}
+
 // Styles specific to the exam-schedule module. Everything here builds on the
 // shared tokens — no raw colour values.
 
@@ -376,6 +427,22 @@
   min-width: 0;
 }
 
+// Date-only: no clock column, so the panel narrows to the calendar and the
+// footer moves underneath it.
+.date-time-picker--date-only {
+  .date-time-picker__panel {
+    width: min(320px, calc(100vw - 24px));
+  }
+
+  .date-time-picker__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .date-time-picker__footer {
+    margin-top: 0;
+  }
+}
+
 .date-time-picker__header {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 34px;
@@ -501,6 +568,14 @@
     color: $color-muted;
     font-size: $font-size-xs;
   }
+}
+
+.date-time-picker__hint {
+  display: block;
+  margin-top: $space-1;
+  color: $color-warning;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
 }
 
 .date-time-picker__time-fields {
@@ -757,6 +832,12 @@
   }
 }
 
+// Without the avatar the label would sit in the 34px column meant for it, so the
+// grid drops to the two columns that are actually rendered.
+.select-picker--plain .select-picker__option {
+  grid-template-columns: minmax(0, 1fr) 18px;
+}
+
 .select-picker__avatar {
   width: 34px;
   height: 34px;
@@ -882,14 +963,21 @@
   align-items: center;
   gap: $space-3;
 
-  // The status chip sits at the far right of the row.
+  // The status chip sits at the far right of the row, at its natural width.
   > .status-chip {
+    flex: 0 0 auto;
     margin-left: auto;
   }
 
+  // Row actions keep their size and follow the chip.
+  > form {
+    flex: 0 0 auto;
+  }
+
   // Text wrapper (div or span) — must shrink to prevent overflow.
+  // The chip is a span too, hence the exclusion.
   > div:not(.avatar),
-  > span:not(.avatar) {
+  > span:not(.avatar):not(.status-chip) {
     min-width: 0;
     flex: 1;
   }
@@ -1025,9 +1113,437 @@
 
     .student-schedule-time,
     .student-schedule-main,
-    > .status-chip {
+    > .status-chip,
+    .student-schedule-item__action {
       grid-column: 2;
     }
+  }
+}
+
+// The row grows a column only when the "Vào thi" button is actually offered, so a
+// plain row keeps its original layout.
+.student-schedule-item:has(.student-schedule-item__action) {
+  grid-template-columns: 72px 150px minmax(0, 1fr) auto auto;
+
+  @include respond-below($breakpoint-lg) {
+    grid-template-columns: 66px 140px minmax(0, 1fr);
+
+    > .status-chip {
+      grid-column: 2 / 3;
+    }
+  }
+}
+
+// -- Exam room chrome: a page with no way off it but handing the paper in --
+.exam-body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: $color-background;
+}
+
+.exam-header {
+  // Pinned: the countdown is the one thing a student must be able to see at any
+  // point of a long paper, so it must not scroll away with the page.
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: $color-primary-deep;
+  color: #fff;
+  box-shadow: $shadow-md;
+}
+
+.exam-header__inner {
+  display: flex;
+  gap: $space-4;
+  align-items: center;
+  min-height: 64px;
+
+  .navbar-brand {
+    display: flex;
+    gap: $space-2;
+    align-items: center;
+    color: #fff;
+    font-weight: $font-weight-bold;
+  }
+
+  .nav-user {
+    margin-left: auto;
+  }
+}
+
+.exam-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $space-2 $space-4;
+  margin-inline: auto;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: $radius-md;
+  transition: background $transition, border-color $transition;
+
+  // The last minute has to be noticed without the student watching the digits.
+  &.is-warning {
+    background: rgba($color-danger, 0.24);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+
+  &.is-over {
+    background: rgba($color-danger, 0.4);
+  }
+}
+
+.exam-clock__label {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: $font-size-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.exam-clock__value {
+  font-size: $font-size-xl;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.exam-header__inner {
+  @include respond-below($breakpoint-md) {
+    flex-wrap: wrap;
+    padding-block: $space-2;
+
+    .exam-clock {
+      order: 3;
+      width: 100%;
+      flex-direction: row;
+      justify-content: center;
+      gap: $space-2;
+      margin-inline: 0;
+    }
+  }
+}
+
+.exam-main {
+  flex: 1;
+  padding-block: $space-6;
+}
+
+// -- Exam room (what the student sees after opening their slot) ----------
+.exam-room-questions {
+  display: grid;
+  gap: $space-4;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.exam-room-question {
+  padding: $space-4;
+  background: $color-surface-alt;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+}
+
+.exam-room-question__head {
+  display: flex;
+  gap: $space-3;
+  align-items: center;
+
+  strong {
+    color: $color-heading;
+  }
+}
+
+.exam-room-question__text {
+  margin-top: $space-2;
+  color: $color-heading;
+}
+
+.exam-room-options {
+  display: grid;
+  gap: $space-2;
+  padding: 0;
+  margin: $space-3 0 0;
+  list-style: none;
+}
+
+.exam-room-option {
+  display: flex;
+  gap: $space-3;
+  align-items: center;
+  padding: $space-2 $space-3;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  transition: border-color $transition, background $transition;
+
+  &:hover {
+    border-color: $color-primary;
+  }
+
+  // The chosen row stays obvious after the paper is handed in, when the radio is gone.
+  &.is-picked {
+    background: $color-primary-soft;
+    border-color: $color-primary;
+  }
+
+  .form-check-input {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+}
+
+.exam-room-option__body {
+  flex: 1;
+  display: flex;
+  gap: $space-3;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.exam-room-options__label {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: $color-primary-dark;
+  background: $color-primary-tint;
+  border-radius: 50%;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+}
+
+// -- Completed exam result ---------------------------------------------
+.exam-result-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $space-5;
+}
+
+.exam-result-score {
+  flex: 0 0 auto;
+  min-width: 180px;
+  padding: $space-4 $space-5;
+  color: $color-surface;
+  background: $color-primary-deep;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-md;
+  text-align: center;
+
+  span {
+    display: block;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  strong {
+    font-size: $font-size-3xl;
+    line-height: 1.15;
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.72);
+    font-weight: $font-weight-semibold;
+  }
+}
+
+.exam-result-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: $space-3;
+  margin-bottom: $space-5;
+}
+
+.exam-result-stat {
+  position: relative;
+  overflow: hidden;
+  padding: $space-4;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+
+  &::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: $color-primary;
+    content: "";
+  }
+
+  span {
+    display: block;
+    color: $color-muted;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  strong {
+    display: block;
+    margin-top: $space-1;
+    color: $color-heading;
+    font-size: $font-size-2xl;
+    line-height: 1.2;
+  }
+}
+
+.exam-result-stat--correct::before {
+  background: $color-success;
+}
+
+.exam-result-stat--incorrect::before {
+  background: $color-danger;
+}
+
+.exam-result-stat--unanswered::before {
+  background: $color-warning;
+}
+
+.exam-result-question {
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    content: "";
+  }
+
+  &.is-correct::before {
+    background: $color-success;
+  }
+
+  &.is-incorrect::before {
+    background: $color-danger;
+  }
+
+  &.is-unanswered::before {
+    background: $color-warning;
+  }
+}
+
+.exam-result-state {
+  margin-left: auto;
+  padding: $space-1 $space-3;
+  border: 1px solid currentColor;
+  border-radius: $radius-pill;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+}
+
+.is-correct .exam-result-state {
+  color: $color-success;
+  background: $color-success-soft;
+}
+
+.is-incorrect .exam-result-state {
+  color: $color-danger;
+  background: $color-danger-soft;
+}
+
+.is-unanswered .exam-result-state {
+  color: $color-warning;
+  background: $color-warning-soft;
+}
+
+.exam-result-question .exam-room-option {
+  &:hover {
+    border-color: $color-border;
+  }
+
+  &.is-answer-correct,
+  &.is-correct-answer {
+    background: $color-success-soft;
+    border-color: $color-success-border;
+
+    .exam-room-options__label {
+      color: $color-success;
+      background: $color-surface;
+    }
+  }
+
+  &.is-answer-incorrect {
+    background: $color-danger-soft;
+    border-color: $color-danger-border;
+
+    .exam-room-options__label {
+      color: $color-danger;
+      background: $color-surface;
+    }
+  }
+}
+
+.exam-result-option-note {
+  margin-left: auto;
+  color: $color-muted;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+}
+
+.exam-result-correct-answer {
+  display: flex;
+  gap: $space-3;
+  align-items: baseline;
+  margin-top: $space-3;
+  padding: $space-3 $space-4;
+  color: $color-success;
+  background: $color-success-soft;
+  border: 1px solid $color-success-border;
+  border-radius: $radius-md;
+
+  span {
+    flex: 0 0 auto;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-bold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+@include respond-below($breakpoint-md) {
+  .exam-result-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .exam-result-score {
+    min-width: 0;
+  }
+
+  .exam-result-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@include respond-below($breakpoint-sm) {
+  .exam-result-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .exam-room-question__head {
+    flex-wrap: wrap;
+  }
+
+  .exam-result-state {
+    margin-left: 0;
+  }
+
+  .exam-result-correct-answer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: $space-1;
   }
 }
 

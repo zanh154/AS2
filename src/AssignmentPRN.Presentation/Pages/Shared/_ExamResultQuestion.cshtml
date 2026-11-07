@@ -1,0 +1,67 @@
+@model ExamResultQuestionViewModel
+@* One graded question with the student's pick and the answer key. Shared by the
+   student's own result page and the lecturer's review of a candidate. *@
+@{
+    var question = Model.Question;
+    var stateClass = question.IsCorrect
+        ? "is-correct"
+        : question.SelectedOptionId.HasValue ? "is-incorrect" : "is-unanswered";
+    var stateLabel = question.IsCorrect
+        ? "Đúng"
+        : question.SelectedOptionId.HasValue ? "Sai" : "Bỏ trống";
+    var correctOption = question.Options.FirstOrDefault(option => option.IsCorrect);
+}
+
+<li class="exam-room-question exam-result-question @stateClass @(question.IsFollowUp ? "exam-room-question--follow-up" : null)">
+    <div class="exam-room-question__head">
+        <strong>Câu @question.OrderNo</strong>
+        <span class="status-chip @QuestionText.DifficultyChip(question.Difficulty)">
+            @QuestionText.Difficulty(question.Difficulty)
+        </span>
+        @if (Model.ParentOrderNo is int parent)
+        {
+            <span class="status-chip">Đào sâu cho câu @parent</span>
+        }
+        <span class="exam-result-state">@stateLabel</span>
+    </div>
+    <p class="exam-room-question__text">@question.QuestionText</p>
+
+    <ul class="exam-room-options">
+        @for (var index = 0; index < question.Options.Count; index++)
+        {
+            var option = question.Options[index];
+            var isPicked = question.SelectedOptionId == option.OptionId;
+            var optionClass = isPicked && option.IsCorrect
+                ? "is-answer-correct"
+                : isPicked ? "is-answer-incorrect" : option.IsCorrect && !question.IsCorrect ? "is-correct-answer" : null;
+
+            <li class="exam-room-option @optionClass">
+                <div class="exam-room-option__body">
+                    <span class="exam-room-options__label">@((char)('A' + index))</span>
+                    <span>@option.Text</span>
+                    @if (isPicked)
+                    {
+                        <span class="exam-result-option-note">@Model.PickedLabel</span>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+
+    @if (!question.IsCorrect && correctOption is not null)
+    {
+        <div class="exam-result-correct-answer">
+            <span>Đáp án đúng</span>
+            <strong>@correctOption.Text</strong>
+        </div>
+    }
+
+    @* Only the examiner's review reads the expected answer, so a student never sees it. *@
+    @if (!string.IsNullOrWhiteSpace(question.ExpectedAnswer))
+    {
+        <div class="exam-result-expected">
+            <span>Đáp án mong đợi</span>
+            <p>@question.ExpectedAnswer</p>
+        </div>
+    }
+</li>

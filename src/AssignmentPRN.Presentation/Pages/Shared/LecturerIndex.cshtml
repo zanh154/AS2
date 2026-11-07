@@ -1,0 +1,110 @@
+@model StaffDashboardViewModel
+@{
+    var vietnamese = new System.Globalization.CultureInfo("vi-VN");
+}
+
+<partial name="_DashboardHero" model="@(DateTime.Now.ToString("dddd, dd/MM/yyyy", vietnamese))" />
+
+@if (!string.IsNullOrWhiteSpace(Model.LoadError))
+{
+    <div class="alert alert-danger" role="alert">@Model.LoadError</div>
+}
+
+<section class="metric-row" aria-label="Tổng quan">
+    <div class="metric-card"><span>Ca thi</span><strong>@Model.SessionCount</strong></div>
+    <div class="metric-card"><span>Lượt sinh viên</span><strong>@Model.CandidateCount</strong></div>
+    <div class="metric-card"><span>Sắp diễn ra (7 ngày)</span><strong>@Model.UpcomingCount</strong></div>
+    <div class="metric-card">
+        <span>Ca gần nhất</span>
+        <strong>@(Model.NextSession?.StartTime.ToString("dd/MM HH:mm") ?? "—")</strong>
+    </div>
+</section>
+
+@if (Model.NextSession is not null)
+{
+    var next = Model.NextSession;
+    <div class="content-card">
+        <div class="section-heading with-action mb-0">
+            <div class="d-flex gap-3 align-items-start">
+                <span class="icon-chip icon-chip--accent"><partial name="_Icon" model="@("clock")" /></span>
+                <div>
+                    <h3>@next.ExamName</h3>
+                    <p>
+                        @next.CourseCode · @next.CourseName ·
+                        @next.StartTime.ToString("HH:mm")–@next.EndTime.ToString("HH:mm")
+                        ngày @next.StartTime.ToString("dd/MM/yyyy") ·
+                        @next.CandidateCount sinh viên
+                    </p>
+                </div>
+            </div>
+            <a class="btn btn-outline-primary"  asp-page="/ExamSessions/Details"
+               asp-route-id="@next.ExamId">Xem chi tiết</a>
+        </div>
+    </div>
+}
+
+<div class="dashboard-grid">
+    <a class="dashboard-tile"  asp-page="/Courses/Index">
+        <span class="icon-chip"><partial name="_Icon" model="@("plus")" /></span>
+        <div class="dashboard-tile__body"><h3>Môn học</h3><p>Quản lý các môn học do bạn phụ trách.</p></div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+    <a class="dashboard-tile" asp-page="/Classes/Index">
+        <span class="icon-chip"><partial name="_Icon" model="@("users")" /></span>
+        <div class="dashboard-tile__body"><h3>Lớp học</h3><p>Tạo lớp và thêm sinh viên trước khi xếp lịch thi.</p></div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+    <a class="dashboard-tile"  asp-page="/ExamSessions/Create">
+        <span class="icon-chip"><partial name="_Icon" model="@("plus")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Tạo lịch thi</h3>
+            <p>Chọn giờ bắt đầu và thời lượng, hệ thống sinh khung giờ cho từng sinh viên.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+
+    <a class="dashboard-tile"  asp-page="/ExamSessions/Index">
+        <span class="icon-chip"><partial name="_Icon" model="@("calendar")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Lịch thi</h3>
+            <p>Xem các ca thi do bạn phụ trách, đổi khung giờ và xoá lịch.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+
+    <a class="dashboard-tile" asp-page="/Questions/Index">
+        <span class="icon-chip"><partial name="_Icon" model="@("question")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Ngân hàng câu hỏi</h3>
+            <p>Quản lý câu hỏi theo môn, chủ đề và độ khó; nhập hàng loạt từ CSV.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+
+    <a class="dashboard-tile" asp-page="/CourseMaterials/Index">
+        <span class="icon-chip icon-chip--accent"><partial name="_Icon" model="@("file-text")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Tài liệu môn</h3>
+            <p>Tải tài liệu lên; mỗi tài liệu là một chủ đề để gắn câu hỏi.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+
+    <a class="dashboard-tile" asp-page="/StudentSchedule/Index">
+        <span class="icon-chip icon-chip--accent"><partial name="_Icon" model="@("search")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Tra cứu sinh viên</h3>
+            <p>Xem lịch thi đã xếp cho một sinh viên bất kỳ.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+
+    <a class="dashboard-tile" asp-page="/Classes/Index">
+        <span class="icon-chip"><partial name="_Icon" model="@("users")" /></span>
+        <div class="dashboard-tile__body">
+            <h3>Lớp của tôi</h3>
+            <p>Quản lý danh sách sinh viên trong các lớp bạn phụ trách.</p>
+        </div>
+        <span class="dashboard-tile__arrow"><partial name="_Icon" model="@("arrow-right")" /></span>
+    </a>
+</div>

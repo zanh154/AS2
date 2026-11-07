@@ -1,0 +1,19 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Questions.IndexModel
+@{
+    var list = (QuestionListViewModel)Model.Data;
+    ViewData["Title"] = "Ngân hàng câu hỏi";
+    var snapshotUrl = Url.Page("/Questions/Index", "Snapshot", new {
+        courseId = list.CourseId,
+        materialId = list.MaterialId,
+        difficulty = list.Difficulty,
+        bloomLevel = list.BloomLevel,
+        term = list.Term,
+        includeArchived = list.IncludeArchived
+    });
+}
+<div data-live-page="Questions"
+     data-course-id="@(list.CourseId?.ToString() ?? string.Empty)"
+     data-snapshot-url="@snapshotUrl">
+    <partial name="/Pages/Shared/QuestionsIndexContent.cshtml" model="list" />
+</div>

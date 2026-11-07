@@ -1,0 +1,7 @@
+@page
+@model AssignmentPRN.Presentation.Pages.Classes.IndexModel
+@{
+    ViewData["Title"] = "Lớp học";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem> { new("Lớp học") };
+}
+<partial name="/Pages/Shared/ClassesIndex.cshtml" model="Model.Data" />

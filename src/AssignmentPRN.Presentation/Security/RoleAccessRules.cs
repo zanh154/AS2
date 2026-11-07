@@ -3,7 +3,7 @@ using AssignmentPRN.Presentation.Constants;
 namespace AssignmentPRN.Presentation.Security;
 
 /// <summary>
-/// The application's role matrix in one place. Controllers still validate ownership
+/// The application's role matrix in one place. Page models still validate ownership
 /// because knowing a role alone is not enough to protect a lecturer's records.
 /// </summary>
 public static class RoleAccessRules

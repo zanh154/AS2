@@ -1,0 +1,15 @@
+@page 
+@model AssignmentPRN.Presentation.Pages.Classes.CreateModel
+@{
+    var form = (AcademicClassViewModel)Model.Data;
+    ViewData["Title"] = form.ClassId == 0 ? "Thêm lớp học" : "Sửa lớp học";
+    ViewData["Breadcrumb"] = new List<BreadcrumbItem>
+    {
+        new("Lớp học", "/Classes/Index"),
+        new((string)ViewData["Title"]!)
+    };
+}
+<partial name="/Pages/Shared/ClassesEdit.cshtml" model="Model.Data" />
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

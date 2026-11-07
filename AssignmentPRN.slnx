@@ -4,4 +4,7 @@
     <Project Path="src/AssignmentPRN.DataAccess/AssignmentPRN.DataAccess.csproj" />
     <Project Path="src/AssignmentPRN.Presentation/AssignmentPRN.Presentation.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AssignmentPRN.Tests/AssignmentPRN.Tests.csproj" />
+  </Folder>
 </Solution>

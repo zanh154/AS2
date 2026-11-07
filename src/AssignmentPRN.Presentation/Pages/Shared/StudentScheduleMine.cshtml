@@ -1,0 +1,14 @@
+@model StudentScheduleViewModel
+
+<div class="page-header">
+    <div>
+        <a class="back-link" asp-page="/Student/Index"><partial name="_Icon" model="@("arrow-left")" /> Quay lại bảng điều khiển</a>
+        <span class="eyebrow">Dành cho sinh viên</span>
+        <h1>Lịch thi của tôi</h1>
+        <p>Ngày, giờ và môn thi vấn đáp đã được xếp cho bạn.</p>
+    </div>
+</div>
+
+<div class="lookup-layout">
+    <partial name="/Pages/Shared/StudentScheduleList.cshtml" model="Model" />
+</div>

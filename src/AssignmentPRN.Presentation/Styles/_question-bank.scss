@@ -1,0 +1,176 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+// Styles for the question bank and course-material screens. Everything is built on the
+// shared tokens — no raw colour values.
+
+// -- Filter bars (Questions/Index, CourseMaterials/Index) ------------------
+.question-filters,
+.material-filters {
+  margin-bottom: $space-4;
+}
+
+// -- Question list (Questions/Index) ---------------------------------------
+.question-cell {
+  max-width: 44ch;
+  margin: 0;
+  overflow: hidden;
+  color: $color-heading;
+  font-weight: $font-weight-medium;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// -- Question editor (Questions/Edit) --------------------------------------
+.option-editor {
+  padding-top: $space-4;
+  margin-top: $space-5;
+  border-top: 1px solid $color-border;
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 4.5rem;
+  gap: $space-3;
+  align-items: center;
+  margin-bottom: $space-3;
+
+  @include respond-below($breakpoint-sm) {
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+}
+
+.option-row__label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: $color-primary;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-bold;
+  background: $color-primary-soft;
+  border-radius: $radius-pill;
+}
+
+.option-row__correct {
+  margin: 0;
+  white-space: nowrap;
+
+  @include respond-below($breakpoint-sm) {
+    grid-column: 2;
+  }
+}
+
+// -- CSV import (Questions/Import) -----------------------------------------
+.csv-format {
+  padding: $space-4 0;
+  margin-top: $space-4;
+  border-top: 1px solid $color-border;
+  border-bottom: 1px solid $color-border;
+
+  summary {
+    color: $color-primary;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: $space-2 $space-4;
+    margin: $space-4 0 0;
+
+    @include respond-below($breakpoint-sm) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  dt {
+    color: $color-heading;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+  }
+
+  dd {
+    margin: 0;
+    font-size: $font-size-sm;
+  }
+}
+
+.import-result {
+  padding: $space-4;
+  margin-top: $space-4;
+  background: $color-surface-alt;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+}
+
+.import-result__count {
+  margin: 0 0 $space-2;
+  color: $color-success;
+  font-weight: $font-weight-semibold;
+}
+
+.import-result__errors {
+  padding-left: $space-5;
+  margin: 0;
+  color: $color-danger;
+  font-size: $font-size-sm;
+}
+
+/* Checkbox filters on the "phát đề" screen. A column count instead of a fixed
+   width keeps long file names from pushing the grid off the card. */
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: $space-2 $space-4;
+}
+
+.exam-paper-list {
+  display: grid;
+  gap: $space-4;
+}
+
+.exam-paper {
+  padding: $space-4;
+  background: $color-surface-alt;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+}
+
+.exam-paper__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-4;
+  align-items: center;
+
+  span {
+    font-size: $font-size-sm;
+  }
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    margin-right: auto;
+  }
+}
+
+.exam-paper__questions {
+  padding-left: $space-5;
+  margin: $space-3 0 0;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    align-items: baseline;
+    padding: $space-2 0;
+    border-top: 1px solid $color-border;
+    font-size: $font-size-sm;
+  }
+}
+
+.exam-paper__text {
+  flex: 1 1 320px;
+}

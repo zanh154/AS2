@@ -1,0 +1,19 @@
+﻿question_text;difficulty;bloom;material;expected_answer;option_a;option_b;option_c;option_d;correct
+Trong C#, kiểu nào lưu số nguyên 32 bit có dấu?;Easy;Remember;bai-giang-01.pdf;int;int;long;short;byte;A
+Từ khoá nào khai báo một hằng số biết giá trị ngay lúc biên dịch?;Easy;Remember;bai-giang-01.pdf;const;readonly;const;static;sealed;B
+Kiểu dữ liệu tham trị được cấp phát ở đâu?;Easy;Remember;bai-giang-01.pdf;Trên stack;Trên heap;Trên stack;Trong vùng static;Trong registry;B
+Từ khoá nào tạo một thể hiện mới của lớp?;Easy;Remember;bai-giang-01.pdf;new;this;base;new;var;C
+Khối nào luôn chạy dù có ngoại lệ hay không?;Easy;Understand;bai-giang-01.pdf;finally;try;catch;finally;throw;C
+Thành viên static thuộc về đâu?;Medium;Understand;bai-giang-01.pdf;Thuộc về lớp;Thuộc về lớp;Thuộc về từng đối tượng;Thuộc về namespace;Thuộc về assembly;A
+Sự khác nhau chính giữa class và struct trong C# là gì?;Medium;Understand;bai-giang-01.pdf;class là kiểu tham chiếu, struct là kiểu tham trị;class là kiểu tham chiếu, struct là kiểu tham trị;struct không có phương thức;class không kế thừa được;struct luôn nhanh hơn class;A
+Interface khác abstract class ở điểm nào?;Medium;Understand;bai-giang-01.pdf;Một lớp cài đặt được nhiều interface nhưng chỉ kế thừa một lớp;Interface có hàm khởi tạo;Interface lưu được trạng thái;Một lớp cài đặt được nhiều interface nhưng chỉ kế thừa một lớp;Abstract class không có phương thức trừu tượng;C
+Câu lệnh using trong thân phương thức bảo đảm điều gì?;Medium;Understand;bai-giang-01.pdf;Dispose được gọi khi ra khỏi phạm vi;Đối tượng không bao giờ null;Dispose được gọi khi ra khỏi phạm vi;Biến trở thành static;Bộ nhớ được giải phóng ngay;B
+Toán tử ?? trong C# làm gì?;Medium;Apply;bai-giang-01.pdf;Trả về vế phải khi vế trái null;So sánh hai giá trị;Trả về vế phải khi vế trái null;Ép kiểu an toàn;Kiểm tra kiểu;B
+Phương thức LINQ nào dùng để lọc phần tử theo điều kiện?;Medium;Apply;bai-giang-01.pdf;Where;Select;Where;OrderBy;GroupBy;B
+Truy vấn LINQ được thực thi khi nào?;Medium;Understand;bai-giang-01.pdf;Khi duyệt kết quả, ví dụ gọi ToList();Ngay khi khai báo;Khi duyệt kết quả, ví dụ gọi ToList();Khi chương trình kết thúc;Khi gọi Dispose;B
+Kiểu nào nên dùng cho số tiền để tránh sai số làm tròn?;Medium;Apply;bai-giang-01.pdf;decimal;float;double;decimal;int;C
+string trong C# có đặc điểm gì?;Medium;Understand;bai-giang-01.pdf;Bất biến, mỗi lần sửa tạo chuỗi mới;Bất biến, mỗi lần sửa tạo chuỗi mới;Thay đổi tại chỗ;Là kiểu tham trị;Luôn có độ dài cố định;A
+Vì sao nên dùng StringBuilder khi nối chuỗi trong vòng lặp?;Hard;Analyze;bai-giang-01.pdf;Tránh tạo nhiều chuỗi trung gian;Vì string không nối được;Tránh tạo nhiều chuỗi trung gian;Vì StringBuilder là kiểu tham trị;Vì StringBuilder chạy bất đồng bộ;B
+async/await giúp giải quyết vấn đề gì?;Hard;Analyze;bai-giang-01.pdf;Không chặn luồng khi chờ tác vụ I/O;Chạy nhanh hơn trên mọi trường hợp;Không chặn luồng khi chờ tác vụ I/O;Tự động bắt ngoại lệ;Giảm bộ nhớ sử dụng;B
+Vì sao IEnumerable phù hợp hơn List khi trả dữ liệu ra ngoài?;Hard;Analyze;bai-giang-01.pdf;Chỉ lộ ra khả năng duyệt, không cho sửa tập hợp;Vì IEnumerable nhanh hơn;Vì List không duyệt được;Chỉ lộ ra khả năng duyệt, không cho sửa tập hợp;Vì IEnumerable luôn nằm trên stack;C
+Khi nào nên chọn struct thay cho class?;Hard;Analyze;bai-giang-01.pdf;Khi dữ liệu nhỏ, bất biến và tạo ra rất nhiều;Khi cần kế thừa nhiều tầng;Khi dữ liệu nhỏ, bất biến và tạo ra rất nhiều;Khi cần truyền theo tham chiếu;Khi cần hàm huỷ;B

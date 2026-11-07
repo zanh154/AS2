@@ -9,5 +9,19 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="9.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The rules that used to live in BusinessRules/ are now internal members of the
+         services that own them; the test project still reaches them directly. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>AssignmentPRN.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>

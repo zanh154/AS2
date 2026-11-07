@@ -1,5 +1,6 @@
 using AssignmentPRN.Business;
-using AssignmentPRN.Presentation.Models;
+using AssignmentPRN.Business.Interfaces;
+using AssignmentPRN.Presentation.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
