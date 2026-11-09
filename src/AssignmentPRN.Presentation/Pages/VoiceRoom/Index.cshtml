@@ -14,6 +14,16 @@
             <h1>Thi vấn đáp</h1>
             <p id="voice-exam-name">Một câu hỏi mỗi lần. Tự tin trả lời theo cách của bạn.</p>
         </div>
+        <div class="voice-room__mic-action">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="voice-mic-retest-btn" title="Kiểm tra lại thiết bị Microphone">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                <span>Kiểm tra Mic</span>
+            </button>
+        </div>
         <div class="voice-room__connection">
             <span class="voice-connection-dot" aria-hidden="true"></span>
             <p id="voice-connection" role="status" aria-live="polite">Đang kết nối phòng thi…</p>
@@ -48,7 +58,79 @@
             <p>Đọc kỹ câu hỏi hoặc nghe trước khi bắt đầu trả lời.</p>
             <button type="button" class="btn btn-outline-primary" id="voice-read">Nghe câu hỏi</button>
         </div>
-    </section>
+        <!-- Modal kiểm tra Microphone trước khi vào phòng thi -->
+    <div id="voice-mic-modal" class="voice-mic-modal" role="dialog" aria-modal="true" aria-labelledby="voice-mic-title" hidden>
+        <div class="voice-mic-backdrop"></div>
+        <div class="voice-mic-dialog">
+            <div class="voice-mic-dialog__header">
+                <div class="voice-mic-icon-orb" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                        <line x1="8" y1="22" x2="16" y2="22"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 id="voice-mic-title">Kiểm tra Microphone</h2>
+                    <p>Hãy đảm bảo micro hoạt động rõ ràng để AI ghi nhận chính xác câu trả lời của bạn.</p>
+                </div>
+            </div>
+
+            <div class="voice-mic-dialog__body">
+                <div class="voice-mic-visualizer" id="voice-mic-visualizer">
+                    <div class="voice-mic-waves" aria-hidden="true">
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                        <span class="wave-bar"></span>
+                    </div>
+                    <div class="voice-mic-meter-track" role="progressbar" aria-label="Cường độ âm thanh" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        <div class="voice-mic-meter-fill" id="voice-mic-level-fill"></div>
+                    </div>
+                </div>
+
+                <div class="voice-mic-status-box" id="voice-mic-status-box">
+                    <span class="voice-mic-status-indicator" id="voice-mic-status-indicator"></span>
+                    <p id="voice-mic-status-text">Bấm <strong>"Bắt đầu thử giọng"</strong> và nói vào microphone để kiểm tra.</p>
+                </div>
+
+                <div class="voice-mic-playback-wrap" id="voice-mic-playback-wrap" hidden>
+                    <div class="voice-mic-playback-label">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        </svg>
+                        <span>Nghe lại âm thanh vừa thử của bạn:</span>
+                    </div>
+                    <audio id="voice-mic-playback" controls preload="none"></audio>
+                </div>
+            </div>
+
+            <div class="voice-mic-dialog__footer">
+                <button type="button" class="btn btn-outline-secondary" id="voice-mic-skip-btn">Bỏ qua</button>
+                <button type="button" class="btn btn-outline-primary" id="voice-mic-start-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                    </svg>
+                    <span>Bắt đầu thử giọng</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="voice-mic-confirm-btn" disabled>
+                    <span>Vào phòng thi</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
     <form class="content-card voice-transcript-panel" id="voice-answer">
         @Html.AntiForgeryToken()
         <div class="voice-panel-heading">
@@ -129,4 +211,5 @@
     <script src="~/js/voice-capture.js" asp-append-version="true"></script>
     <script src="~/js/voice-room.js" asp-append-version="true"></script>
     <script src="~/js/voice-room-ui.js" asp-append-version="true"></script>
+    <script src="~/js/voice-mic-check.js" asp-append-version="true"></script>
 }

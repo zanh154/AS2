@@ -97,15 +97,60 @@
       if (failure || pending?.id === targetId) throw failure || new Error("Bản thu chưa lưu. Hãy thử lưu lại.");
     }
   };
+  const detectLanguage = str => {
+    if (!str || typeof str !== "string") return "vi-VN";
+    const viDiacritics = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/i;
+    if (viDiacritics.test(str)) return "vi-VN";
+    const enKeywords = /\b(what|why|how|when|where|which|who|explain|describe|define|difference|between|compare|list|illustrate|advantages|disadvantages|purpose)\b/i;
+    if (enKeywords.test(str)) return "en-US";
+    const enCommon = /\b(the|is|are|in|of|to|with|for|and|that|this|it|an|as|by|from)\b/i;
+    if (enCommon.test(str)) return "en-US";
+    const viKeywords = /\b(cho|biet|neu|cau|hoi|tai|sao|hay|viet|bang|khoa)\b/i;
+    if (viKeywords.test(str)) return "vi-VN";
+    return "vi-VN";
+  };
+  let cachedVoices = [];
+  const loadVoices = () => {
+    if (typeof window.speechSynthesis === "undefined") return;
+    const list = window.speechSynthesis.getVoices?.();
+    if (list && list.length) cachedVoices = list;
+  };
+  loadVoices();
+  if (typeof window.speechSynthesis !== "undefined" && window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+  const pickVoice = lang => {
+    loadVoices();
+    const voices = cachedVoices.length ? cachedVoices : (window.speechSynthesis?.getVoices?.() || []);
+    if (!voices.length) return null;
+    const isVi = lang.toLowerCase().startsWith("vi");
+    if (isVi) {
+      const naturalVi = voices.find(v => v.lang?.toLowerCase().startsWith("vi") && /natural|online|hoaimy|namminh|an\b|google/i.test(v.name));
+      if (naturalVi) return naturalVi;
+      const anyVi = voices.find(v => v.lang?.toLowerCase().startsWith("vi") || /vietnam|tiếng việt/i.test(v.name));
+      if (anyVi) return anyVi;
+      return null;
+    } else {
+      const naturalEn = voices.find(v => v.lang?.toLowerCase().startsWith("en") && /natural|online|jenny|guy|aria|google/i.test(v.name));
+      if (naturalEn) return naturalEn;
+      const anyEn = voices.find(v => v.lang?.toLowerCase().startsWith("en"));
+      if (anyEn) return anyEn;
+      return null;
+    }
+  };
   const stopReading = () => { window.speechSynthesis?.cancel(); reading = false; buttons(); };
   read.addEventListener("click", () => {
     if (reading) { stopReading(); return; }
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { status.textContent = "Trình duyệt chưa hỗ trợ đọc tự động; hãy đọc câu hỏi trên màn hình."; return; }
     if (!question || active()) return;
-    const utterance = new SpeechSynthesisUtterance(question.text);
-    utterance.lang = "vi-VN";
-    const voice = speechSynthesis.getVoices().find(item => item.lang.toLowerCase().startsWith("vi"));
-    if (voice) utterance.voice = voice;
+    const textToRead = question.text;
+    const lang = detectLanguage(textToRead);
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.lang = lang;
+    const voice = pickVoice(lang);
+    if (voice) {
+      utterance.voice = voice;
+    }
     reading = true; buttons();
     utterance.onend = () => { reading = false; buttons(); };
     utterance.onerror = () => { reading = false; status.textContent = "Không đọc được tự động. Bạn có thể đọc câu hỏi trên màn hình."; buttons(); };
@@ -166,7 +211,8 @@
   });
   const startSpeech = id => {
       const prefix = text.value.trim();
-      adapter.start({ onText: value => {
+      const lang = detectLanguage(question?.text);
+      adapter.start({ lang, onText: value => {
         if (question?.examQuestionId !== id) return;
         text.value = [prefix, value].filter(Boolean).join(" ").slice(0, 16000); text.dispatchEvent(new Event("input")); },
         onError: message => { if (question?.examQuestionId === id) byId("voice-stt-status").textContent = message; },
@@ -199,6 +245,7 @@
       stopRecording().catch(error => { status.textContent = error.message; });
   }, 200);
   window.voiceCapture = {
+    detectLanguage,
     beforeSubmit: () => stopRecording(true),
     get busy() { return active() || uploading; },
     get hasPendingAudio() { return pending?.id === question?.examQuestionId && !!pending; },

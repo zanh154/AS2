@@ -211,3 +211,258 @@
     .voice-form-actions { .btn { min-width: 0; white-space: normal; } }
   }
 }
+
+// Microphone Test Pre-Check Modal
+.voice-mic-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-4;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+
+  &.is-visible {
+    opacity: 1;
+    visibility: visible;
+
+    .voice-mic-dialog {
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  &[hidden] {
+    display: none !important;
+  }
+}
+
+.voice-mic-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+}
+
+.voice-mic-dialog {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 500px;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-xl;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  transform: scale(0.95) translateY(12px);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.voice-mic-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  padding: $space-5 $space-5 $space-4;
+  border-bottom: 1px solid $color-border;
+
+  h2 {
+    margin: 0;
+    font-size: $font-size-md;
+    font-weight: $font-weight-bold;
+    color: $color-heading;
+  }
+
+  p {
+    margin: $space-1 0 0;
+    font-size: $font-size-xs;
+    color: $color-muted;
+    line-height: 1.45;
+  }
+}
+
+.voice-mic-icon-orb {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: $color-primary-soft;
+  color: $color-primary;
+  flex-shrink: 0;
+}
+
+.voice-mic-dialog__body {
+  padding: $space-5;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.voice-mic-visualizer {
+  padding: $space-4;
+  background: $color-surface-alt;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  align-items: center;
+}
+
+.voice-mic-waves {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 52px;
+  width: 100%;
+
+  .wave-bar {
+    width: 6px;
+    height: 48px;
+    background: linear-gradient(180deg, $color-primary, $color-accent);
+    border-radius: $radius-pill;
+    transform: scaleY(0.2);
+    transform-origin: center;
+    transition: transform 0.08s ease-out;
+  }
+}
+
+.voice-mic-meter-track {
+  width: 100%;
+  height: 6px;
+  background: $color-border;
+  border-radius: $radius-pill;
+  overflow: hidden;
+}
+
+.voice-mic-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #06b6d4, $color-primary);
+  border-radius: $radius-pill;
+  transition: width 0.06s linear;
+}
+
+.voice-mic-status-box {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  background: $color-surface-alt;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  font-size: $font-size-xs;
+  line-height: 1.5;
+
+  p {
+    margin: 0;
+    color: $color-text;
+  }
+}
+
+.voice-mic-status-indicator {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: $color-muted;
+  flex-shrink: 0;
+  transition: background $transition, box-shadow $transition;
+
+  &.is-listening {
+    background: $color-primary;
+    box-shadow: 0 0 0 4px rgba($color-primary, 0.2);
+    animation: voice-pulse 1.2s infinite;
+  }
+
+  &.is-success {
+    background: #10b981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  }
+
+  &.is-warning {
+    background: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+  }
+
+  &.is-error {
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+  }
+}
+
+@keyframes voice-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+.voice-mic-playback-wrap {
+  padding: $space-3 $space-4;
+  background: $color-accent-soft;
+  border: 1px solid rgba($color-accent, 0.15);
+  border-radius: $radius-md;
+
+  .voice-mic-playback-label {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin-bottom: $space-2;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    color: $color-heading;
+
+    svg { color: $color-accent; }
+  }
+
+  audio {
+    width: 100%;
+    height: 36px;
+    display: block;
+  }
+}
+
+.voice-mic-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-3;
+  padding: $space-4 $space-5;
+  background: $color-surface-alt;
+  border-top: 1px solid $color-border;
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: $font-size-xs;
+    padding: $space-2 $space-4;
+    min-height: 40px;
+    border-radius: $radius-md;
+  }
+
+  #voice-mic-skip-btn {
+    margin-right: auto;
+    border-color: transparent;
+    color: $color-muted;
+
+    &:hover {
+      background: $color-surface;
+      color: $color-text;
+    }
+  }
+}
+
+.voice-room__mic-action {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
+    font-size: $font-size-xs;
+    min-height: 32px;
+    padding: $space-1 $space-3;
+    border-radius: $radius-md;
+  }
+}
