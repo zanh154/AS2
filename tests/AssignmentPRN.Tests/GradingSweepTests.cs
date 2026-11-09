@@ -26,6 +26,7 @@ public sealed class GradingSweepTests
         public Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<(int StudentId, bool Completed)?> SlotOwnerAsync(int candidateId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<GradingSlotRow?> LoadAsync(int candidateId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task DisqualifyCandidateAsync(int candidateId, int examId, string comment, DateTime at, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<decimal?> SaveAsync(int candidateId, int examId, IReadOnlyList<AnswerEvaluation> evaluations, decimal? slotScore,
             DateTime at, CancellationToken ct = default) => throw new NotSupportedException();
     }

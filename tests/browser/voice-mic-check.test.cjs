@@ -104,8 +104,13 @@ function loadMicCheck({ hasTested = false, denied = false } = {}) {
       getItem: key => storage.get(key) || null,
       setItem: (key, val) => storage.set(key, val)
     },
-    requestAnimationFrame: cb => setTimeout(cb, 10),
-    cancelAnimationFrame: () => {},
+    requestAnimationFrame: cb => {
+      const id = setTimeout(cb, 10);
+      return id;
+    },
+    cancelAnimationFrame: id => {
+      clearTimeout(id);
+    },
     setTimeout,
     clearTimeout,
     Blob,
@@ -128,6 +133,7 @@ test("opens mic test modal automatically if student hasn't tested yet", () => {
   const harness = loadMicCheck({ hasTested: false });
   const modal = harness.elements.get("voice-mic-modal");
   assert.equal(modal.hidden, false, "Modal should be visible when untested");
+  harness.window.voiceMicCheck.close();
 });
 
 test("leaves modal hidden if student already tested in current session", () => {
@@ -135,10 +141,12 @@ test("leaves modal hidden if student already tested in current session", () => {
   assert.equal(harness.storage.get("voice_mic_tested_118"), "1");
 });
 
-test("retest button opens modal and starts test", () => {
+test("retest button opens modal and starts test", async () => {
   const harness = loadMicCheck({ hasTested: true });
   const retestBtn = harness.elements.get("voice-mic-retest-btn");
   retestBtn.dispatchEvent(new Event("click"));
   const modal = harness.elements.get("voice-mic-modal");
   assert.equal(modal.attributes.has("hidden"), false);
+  await new Promise(r => setTimeout(r, 30));
+  harness.window.voiceMicCheck.close();
 });

@@ -37,7 +37,99 @@
     }
   };
   const active = () => recorder?.state === "recording" || requesting || stopping;
-  const release = () => { stream?.getTracks().forEach(track => { track.onended = null; track.stop(); }); stream = null; };
+  let waveAnimId = null;
+  let waveAudioCtx = null;
+  let waveAnalyser = null;
+  const waveCanvas = byId("voice-live-canvas");
+
+  const startLiveWaveform = mediaStream => {
+    if (!waveCanvas) return;
+    const ctx = waveCanvas.getContext?.("2d");
+    if (!ctx) return;
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtxClass) return;
+
+    try {
+      if (!waveAudioCtx || waveAudioCtx.state === "closed") {
+        waveAudioCtx = new AudioCtxClass();
+      } else if (waveAudioCtx.state === "suspended") {
+        waveAudioCtx.resume?.();
+      }
+      waveAnalyser = waveAudioCtx.createAnalyser();
+      waveAnalyser.fftSize = 128;
+      waveAnalyser.smoothingTimeConstant = 0.75;
+      const source = waveAudioCtx.createMediaStreamSource(mediaStream);
+      source.connect(waveAnalyser);
+
+      const bufferLength = waveAnalyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      let phase = 0;
+
+      const render = () => {
+        waveAnimId = requestAnimationFrame(render);
+        waveAnalyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+        const avg = sum / bufferLength;
+        const energy = Math.min(1, avg / 75);
+
+        const w = waveCanvas.width;
+        const h = waveCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        phase += 0.04 + energy * 0.06;
+
+        const layers = [
+          { color: "rgba(37, 99, 235, 0.85)", amp: 14 * (0.2 + energy * 0.9), freq: 0.032, speed: 1.0 },
+          { color: "rgba(6, 182, 212, 0.75)", amp: 10 * (0.2 + energy * 0.8), freq: 0.042, speed: -0.85 },
+          { color: "rgba(139, 92, 246, 0.65)", amp: 18 * (0.25 + energy * 1.0), freq: 0.024, speed: 1.25 }
+        ];
+
+        layers.forEach(l => {
+          ctx.beginPath();
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = l.color;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = l.color;
+
+          for (let x = 0; x <= w; x += 3) {
+            const normX = x / w;
+            const envelope = Math.sin(normX * Math.PI);
+            const y = (h / 2) + Math.sin(x * l.freq + phase * l.speed) * l.amp * envelope;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        });
+        ctx.shadowBlur = 0;
+      };
+
+      render();
+    } catch {}
+  };
+
+  const stopLiveWaveform = () => {
+    if (waveAnimId) {
+      cancelAnimationFrame(waveAnimId);
+      waveAnimId = null;
+    }
+    if (waveCanvas) {
+      const ctx = waveCanvas.getContext?.("2d");
+      ctx?.clearRect?.(0, 0, waveCanvas.width, waveCanvas.height);
+    }
+    if (waveAudioCtx && waveAudioCtx.state !== "closed") {
+      waveAudioCtx.close?.().catch?.(() => {});
+      waveAudioCtx = null;
+    }
+    waveAnalyser = null;
+  };
+
+  const release = () => {
+    stopLiveWaveform();
+    stream?.getTracks().forEach(track => { track.onended = null; track.stop(); });
+    stream = null;
+  };
   const buttons = () => {
     root.dataset.captureState = uploading ? "saving" : stopping ? "processing" : recorder?.state === "recording" ? "recording" : requesting ? "permission" : reading ? "reading" : "ready";
     text.readOnly = active();
@@ -196,11 +288,13 @@
           const download = byId("voice-download-local");
           download.href = previewUrl; download.download = `voice-${id}.${mime.startsWith("audio/mp4") ? "m4a" : mime.startsWith("audio/ogg") ? "ogg" : "webm"}`; download.hidden = false;
         }
+        stopLiveWaveform();
         stopping = false; release(); buttons(); stopResolve();
       };
       recorder.onerror = () => { status.textContent = "Thiết bị thu âm gặp lỗi; hãy kiểm tra microphone."; stopRecording().catch(() => {}); };
       stream.getTracks().forEach(track => track.onended = () => { status.textContent = "Microphone bị ngắt; đang lưu phần đã thu."; stopRecording().catch(() => {}); });
       recorder.start(1000);
+      startLiveWaveform(stream);
       startSpeech(id);
       status.textContent = "Đang thu âm. Bấm Dừng để lưu hoặc Nộp để kết thúc câu trả lời.";
     } catch (error) {

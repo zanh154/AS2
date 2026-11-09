@@ -76,3 +76,56 @@
     font-size: $font-size-xs;
   }
 }
+
+// Proctoring / Anti-cheating alerts on Lecturer view
+.proctor-alert {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  margin: $space-4 0;
+  padding: $space-4 $space-5;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+
+  &--danger {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+
+    .proctor-alert__badge {
+      display: inline-block;
+      align-self: flex-start;
+      background: #ef4444;
+      color: #ffffff;
+      padding: 2px $space-2;
+      border-radius: $radius-pill;
+      font-size: $font-size-xs;
+      font-weight: $font-weight-bold;
+      letter-spacing: 0.04em;
+    }
+
+    strong { color: #b91c1c; font-size: $font-size-sm; }
+    p { margin: $space-1 0 0; font-size: $font-size-xs; color: #7f1d1d; }
+  }
+
+  &--warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+
+    .proctor-alert__badge {
+      display: inline-block;
+      align-self: flex-start;
+      background: #f59e0b;
+      color: #ffffff;
+      padding: 2px $space-2;
+      border-radius: $radius-pill;
+      font-size: $font-size-xs;
+      font-weight: $font-weight-bold;
+      letter-spacing: 0.04em;
+    }
+
+    strong { color: #b45309; font-size: $font-size-sm; }
+    p { margin: $space-1 0 0; font-size: $font-size-xs; color: #78350f; }
+  }
+}
