@@ -1,10 +1,11 @@
 (() => {
   "use strict";
-  // Replaceable STT adapter: supported, start({onText,onError,onState}), async stop().
+  // Replaceable STT adapter: supported, start({lang,onText,onError,onState}), async stop().
   // Web Speech may use the browser vendor's remote recognition service.
   class BrowserSpeechToTextAdapter {
     get supported() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
-    start({ onText, onError, onState = () => {} }) {
+    start({ lang = "vi-VN", onText, onError, onState = () => {} }) {
+      this.lang = lang || "vi-VN";
       if (!this.supported) {
         const message = "Trình duyệt chưa hỗ trợ nhận dạng. Dùng Chrome/Edge có hỗ trợ hoặc nhập văn bản sau khi dừng thu.";
         onState("unsupported", message); onError(message); return;
@@ -20,13 +21,14 @@
       if (token !== this.token || !this.active) return;
       const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognition = this.recognition = new Recognition();
-      recognition.lang = "vi-VN";
+      const isVi = (this.lang || "vi-VN").toLowerCase().startsWith("vi");
+      recognition.lang = this.lang || "vi-VN";
       recognition.continuous = true;
       recognition.interimResults = true;
       this.sessionText = "";
-      this.callbacks.onState("starting", "Đang kết nối dịch vụ nhận dạng tiếng Việt…");
+      this.callbacks.onState("starting", isVi ? "Đang kết nối dịch vụ nhận dạng tiếng Việt…" : "Đang kết nối dịch vụ nhận dạng…");
       recognition.onstart = () => {
-        if (token === this.token) this.callbacks.onState("listening", "Đang nghe tiếng Việt. Hãy nói rõ vào microphone.");
+        if (token === this.token) this.callbacks.onState("listening", isVi ? "Đang nghe tiếng Việt. Hãy nói rõ vào microphone." : "Đang lắng nghe câu trả lời. Hãy nói rõ vào microphone.");
       };
       recognition.onresult = event => {
         if (token !== this.token) return;
@@ -45,7 +47,7 @@
           "not-allowed": "Quyền nhận dạng giọng nói bị từ chối. Cho phép microphone/nhận dạng trong trình duyệt rồi thử lại.",
           "service-not-allowed": "Trình duyệt không cho dùng dịch vụ nhận dạng. Thử Chrome hoặc kiểm tra chính sách trình duyệt.",
           "audio-capture": "Dịch vụ nhận dạng không truy cập được microphone.",
-          "language-not-supported": "Dịch vụ này chưa hỗ trợ tiếng Việt; audio vẫn được lưu.",
+          "language-not-supported": isVi ? "Dịch vụ này chưa hỗ trợ tiếng Việt; audio vẫn được lưu." : "Dịch vụ này chưa hỗ trợ ngôn ngữ này; audio vẫn được lưu.",
           "no-speech": "Chưa nhận được lời nói. Hãy nói gần microphone hơn."
         };
         if (event.error === "aborted" && !this.active) return;

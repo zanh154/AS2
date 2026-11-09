@@ -77,16 +77,18 @@ else if (Model.Schedule is not null)
                         }
                         @if (canSit)
                         {
-                            <form method="post" asp-page="/VoiceRoom/Index" asp-page-handler="Enter"
-                                  asp-route-id="@item.CandidateId" class="student-schedule-item__action">
-                                <button class="btn btn-outline-primary" type="submit">Thi giọng nói</button>
-                            </form>
-                            <form method="post" asp-page="/ExamRoom/Enter"
-                                  asp-route-id="@item.CandidateId" class="student-schedule-item__action">
-                                <button class="btn btn-primary" type="submit">
-                                    @(item.CandidateStatus == CandidateStatus.InProgress ? "Tiếp tục thi" : "Vào thi")
-                                </button>
-                            </form>
+                            <div class="student-schedule-item__action d-flex align-items-center gap-2">
+                                <form method="post" asp-page="/VoiceRoom/Index" asp-page-handler="Enter"
+                                      asp-route-id="@item.CandidateId">
+                                    <button class="btn btn-outline-primary" type="submit">Thi giọng nói</button>
+                                </form>
+                                <form method="post" asp-page="/ExamRoom/Enter"
+                                      asp-route-id="@item.CandidateId">
+                                    <button class="btn btn-primary" type="submit">
+                                        @(item.CandidateStatus == CandidateStatus.InProgress ? "Tiếp tục thi" : "Vào thi")
+                                    </button>
+                                </form>
+                            </div>
                         }
                     </div>
                 }
