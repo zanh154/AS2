@@ -98,7 +98,11 @@
 
             @if (review.FinalizedAt is { } finalizedAt)
             {
-                <p class="text-muted">Chốt bởi @(review.FinalizedByName ?? "—") lúc @finalizedAt.ToString("HH:mm dd/MM/yyyy").</p>
+                <p class="info-note"><strong>Đã công bố điểm cho sinh viên</strong> · Chốt bởi @(review.FinalizedByName ?? "—") lúc @finalizedAt.ToString("HH:mm dd/MM/yyyy").</p>
+            }
+            else
+            {
+                <p class="info-note"><strong>Chưa công bố điểm cho sinh viên:</strong> Sinh viên hiện chỉ xem được câu trả lời của mình. Hãy bấm <strong>Lưu &amp; công bố điểm</strong> bên dưới khi sẵn sàng công bố.</p>
             }
 
             <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="Adjust" asp-route-id="@candidate.Paper.CandidateId"
@@ -121,6 +125,10 @@
                                 <tr>
                                     <td>
                                         <strong>Câu @answer.OrderNo</strong>
+                                        @if (answer.Probes.Count > 0)
+                                        {
+                                            <span class="exam-result-probe-chip">+@answer.Probes.Count câu bổ sung</span>
+                                        }
                                         <div class="text-muted small text-truncate" style="max-width: 360px;" title="@answer.QuestionText">@answer.QuestionText</div>
                                     </td>
                                     <td class="cell-nowrap">@ExamResultText.Score(answer.AiScore)</td>
@@ -150,7 +158,7 @@
                               maxlength="2000">@review.LecturerComment</textarea>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
-                    <button class="btn btn-primary" type="submit">Lưu điểm chốt</button>
+                    <button class="btn btn-primary" type="submit">Lưu &amp; công bố điểm</button>
                     @if (review.LecturerScore is not null)
                     {
                         <button class="btn btn-outline-secondary" type="submit" name="clearOverride" value="true">Dùng lại điểm AI</button>
@@ -245,13 +253,25 @@
                             }
                             @if (answer.Probes.Count > 0)
                             {
-                                <h4>Câu hỏi đào sâu</h4>
-                                <ul>
-                                    @foreach (var probe in answer.Probes)
-                                    {
-                                        <li>@probe.Question<br /><span class="text-muted">Trả lời: @(string.IsNullOrWhiteSpace(probe.Transcript) ? "Sinh viên không trả lời." : probe.Transcript)</span></li>
-                                    }
-                                </ul>
+                                <div class="exam-result-probes">
+                                    <div class="exam-result-probes__header">
+                                        <span class="exam-result-probes__badge">Câu hỏi bổ sung / đào sâu · @answer.Probes.Count</span>
+                                    </div>
+                                    <ol class="exam-result-probes__list">
+                                        @for (var pIdx = 0; pIdx < answer.Probes.Count; pIdx++)
+                                        {
+                                            var probe = answer.Probes[pIdx];
+                                            var noProbeReply = string.IsNullOrWhiteSpace(probe.Transcript);
+                                            <li class="exam-result-probes__item">
+                                                <p class="exam-result-probes__question">Câu bổ sung @(pIdx + 1): @probe.Question</p>
+                                                <p class="exam-result-probes__answer @(noProbeReply ? "exam-result-probes__answer--empty" : null)">
+                                                    <strong>Sinh viên trả lời:</strong>
+                                                    @(noProbeReply ? "Sinh viên không trả lời." : probe.Transcript)
+                                                </p>
+                                            </li>
+                                        }
+                                    </ol>
+                                </div>
                             }
                         </li>
                     }

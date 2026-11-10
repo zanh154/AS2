@@ -6,9 +6,9 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace AssignmentPRN.Presentation.Pages.MyResults;
 
 /// <summary>
-/// A student's own report after a viva: the mark that counts and what the AI said about
-/// each answer. The service decides whether the slot is theirs and finished; this page
-/// only checks that a student is signed in and routes.
+/// A student's own report after a viva: before the lecturer publishes the final grade,
+/// only the student's submitted answers and follow-up replies are shown and all scores
+/// are withheld. Once finalized by the lecturer, the published score and feedback appear.
 /// </summary>
 public sealed class IndexModel(
     IResultReviewService reviewService,
@@ -18,6 +18,7 @@ public sealed class IndexModel(
 
     public async Task<IActionResult> OnGetAsync(int id, CancellationToken ct)
     {
+        _ = gradingService;
         Response.Headers.CacheControl = "private, no-store";
 
         var userId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
@@ -29,21 +30,6 @@ public sealed class IndexModel(
         {
             TempData["Error"] = result.Error;
             return RedirectToPage("/StudentSchedule/Mine");
-        }
-
-        if (!result.Data.IsDisqualified
-            && gradingService is not null
-            && result.Data.Answers.Any(a => a.NotGraded
-                && (!string.IsNullOrWhiteSpace(a.Transcript)
-                    || a.Probes.Any(p => !string.IsNullOrWhiteSpace(p.Transcript)))))
-        {
-            await gradingService.GradeCandidateAsync(id, ct);
-            result = await reviewService.GetForStudentAsync(id, userId, ct);
-            if (!result.Success || result.Data is null)
-            {
-                TempData["Error"] = result.Error;
-                return RedirectToPage("/StudentSchedule/Mine");
-            }
         }
 
         Review = result.Data;

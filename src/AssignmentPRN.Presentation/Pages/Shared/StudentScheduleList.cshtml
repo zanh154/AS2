@@ -82,7 +82,7 @@ else if (Model.Schedule is not null)
                         @if (Model.IsOwnSchedule && item.CandidateStatus == CandidateStatus.Completed)
                         {
                             <a class="btn btn-outline-secondary" asp-page="/ExamRoom/Result" asp-route-id="@item.CandidateId">Xem bài đã nộp</a>
-                            <a class="btn btn-outline-primary" asp-page="/MyResults/Index" asp-route-id="@item.CandidateId">Xem điểm và nhận xét</a>
+                            <a class="btn btn-outline-primary" asp-page="/MyResults/Index" asp-route-id="@item.CandidateId">Xem bài làm &amp; kết quả</a>
                             @if (item.SessionStatus == ExamSessionStatus.Completed
                                 && !item.IsCheatingTerminated
                                 && !hasOpenInExam.Contains(item.ExamId)

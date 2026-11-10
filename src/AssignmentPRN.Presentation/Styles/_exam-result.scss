@@ -67,8 +67,8 @@
   }
   .exam-result-ai-answers {
     display: grid; gap: $space-5; margin: 0; padding-left: $space-5;
-    h3 { margin: 0 0 $space-2; font-size: $font-size-sm; }
-    h4 { margin: $space-4 0 $space-2; font-size: $font-size-xs; color: $color-muted; }
+    h3 { margin: 0 0 $space-2; font-size: $font-size-md; color: $color-heading; }
+    h4 { margin: $space-4 0 $space-2; font-size: $font-size-sm; font-weight: $font-weight-semibold; color: $color-heading; }
     table { margin: $space-3 0; }
   }
   .exam-result-trail {
@@ -77,6 +77,82 @@
   }
 }
 
+.exam-result-probe-chip {
+  display: inline-block;
+  margin-left: $space-2;
+  padding: 2px $space-2;
+  border-radius: $radius-pill;
+  background: $color-warning-soft;
+  border: 1px solid $color-warning-border;
+  color: $color-warning;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  vertical-align: middle;
+}
+
+.exam-result-probes {
+  margin-top: $space-4;
+  padding: $space-4 $space-5;
+  background: $color-warning-soft;
+  border: 1px solid $color-warning-border;
+  border-left: 4px solid $color-warning;
+  border-radius: $radius-md;
+
+  &__header {
+    margin-bottom: $space-3;
+  }
+
+  &__badge {
+    display: inline-block;
+    padding: 3px $space-3;
+    border-radius: $radius-pill;
+    background: $color-warning;
+    color: $color-surface;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-bold;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__list {
+    display: grid;
+    gap: $space-3;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    padding: $space-3 $space-4;
+    background: $color-surface;
+    border: 1px solid $color-warning-border;
+    border-radius: $radius-sm;
+  }
+
+  &__question {
+    margin: 0 0 $space-2;
+    font-size: $font-size-md;
+    font-weight: $font-weight-semibold;
+    color: $color-heading;
+    line-height: 1.5;
+  }
+
+  &__answer {
+    margin: 0;
+    font-size: $font-size-md;
+    color: $color-text;
+    line-height: 1.5;
+
+    strong {
+      color: $color-heading;
+    }
+
+    &--empty {
+      color: $color-danger;
+      font-style: italic;
+    }
+  }
+}
 // Proctoring / Anti-cheating alerts on Lecturer view
 .proctor-alert {
   display: flex;

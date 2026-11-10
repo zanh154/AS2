@@ -47,6 +47,8 @@ public sealed record CandidateReview(
     bool IsDisqualified = false,
     int CheatViolationCount = 0)
 {
+    public bool IsPublished => FinalizedAt.HasValue;
+
     public int GradedQuestionCount => Answers.Count(a => a.AiScore.HasValue);
 
     public decimal? QuestionTotalScore => GradedQuestionCount == 0
@@ -78,15 +80,9 @@ public interface IResultReviewService
     /// <summary>
     /// A student's own report, after their slot is finished: the mark that counts and
     /// what the AI said about each answer. Someone else's slot, or one still being sat,
-    /// is refused.
+    /// is refused. Scores and grading details stay withheld until the lecturer finalizes/publishes.
     /// </summary>
     Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default);
-
-    /// <summary>
-    /// Lifts a proctoring disqualification on a slot, clears the zeroed final score, and
-    /// restores the candidate to InProgress so they can continue their exam.
-    /// </summary>
-    // ReinstateAsync removed cleanly.
 }
 
 /// <summary>
@@ -186,30 +182,35 @@ public sealed class ResultReviewService(
             var review = await repository.LoadReviewAsync(id, ct)
                 ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
 
-            // No trail: who changed the mark and when is the examiner's record, not the
-            // student's. The mark itself, and the reason for it, they do get.
+            var isPublished = review.FinalizedAt.HasValue;
+
+            // Scores, AI evaluations, and lecturer comments remain confidential until the
+            // lecturer publishes/finalizes the score. Before then, the student can only
+            // review their own recorded answers and follow-up exchanges.
             return new CandidateReview(
                 review.CandidateId,
                 review.ExamId,
-                review.AiScore,
-                review.LecturerScore,
-                review.FinalScore,
-                review.LecturerComment,
+                isPublished ? review.AiScore : null,
+                isPublished ? review.LecturerScore : null,
+                isPublished ? review.FinalScore : null,
+                isPublished ? review.LecturerComment : null,
                 null,
                 review.FinalizedAt,
                 review.Answers.Select(answer => new ReviewAnswer(
                     answer.OrderNo,
                     answer.QuestionText,
                     answer.Transcript,
-                    answer.AiScore,
-                    answer.Confidence,
-                    answer.Feedback,
-                    answer.Strengths,
-                    answer.Weaknesses,
-                    answer.MissingPoints,
-                    answer.Criteria
-                        .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
-                        .ToArray(),
+                    isPublished ? answer.AiScore : null,
+                    isPublished ? answer.Confidence : null,
+                    isPublished ? answer.Feedback : null,
+                    isPublished ? answer.Strengths : null,
+                    isPublished ? answer.Weaknesses : null,
+                    isPublished ? answer.MissingPoints : null,
+                    isPublished
+                        ? answer.Criteria
+                            .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
+                            .ToArray()
+                        : [],
                     answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
                     null))
                     .ToArray(),
