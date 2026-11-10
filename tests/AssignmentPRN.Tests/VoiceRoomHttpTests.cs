@@ -171,6 +171,64 @@ public sealed class VoiceRoomHttpTests
         finally { await app.StopAsync(); }
     }
 
+    [Fact]
+    public async Task Click_voice_exam_button_redirects_to_voice_room()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        var testConnectionString = $"Data Source=voice-enter-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30";
+        await using var seed = await VoiceRoomTests.SeedAsync(clock, entered: false, connectionString: testConnectionString);
+        (await seed.Users.SingleAsync(x => x.UserId == 2)).PasswordHash = BCrypt.Net.BCrypt.HashPassword("Test@123");
+        await seed.SaveChangesAsync();
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
+            ApplicationName = typeof(AssignmentPRN.Presentation.Pages.VoiceRoom.IndexModel).Assembly.GetName().Name,
+            WebRootPath = PresentationWebRoot(),
+            EnvironmentName = "Development" });
+        builder.Logging.ClearProviders();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Services.AddRazorPages();
+        builder.Services.AddSignalR(); builder.Services.AddDistributedMemoryCache(); builder.Services.AddSession();
+        builder.Services.AddBusiness("Server=unused;Database=unused;User=unused;Password=unused",
+            Path.Combine(Path.GetTempPath(), "aives-voice-enter-" + Guid.NewGuid().ToString("N")));
+        builder.Services.RemoveAll<IHostedService>();
+        builder.Services.RemoveAll<AivesDbContext>();
+        builder.Services.RemoveAll<DbContextOptions<AivesDbContext>>();
+        builder.Services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<AivesDbContext>>();
+        builder.Services.AddDbContext<AivesDbContext>(o => o.UseSqlite(testConnectionString));
+        builder.Services.AddSingleton<TimeProvider>(clock);
+        builder.Services.AddScoped<IExamRealtimeNotifier, SignalRExamNotifier>();
+        builder.Services.AddScoped<IVoiceRoomNotifier, SignalRVoiceRoomNotifier>();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<IDocumentActor, AssignmentPRN.Presentation.Security.SessionDocumentActor>();
+        builder.Services.AddSingleton<IDocumentProgressNotifier, SignalRDocumentNotifier>();
+        await using var app = builder.Build();
+        app.UseStaticFiles();
+        app.UseRouting(); app.UseSession(); app.MapRazorPages();
+        app.MapHub<VoiceRoomHub>("/hubs/voice-room");
+        await app.StartAsync();
+        try
+        {
+            var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
+            using var handler = new HttpClientHandler { AllowAutoRedirect = false, CookieContainer = new CookieContainer() };
+            using var client = new HttpClient(handler) { BaseAddress = new Uri(address) };
+            var login = await client.GetStringAsync("/Account/Login");
+            var loginFields = new Dictionary<string, string> { ["Input.Email"] = "student@example.test", ["Input.Password"] = "Test@123",
+                ["__RequestVerificationToken"] = Token(login) };
+            Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Account/Login", new FormUrlEncodedContent(loginFields))).StatusCode);
+            var scheduleHtml = await client.GetStringAsync("/StudentSchedule/Mine");
+            var formMatch = Regex.Match(scheduleHtml, "<form[^>]*action=\"([^\"]*)\"[^>]*>\\s*<button[^>]*>Thi giọng nói</button>", RegexOptions.Singleline);
+            Assert.True(formMatch.Success, $"Could not find Thi giọng nói form in:\n{scheduleHtml}");
+            var action = WebUtility.HtmlDecode(formMatch.Groups[1].Value);
+            var post = await client.PostAsync(action, new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = Token(scheduleHtml) }));
+            Assert.True(post.StatusCode == HttpStatusCode.Redirect, $"Expected 302 from {action}, got {(int)post.StatusCode}: {await post.Content.ReadAsStringAsync()}");
+            Assert.StartsWith("/VoiceRoom/1", post.Headers.Location!.OriginalString);
+            var roomResponse = await client.GetAsync(post.Headers.Location);
+            Assert.Equal(HttpStatusCode.OK, roomResponse.StatusCode);
+            var roomHtml = await roomResponse.Content.ReadAsStringAsync();
+            Assert.Contains("voice-room", roomHtml);
+        }
+        finally { await app.StopAsync(); }
+    }
+
     private static string Token(string html)
     {
         var match = Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
