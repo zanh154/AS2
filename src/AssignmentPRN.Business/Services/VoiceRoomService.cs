@@ -25,7 +25,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
     public Task<ServiceResponse<bool>> CanSubscribeAsync(int candidateId, int studentId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
             ValidateOwner(a);
-            if (a.Logs.Count == 0) throw new BusinessValidationException("Lượt thi chưa mở chế độ giọng nói.");
+            if (!Started(a)) throw new BusinessValidationException("Lượt thi chưa mở chế độ giọng nói.");
             return true;
         }, ct), "Không thể đăng ký phòng thi.");
 
@@ -68,7 +68,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         ServiceExecutor.RunAsync(async () => {
             var key = await repository.UpdateAsync(candidateId, studentId, a => {
                 ValidateOwner(a);
-                if (a.Logs.Count == 0 || !a.Questions.Any(x => x.ExamQuestionId == questionId))
+                if (!Started(a) || !a.Questions.Any(x => x.ExamQuestionId == questionId))
                     throw new BusinessValidationException("Không có quyền truy cập bản thu.");
                 var answer = a.Answers.SingleOrDefault(x => x.ExamQuestionId == questionId);
                 if (followUpId is null)
@@ -86,7 +86,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
     {
         ValidateOwner(a);
         var target = a.Questions.SingleOrDefault(x => x.ExamQuestionId == questionId);
-        if (a.Logs.Count == 0 || target?.AskedAt == null || duration > a.Settings.SecondsPerQuestion
+        if (!Started(a) || target?.AskedAt == null || duration > a.Settings.SecondsPerQuestion
             || duration > Math.Min((Now - target.AskedAt.Value).TotalSeconds + 2,
                 (Deadline(a, target) - target.AskedAt.Value).TotalSeconds)
             || a.Candidate.Status is CandidateStatus.Cancelled or CandidateStatus.Absent)
@@ -124,7 +124,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         }
         return await ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, aggregate => {
             ValidateOwner(aggregate);
-            if (aggregate.Logs.Count == 0)
+            if (!Started(aggregate))
             {
                 ValidateWindow(aggregate, Now);
                 if (aggregate.Answers.Any(x => x.SelectedOptionId != null || x.FinishedAt != null)
@@ -135,6 +135,31 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             }
             return Apply(aggregate, null);
         }, ct), "Không thể vào phòng thi giọng nói.");
+    }
+
+    public async Task<ServiceResponse<VoiceRoomState>> ReadyAsync(int candidateId, int studentId, CancellationToken ct = default)
+    {
+        var opened = false;
+        var result = await ServiceExecutor.RunAsync(() => repository.UpdateAsync(candidateId, studentId, a => {
+            ValidateOwner(a);
+            if (!Started(a)) throw new BusinessValidationException("Hãy vào phòng thi giọng nói từ lịch thi.");
+            if (!Ready(a) && a.Candidate.Status == CandidateStatus.InProgress && Now < SlotEnd(a))
+            {
+                a.Logs.Add(new ExamLog { ExamId = a.Candidate.ExamId, CandidateId = candidateId, UserId = studentId,
+                    Action = VoiceRoomRepository.ReadyAction, Timestamp = Now });
+                opened = true;
+            }
+            // Apply opens the first question in this same transaction, so its clock starts
+            // at the moment the student asked for it.
+            return Apply(a, null);
+        }, ct), "Không thể mở câu hỏi đầu tiên. Hãy thử lại.");
+
+        if (result.Success && opened && notifier != null)
+        {
+            try { await notifier.ChangedAsync(candidateId, studentId, ct); }
+            catch (Exception) { /* Other tabs catch up on their next poll. */ }
+        }
+        return result;
     }
 
     public async Task<ServiceResponse<VoiceRoomState>> SyncAsync(int candidateId, int studentId,
@@ -304,7 +329,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
     /// </summary>
     private (ExamQuestion Question, Answer Answer)? ProbeTarget(VoiceRoomAggregate a, DateTime now)
     {
-        if (a.Candidate.Status != CandidateStatus.InProgress || a.Logs.Count == 0) return null;
+        if (a.Candidate.Status != CandidateStatus.InProgress || !Started(a)) return null;
         if (OpenProbe(a) != null) return null;
         // A decision arriving after the next turn opened cannot take that turn back.
         if (a.Questions.Any(x => !x.IsCompleted && x.AskedAt != null)) return null;
@@ -335,6 +360,19 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
     }
 
     private DateTime Now => clock.GetLocalNow().DateTime;
+
+    private static bool Started(VoiceRoomAggregate a) =>
+        a.Logs.Any(x => x.Action == VoiceRoomRepository.StartedAction);
+
+    /// <summary>
+    /// Whether the student has asked for the first question. A room that was already
+    /// under way before the microphone check moved ahead of the clock counts as ready, so
+    /// a slot in progress during an update is never put back on hold.
+    /// </summary>
+    private static bool Ready(VoiceRoomAggregate a) =>
+        a.Logs.Any(x => x.Action == VoiceRoomRepository.ReadyAction)
+        || a.Questions.Any(x => x.AskedAt != null || x.IsCompleted)
+        || a.Answers.Count > 0;
 
     private static void ValidateOwner(VoiceRoomAggregate a)
     {
@@ -402,7 +440,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
     private VoiceRoomState Apply(VoiceRoomAggregate a, VoiceAnswerRequest? request, bool releaseHold = false)
     {
         ValidateOwner(a);
-        if (a.Logs.Count == 0) throw new BusinessValidationException("Hãy vào phòng thi giọng nói từ lịch thi.");
+        if (!Started(a)) throw new BusinessValidationException("Hãy vào phòng thi giọng nói từ lịch thi.");
         if (a.Questions.Count == 0) throw new BusinessValidationException("Lượt thi chưa được phân câu hỏi.");
         var now = Now;
         var awaiting = false;
@@ -411,6 +449,15 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             if (now < SlotEnd(a)) ValidateWindow(a, now);
             else if (a.Candidate.Status != CandidateStatus.InProgress)
                 throw new BusinessValidationException("Lượt thi đã bị hủy hoặc vắng thi.");
+
+            // Nothing opens, and no question clock runs, while the student is still on the
+            // microphone check. Past the end of the slot the usual close-out below applies.
+            if (now < SlotEnd(a) && !Ready(a))
+            {
+                if (request != null)
+                    throw new BusinessValidationException("Hãy hoàn tất bước kiểm tra microphone để mở câu hỏi đầu tiên.");
+                return Snapshot(a, now, awaiting: false, question: null, awaitingReady: true);
+            }
 
             // A probe is answered before anything else: while one is open the question
             // underneath it is already handed in and the next one has not started.
@@ -508,7 +555,8 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         return asked + FollowUpTurnRules.Remaining(asked, a.FollowUps.Count, a.Candidate.Session.MaxFollowUpCount, settings);
     }
 
-    private VoiceRoomState Snapshot(VoiceRoomAggregate a, DateTime now, bool awaiting, VoiceQuestion? question) =>
+    private VoiceRoomState Snapshot(VoiceRoomAggregate a, DateTime now, bool awaiting, VoiceQuestion? question,
+        bool awaitingReady = false) =>
         new(a.Candidate.CandidateId, a.Candidate.ExamId, a.Candidate.Session.ExamName, Stamp(now), Stamp(SlotEnd(a)),
             a.Candidate.Status == CandidateStatus.Completed, a.Questions.Count(x => x.IsCompleted), a.Questions.Count,
             question,
@@ -522,7 +570,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
                 return new VoiceSavedAnswer(q.ExamQuestionId, q.OrderNo, q.Question.QuestionText, answer?.Transcript,
                     answer?.AudioPath != null, probes);
             }).ToArray(),
-            awaiting);
+            awaiting, awaitingReady);
 
     /// <summary>Reads back what was stored in follow_up_questions.reason.</summary>
     internal static FollowUpReason ReadReason(string? reason) =>

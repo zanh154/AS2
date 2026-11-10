@@ -10,7 +10,6 @@
   const byId = id => document.getElementById(id);
   const toggle = byId("voice-examiner-auto");
   const status = byId("voice-examiner-status");
-  const modal = byId("voice-mic-modal");
   const storageKey = "voice_examiner_auto";
   const itemKey = question => question ? `${question.examQuestionId}:${question.followUpId || 0}` : null;
   // Pause between the end of the question and the microphone opening, so the last
@@ -31,18 +30,22 @@
   }
 
   // Speech synthesis needs a click on the page first; the microphone check gives one.
-  // Until it is closed the examiner waits rather than talking over the test.
-  const micReady = new Promise(resolve => {
-    if (!modal || modal.hidden) { resolve(); return; }
-    root.addEventListener("voice-mic-ready", () => resolve(), { once: true });
-  });
+  // While the check is open the examiner waits rather than talking over it or opening
+  // the microphone it is testing. This is decided when there is something to say, not
+  // when the script loads: voice-mic-check.js loads later and opens the check after us.
+  // Only the flag: the dialog keeps its hidden attribute off for a 250 ms fade after it
+  // closes, and waiting on that would wait for a "voice-mic-ready" already sent.
+  const micCheckOpen = () => root.dataset.micCheck === "open";
+  const micReady = () => micCheckOpen()
+    ? new Promise(resolve => root.addEventListener("voice-mic-ready", () => resolve(), { once: true }))
+    : Promise.resolve();
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const stillOpen = (key, question) => enabled && current === key
     && Date.parse(question.deadline) - Date.now() > 3000;
 
   const ask = async (question, initial) => {
     const key = itemKey(question);
-    await micReady;
+    await micReady();
     if (!stillOpen(key, question)) return;
     // Back after a reload with an answer already under way: do not start it over.
     if (initial && (question.transcript || question.hasAudio)) {
@@ -61,6 +64,8 @@
       return;
     }
     await wait(settleMs);
+    // The student may have reopened the check while the question was being read.
+    if (micCheckOpen()) await micReady();
     if (!stillOpen(key, question) || capture.recording || capture.reading) return;
     say("Đang ghi âm câu trả lời của bạn. Bấm Nộp câu trả lời khi nói xong.");
     await capture.startRecording();

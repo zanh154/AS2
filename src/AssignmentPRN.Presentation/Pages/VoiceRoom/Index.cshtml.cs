@@ -30,6 +30,15 @@ public sealed class IndexModel(IVoiceRoomService service) : PageModel
         return RedirectToPage("/StudentSchedule/Mine");
     }
 
+    /// <summary>The student is through the microphone check: open the first question.</summary>
+    public async Task<IActionResult> OnPostReadyAsync(int id, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "private, no-store";
+        if (!IsStudent) return StatusCode(403);
+        var result = await service.ReadyAsync(id, UserId, ct);
+        return result.Success ? new JsonResult(result.Data) : BadRequest(new { error = result.Error });
+    }
+
     public async Task<IActionResult> OnPostSyncAsync(int id, [FromBody] VoiceAnswerRequest? answer, CancellationToken ct)
     {
         Response.Headers.CacheControl = "private, no-store";

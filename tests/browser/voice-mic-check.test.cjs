@@ -104,7 +104,9 @@ function loadMicCheck({ hasTested = false, denied = false } = {}) {
       getItem: key => storage.get(key) || null,
       setItem: (key, val) => storage.set(key, val)
     },
-    requestAnimationFrame: cb => setTimeout(cb, 10),
+    // unref: the level-meter loop runs for as long as a test leaves the check open, and must
+    // not keep the test process alive after the last test.
+    requestAnimationFrame: cb => setTimeout(cb, 10).unref(),
     cancelAnimationFrame: () => {},
     setTimeout,
     clearTimeout,
@@ -124,10 +126,30 @@ function loadMicCheck({ hasTested = false, denied = false } = {}) {
   };
 }
 
-test("opens mic test modal automatically if student hasn't tested yet", () => {
+test("does not open by itself: the room opens it while the first question waits", () => {
+  // Opening it on load would also open it mid-question after a reload, and the clock of
+  // that question would run while the student tests the microphone.
   const harness = loadMicCheck({ hasTested: false });
-  const modal = harness.elements.get("voice-mic-modal");
-  assert.equal(modal.hidden, false, "Modal should be visible when untested");
+  const room = harness.elements.get("voice-room");
+  assert.equal(room.dataset.micCheck, "closed");
+
+  harness.window.voiceMicCheck.open();
+  assert.equal(room.dataset.micCheck, "open");
+  assert.equal(harness.elements.get("voice-mic-modal").hidden, false);
+});
+
+test("closing the check says so at once and tells the room it may start", () => {
+  const harness = loadMicCheck({ hasTested: false });
+  const room = harness.elements.get("voice-room");
+  let started = 0;
+  room.addEventListener("voice-mic-ready", () => started++);
+  harness.window.voiceMicCheck.open();
+
+  harness.elements.get("voice-mic-skip-btn").dispatchEvent(new Event("click"));
+
+  // Synchronous, before the 250 ms fade, so nothing waits on the hidden attribute.
+  assert.equal(room.dataset.micCheck, "closed");
+  assert.equal(started, 1);
 });
 
 test("leaves modal hidden if student already tested in current session", () => {

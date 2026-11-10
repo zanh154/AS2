@@ -22,6 +22,8 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
  const voice=page.getByRole('button',{name:'Thi giọng nói',exact:true});
  assert.equal(await voice.isEnabled(),true);
  await Promise.all([page.waitForURL('**/VoiceRoom/1'),voice.click()]);
+ // The first question only opens (and its clock only starts) once the microphone check is closed.
+ await page.locator('#voice-mic-skip-btn').click();
  await page.locator('#voice-question').filter({hasText:'Second question'}).waitFor();
  assert.equal(await page.locator('.voice-steps').isVisible(),false);
  assert.equal(await page.locator('.voice-backups').isVisible(),false);

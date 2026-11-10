@@ -30,6 +30,12 @@ public sealed class VoiceRoomRepository(AivesDbContext db, IExamStatePolicy poli
 {
     public const string StartedAction = "voice-room.started";
 
+    /// <summary>
+    /// The student finished (or skipped) the microphone check and asked for the first
+    /// question. Only from here does a question clock run.
+    /// </summary>
+    public const string ReadyAction = "voice-room.ready";
+
     public Task<bool> IsVoiceAsync(int candidateId, int studentId, CancellationToken ct) =>
         db.Set<ExamLog>().AnyAsync(x => x.CandidateId == candidateId && x.UserId == studentId
             && x.Action == StartedAction, ct);
@@ -50,7 +56,9 @@ public sealed class VoiceRoomRepository(AivesDbContext db, IExamStatePolicy poli
         var answers = await db.Answers.Where(x => x.CandidateId == candidateId).ToListAsync(ct);
         var settings = await db.Set<ExamVivaSettings>().SingleOrDefaultAsync(x => x.ExamId == candidate.ExamId, ct)
             ?? new ExamVivaSettings { ExamId = candidate.ExamId };
-        var logs = await db.Set<ExamLog>().Where(x => x.CandidateId == candidateId && x.Action == StartedAction).ToListAsync(ct);
+        var logs = await db.Set<ExamLog>()
+            .Where(x => x.CandidateId == candidateId && (x.Action == StartedAction || x.Action == ReadyAction))
+            .ToListAsync(ct);
         var followUps = await db.FollowUpQuestions
             .Where(x => db.Answers.Any(answer => answer.AnswerId == x.AnswerId && answer.CandidateId == candidateId))
             .OrderBy(x => x.AnswerId).ThenBy(x => x.OrderNo).ThenBy(x => x.FollowUpId)

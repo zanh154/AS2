@@ -67,7 +67,12 @@
     waveBars.forEach(b => { b.style.transform = "scaleY(0.2)"; });
   };
 
+  // Read by voice-examiner.js at the moment it wants to speak, so the order the scripts
+  // load in does not matter. Set synchronously; the CSS transition is only cosmetic.
+  const markOpen = open => { if (root) root.dataset.micCheck = open ? "open" : "closed"; };
+
   const openModal = () => {
+    markOpen(true);
     modal.removeAttribute("hidden");
     // Trigger transition
     requestAnimationFrame(() => {
@@ -76,6 +81,7 @@
   };
 
   const closeModal = () => {
+    markOpen(false);
     cleanupAudio();
     modal.classList.remove("is-visible");
     setTimeout(() => {
@@ -255,11 +261,10 @@
     startMicTest();
   });
 
-  // Tự động mở modal khi vào trang nếu chưa test
-  const hasTested = sessionStorage.getItem(storageKey);
-  if (!hasTested) {
-    openModal();
-  }
+  // Không tự mở ở đây nữa: voice-room.js mở hộp này khi máy chủ báo câu đầu tiên đang chờ
+  // (AwaitingReady). Mở giữa giờ thi sẽ ăn vào thời gian trả lời, nên chỉ mở khi sinh viên
+  // tự bấm "Kiểm tra Mic".
+  markOpen(false);
 
   window.voiceMicCheck = {
     open: openModal,

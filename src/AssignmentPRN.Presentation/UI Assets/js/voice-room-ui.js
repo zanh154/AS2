@@ -53,7 +53,7 @@
     root.querySelector(".voice-room__connection").hidden = !connectionIssue;
     byId("voice-retry").hidden = !connectionIssue && /^Câu \d+\/\d+$/.test(byId("voice-status").textContent);
     // Successful reconnect must not hide a failed HTTP save/sync.
-    const syncIssue = !/^(Câu \d+\/\d+|Đã hoàn thành lượt thi\.)$/.test(byId("voice-status").textContent);
+    const syncIssue = !/^(Câu \d+\/\d+|Đã hoàn thành lượt thi\.|Kiểm tra microphone để bắt đầu\..*)$/.test(byId("voice-status").textContent);
     if (syncIssue) { root.querySelector(".voice-room__connection").hidden = false; byId("voice-retry").hidden = false; }
     root.querySelector(".voice-backups").hidden = Number(byId("voice-backup-count").textContent) === 0;
     const localError = root.dataset.localState === "error";

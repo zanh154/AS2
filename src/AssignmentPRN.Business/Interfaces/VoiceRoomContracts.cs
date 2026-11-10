@@ -28,9 +28,13 @@ public sealed record VoiceSavedFollowUp(int FollowUpId, string Text, string? Tra
 /// thing. The next question deliberately stays closed meanwhile, so its clock does not
 /// start while the student is waiting. It clears by itself if the decision never arrives.
 /// </param>
+/// <param name="AwaitingReady">
+/// The student is in the room but has not finished the microphone check. No question is
+/// open and no question clock runs until <see cref="IVoiceRoomService.ReadyAsync"/>.
+/// </param>
 public sealed record VoiceRoomState(int CandidateId, int ExamId, string ExamName, DateTimeOffset ServerNow,
     DateTimeOffset SlotEnd, bool Completed, int CompletedCount, int TotalCount, VoiceQuestion? Question,
-    IReadOnlyList<VoiceSavedAnswer>? SavedAnswers = null, bool AwaitingFollowUp = false);
+    IReadOnlyList<VoiceSavedAnswer>? SavedAnswers = null, bool AwaitingFollowUp = false, bool AwaitingReady = false);
 
 /// <param name="FollowUpId">
 /// Set when answering a probe. It must be the probe that is currently open; anything
@@ -50,6 +54,11 @@ public interface IVoiceRoomService
     Task<bool> IsVoiceAsync(int candidateId, int studentId, CancellationToken ct = default);
     Task<ServiceResponse<bool>> CanSubscribeAsync(int candidateId, int studentId, CancellationToken ct = default);
     Task<ServiceResponse<VoiceRoomState>> EnterAsync(int candidateId, int studentId, CancellationToken ct = default);
+    /// <summary>
+    /// Opens the first question once the student is through the microphone check. Safe to
+    /// repeat: a room that is already under way is returned as it is.
+    /// </summary>
+    Task<ServiceResponse<VoiceRoomState>> ReadyAsync(int candidateId, int studentId, CancellationToken ct = default);
     Task<ServiceResponse<VoiceRoomState>> SyncAsync(int candidateId, int studentId, VoiceAnswerRequest? answer = null, CancellationToken ct = default);
     Task<ServiceResponse<VoiceRoomState>> UploadAsync(int candidateId, int studentId, int questionId,
         string contentType, long length, double durationSeconds, Stream content, CancellationToken ct = default);

@@ -32,15 +32,17 @@
     root.dataset.timeWarning = String(left > 0 && left <= 15);
     return left;
   };
-  const sync = (answer = null, requestVersion = version) => {
-    // Preserve writes in order; coalesce redundant polls instead of dropping a submit.
-    if (!answer && queued) return queue;
+  let promptedReady = false;
+  const sync = (answer = null, requestVersion = version, url = root.dataset.sync) => {
+    // Preserve writes in order; coalesce redundant polls instead of dropping a submit
+    // or the request that opens the first question.
+    if (!answer && queued && url === root.dataset.sync) return queue;
     const sentVersion = requestVersion;
     queued++;
     const operation = async () => {
       try {
         const sent = Date.now();
-        const response = await fetch(root.dataset.sync, { method: "POST", credentials: "same-origin",
+        const response = await fetch(url, { method: "POST", credentials: "same-origin",
           headers: { "Content-Type": "application/json", "RequestVerificationToken": token },
           body: JSON.stringify(answer), signal: AbortSignal.timeout(15000) });
         if (!response.ok) {
@@ -102,13 +104,23 @@
         }
         const waiting = document.getElementById("voice-awaiting");
         if (waiting) waiting.hidden = !next.awaitingFollowUp;
+        // Lobby: entered, but the first question waits for the microphone check so its
+        // clock does not run while the student is testing.
+        root.dataset.awaitingReady = String(!!next.awaitingReady);
+        const begin = document.getElementById("voice-begin");
+        if (begin) begin.hidden = !next.awaitingReady;
+        if (next.awaitingReady && !promptedReady && window.voiceMicCheck?.open) {
+          promptedReady = true; window.voiceMicCheck.open();
+        }
         const progress = document.getElementById("voice-progress"); if (progress) progress.value = next.totalCount ? Math.round(next.completedCount / next.totalCount * 100) : 0;
         status.textContent = next.completed ? "Đã hoàn thành lượt thi."
+          : next.awaitingReady ? readyMessage
           : next.awaitingFollowUp ? "Giám khảo đang xem câu trả lời của bạn…"
           : probe ? `Câu hỏi thêm cho câu ${probe.orderNo}`
           : `Câu ${next.completedCount + 1}/${next.totalCount}`;
         document.getElementById("voice-question").textContent = next.question?.text
-          || (next.awaitingFollowUp ? "Giám khảo đang xem câu trả lời của bạn…" : "Cảm ơn bạn đã hoàn thành bài thi.");
+          || (next.awaitingReady ? "Câu hỏi đầu tiên sẽ mở khi bạn kiểm tra xong microphone."
+          : next.awaitingFollowUp ? "Giám khảo đang xem câu trả lời của bạn…" : "Cảm ơn bạn đã hoàn thành bài thi.");
         const history = document.getElementById("voice-history");
         const historyEmpty = document.getElementById("voice-history-empty"); if (historyEmpty) historyEmpty.hidden = !!next.savedAnswers?.length;
         if (history && document.createElement) {
@@ -138,8 +150,9 @@
             history.append(row);
           }
         }
-        form.hidden = next.completed || next.awaitingFollowUp;
+        form.hidden = next.completed || next.awaitingFollowUp || next.awaitingReady;
         if (next.completed) document.getElementById("voice-clock").textContent = "00:00";
+        else if (next.awaitingReady) document.getElementById("voice-clock").textContent = "--:--";
         // The virtual examiner (voice-examiner.js) speaks each new item; it reacts to this
         // event only, so it never has to know how the room is synchronised.
         if ((itemChanged || finishedNow) && typeof CustomEvent === "function")
@@ -162,6 +175,14 @@
     await localDraft(answer, answer.transcript, false, submit);
     return sync(answer, requestVersion);
   };
+  const readyMessage = "Kiểm tra microphone để bắt đầu. Thời gian câu 1 chỉ tính từ lúc bạn vào phòng thi.";
+  // Asks the server to open the first question. Only meaningful while waiting.
+  const beginExam = () => state?.awaitingReady ? sync(null, version, root.dataset.ready) : queue;
+  root.addEventListener("voice-mic-ready", () => { beginExam(); });
+  document.getElementById("voice-begin")?.addEventListener("click", () => {
+    // The check is the way in; without its script the student can still start.
+    if (window.voiceMicCheck?.open) window.voiceMicCheck.open(); else beginExam();
+  });
   const poll = () => {
     if (submitting || closed) return;
     return pendingSubmit ? sync(pendingSubmit) : dirty ? save(false) : sync();

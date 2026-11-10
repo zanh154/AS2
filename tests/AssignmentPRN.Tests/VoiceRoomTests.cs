@@ -23,7 +23,12 @@ public sealed class VoiceRoomTests
         new VoiceRoomRepository(db, new ExamStatePolicy()),
         new QuestionService(new QuestionRepository(db, new ExamStatePolicy()), new CatalogRepository(db), null!), clock);
 
-    internal static async Task<AivesDbContext> SeedAsync(Clock clock, bool entered = true, string connectionString = "Data Source=:memory:")
+    /// <param name="ready">
+    /// Whether the student is also through the microphone check, so the first question is
+    /// open to the room. Most tests start there; the check itself is tested on its own.
+    /// </param>
+    internal static async Task<AivesDbContext> SeedAsync(Clock clock, bool entered = true, string connectionString = "Data Source=:memory:",
+        bool ready = true)
     {
         var db = await IssuedPaperEditTests.OpenAsync(connectionString);
         db.Roles.Add(new Role { RoleId = 3, RoleName = "Student" });
@@ -41,6 +46,8 @@ public sealed class VoiceRoomTests
         db.ExamQuestions.Add(new ExamQuestion { ExamId = 1, CandidateId = 1, QuestionId = 2, OrderNo = 2 });
         if (entered) db.Set<ExamLog>().Add(new() { ExamId = 1, CandidateId = 1, UserId = 2,
             Action = VoiceRoomRepository.StartedAction, Timestamp = clock.At.LocalDateTime });
+        if (entered && ready) db.Set<ExamLog>().Add(new() { ExamId = 1, CandidateId = 1, UserId = 2,
+            Action = VoiceRoomRepository.ReadyAction, Timestamp = clock.At.LocalDateTime });
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
         return db;
@@ -55,8 +62,11 @@ public sealed class VoiceRoomTests
         Assert.True(first.Success, first.Error);
         var second = await Service(db, clock).EnterAsync(1, 2);
         Assert.True(second.Success, second.Error);
-        Assert.Equal(first.Data!.Question!.Deadline, second.Data!.Question!.Deadline);
-        Assert.Single(await db.Set<ExamLog>().ToListAsync());
+        // The first question opens after the microphone check, not on entry (VoiceReadyGateTests).
+        var opened = await Service(db, clock).ReadyAsync(1, 2);
+        var again = await Service(db, clock).EnterAsync(1, 2);
+        Assert.Equal(opened.Data!.Question!.Deadline, again.Data!.Question!.Deadline);
+        Assert.Single(await db.Set<ExamLog>().Where(x => x.Action == VoiceRoomRepository.StartedAction).ToListAsync());
     }
 
     [Fact]

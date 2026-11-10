@@ -16,7 +16,8 @@ function harness({ modalHidden = true, stored = null, heard = true, recordingSta
     constructor() { super(); this.textContent = ""; this.hidden = false; this.checked = false; this.dataset = {}; }
   }
   const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
-  get("voice-mic-modal").hidden = modalHidden;
+  // What voice-mic-check.js publishes, synchronously, when it opens or closes the check.
+  get("voice-room").dataset.micCheck = modalHidden ? "closed" : "open";
   const calls = [], spoken = [];
   let recording = false;
   const capture = {
@@ -39,7 +40,7 @@ function harness({ modalHidden = true, stored = null, heard = true, recordingSta
   return {
     calls, spoken, store, get,
     item(detail) { room.dispatchEvent(new CustomEvent("voice-item-changed", { detail })); },
-    micReady() { room.dispatchEvent(new CustomEvent("voice-mic-ready")); }
+    micReady() { room.dataset.micCheck = "closed"; room.dispatchEvent(new CustomEvent("voice-mic-ready")); }
   };
 }
 
@@ -120,4 +121,82 @@ test("finishing the viva gets a closing line, a reload of a finished viva does n
   room.item({ question: null, completed: true, finishedNow: false, initial: true });
   assert.equal(room.spoken.length, 1);
   assert.match(room.spoken[0], /kết thúc/);
+});
+
+// ---- Thứ tự tải script thật trên trang ------------------------------------------------
+// voice-examiner.js loads BEFORE voice-mic-check.js. On 69bfdf9 the examiner looked at the
+// dialog once, at load, saw the hidden attribute from the markup and assumed the check
+// was over; the check then opened, and the examiner spoke and opened the microphone on
+// top of it. These tests load both real scripts in page order.
+
+function page({ heard = true } = {}) {
+  const elements = new Map();
+  class ClassList { constructor() { this.set = new Set(); } add(c) { this.set.add(c); } remove(c) { this.set.delete(c); } contains(c) { return this.set.has(c); } }
+  class Element extends EventTarget {
+    constructor() {
+      super(); this.textContent = ""; this.innerHTML = ""; this.checked = true; this.disabled = false;
+      this.dataset = {}; this.classList = new ClassList(); this.attributes = new Map(); this.hidden = false; this.style = {};
+    }
+    setAttribute(name, value) { this.attributes.set(name, value); if (name === "hidden") this.hidden = true; }
+    removeAttribute(name) { this.attributes.delete(name); if (name === "hidden") this.hidden = false; }
+    querySelector() { return { dataset: { candidate: "1" } }; }
+    querySelectorAll() { return []; }
+    focus() {}
+  }
+  const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
+  get("voice-mic-modal").setAttribute("hidden", "");   // as rendered by Index.cshtml
+  const calls = [];
+  let recording = false;
+  const window = new EventTarget();
+  window.voiceCapture = {
+    async speak() { calls.push("speak"); recording = false; return heard; },
+    async startRecording() { calls.push("record"); recording = true; },
+    get recording() { return recording; }, get reading() { return false; }
+  };
+  const store = new Map();
+  const timers = [];
+  const context = { window, document: { getElementById: get, querySelectorAll: () => [] }, CustomEvent, Event, Date, Promise,
+    localStorage: { getItem: () => null, setItem: () => {} },
+    sessionStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value) },
+    navigator: {}, requestAnimationFrame: () => 0, cancelAnimationFrame: () => {}, clearTimeout: () => {},
+    setTimeout: (callback, ms) => { if (!ms || ms > 1000) callback(); else timers.push(callback); return 0; } };
+  context.window.voiceMicCheck = undefined;
+  for (const script of ["voice-examiner.js", "voice-mic-check.js"])
+    vm.runInNewContext(readFileSync(join(__dirname, "../../src/AssignmentPRN.Presentation/UI Assets/js", script), "utf8"), context);
+  const runTimers = () => { while (timers.length) timers.shift()(); };
+  const room = get("voice-room");
+  return {
+    calls, get, runTimers, check: context.window.voiceMicCheck,
+    item(detail) { room.dispatchEvent(new CustomEvent("voice-item-changed", { detail })); },
+    click(id) { get(id).dispatchEvent(new Event("click")); }
+  };
+}
+
+test("in page order, nothing is read or recorded while the microphone check is open", async () => {
+  const p = page();
+  p.check.open();                       // what voice-room.js does while the first question waits
+  p.item({ question: open(), completed: false, initial: false });
+  await flush(); p.runTimers(); await flush();
+  assert.deepEqual(p.calls, []);
+  assert.equal(p.get("voice-mic-modal").hidden, false);
+
+  p.click("voice-mic-skip-btn");        // the student is done with the check
+  await flush(); p.runTimers(); await flush();
+  assert.deepEqual(p.calls, ["speak", "record"]);
+});
+
+test("in page order, reopening the check mid-question keeps the microphone closed until it is shut", async () => {
+  const p = page();
+  p.item({ question: open(), completed: false, initial: false });
+  await flush(); p.runTimers(); await flush();
+  assert.deepEqual(p.calls, ["speak", "record"]);
+
+  p.click("voice-mic-retest-btn");
+  p.item({ question: open({ followUpId: 3, text: "Em nói rõ hơn?" }), completed: false });
+  await flush(); p.runTimers(); await flush();
+  assert.deepEqual(p.calls, ["speak", "record"]);
+
+  p.click("voice-mic-confirm-btn");
+  await flush(); p.runTimers(); await flush();
+  assert.deepEqual(p.calls, ["speak", "record", "speak", "record"]);
 });

@@ -105,6 +105,15 @@ public sealed class VoiceRoomHttpTests
             Assert.Contains("VoiceRoom", oldResult.Headers.Location!.OriginalString);
             Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", (object?)null)).StatusCode);
             client.DefaultRequestHeaders.Add("RequestVerificationToken", Token(page));
+            if (enterViaLegacyRoute)
+            {
+                // Entered but still on the microphone check: nothing is open yet.
+                var waiting = (await (await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", (object?)null))
+                    .Content.ReadFromJsonAsync<VoiceRoomState>())!;
+                Assert.True(waiting.AwaitingReady);
+                Assert.Null(waiting.Question);
+            }
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync("/VoiceRoom/1?handler=Ready", null)).StatusCode);
             var firstResponse = await client.PostAsJsonAsync("/VoiceRoom/1?handler=Sync", (object?)null);
             Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
             var first = (await firstResponse.Content.ReadFromJsonAsync<VoiceRoomState>())!;

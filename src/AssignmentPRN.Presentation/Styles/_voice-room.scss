@@ -75,6 +75,8 @@
   color: $color-warning; background: $color-warning-soft; border: 1px solid $color-warning-border;
 }
 .voice-awaiting { color: $color-accent; background: $color-accent-soft; }
+// Shown while the first question waits for the microphone check.
+.voice-begin { margin: 0 0 $space-4; }
 // How far the examiner may dig on this question: told up front, quietly.
 .voice-followup-budget { margin: (-$space-3) 0 $space-4; color: $color-muted; font-size: $font-size-xs; }
 // The virtual examiner switch sits under the question it reads out.

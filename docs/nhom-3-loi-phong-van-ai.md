@@ -14,6 +14,7 @@ DataAccess và **không đổi schema database**.
 | Yêu cầu đề tài | Cách đáp ứng | Trạng thái |
 |---|---|---|
 | AI đọc câu hỏi bằng giọng nói (TTS) | `voice-examiner.js` tự đọc mỗi câu hỏi **và mỗi câu hỏi xoáy** ngay khi mở, bằng `speechSynthesis`, chọn giọng theo ngôn ngữ câu hỏi | **Mới** — trước đây sinh viên phải tự bấm "Nghe câu hỏi" |
+| Thử mic **không** ăn vào thời gian trả lời | Câu 1 chỉ mở (bắt đầu tính giờ) khi sinh viên đóng hộp kiểm tra mic; thời điểm này ghi `exam_logs.action = voice-room.ready` | **Mới** (sửa lỗi trên `69bfdf9`) |
 | Sinh viên trả lời bằng giọng nói, STT gần thời gian thực | Đọc xong, giám khảo ảo tự bật ghi âm; `voice-speech.js` nhận dạng liên tục (`interimResults`), chữ hiện dần trong ô văn bản | Tự bật ghi âm: **mới**; STT: có sẵn |
 | Hỏi xoáy thích ứng dựa trên nội dung trả lời | `VoiceRoomService` → `IFollowUpAnalyzer` (Ollama) quyết định Thiếu ý / Chưa rõ / Mâu thuẫn | Có sẵn |
 | Phát hiện **mâu thuẫn** như giảng viên | AI nhận **toàn bộ diễn biến hỏi đáp** của câu (trả lời đầu + từng câu hỏi xoáy và câu trả lời), không chỉ câu nói cuối | **Mới** — trước đây lượt hỏi xoáy thứ 2 không thấy câu trả lời đầu nên không thể bắt mâu thuẫn |
@@ -64,13 +65,14 @@ Xanh: file mới · Vàng: file sửa.
 | | `Interfaces/VoiceRoomContracts.cs` | `VoiceQuestion` thêm `FollowUpNumber`, `FollowUpLimit`; `DownloadAsync` nhận `followUpId` |
 | Business — luật | `Policies/FollowUpQuestionGuard.cs` (**mới**) | Hàm thuần: chặn câu hỏi xoáy lộ đáp án hoặc lặp lại; không chạm repository hay model |
 | Business — AI | `Services/OllamaFollowUpAnalyzer.cs` | Prompt có mục "Diễn biến hỏi đáp", yêu cầu đối chiếu câu mới nhất với điều đã nói |
-| Business — nghiệp vụ | `Services/VoiceRoomService.cs` | Dựng ngữ cảnh đầy đủ; áp guard sau khi AI quyết định; tính giới hạn hỏi xoáy; tải bản thu câu hỏi xoáy (kiểm tra câu hỏi xoáy thuộc đúng câu trả lời của chính sinh viên) |
-| Presentation | `Pages/VoiceRoom/Index.cshtml(.cs)` | Công tắc "Giám khảo ảo", dòng giới hạn hỏi xoáy, handler `Audio` nhận `followUpId` |
+| DataAccess | `Repositories/VoiceRoomRepository.cs` | Hằng `ReadyAction = "voice-room.ready"`; nạp cả log này vào aggregate |
+| Business — nghiệp vụ | `Services/VoiceRoomService.cs` | `ReadyAsync` mở câu 1 sau bước thử mic; trước đó `Apply` không mở câu nào và từ chối trả lời / bản thu; dựng ngữ cảnh đầy đủ; áp guard sau khi AI quyết định; tính giới hạn hỏi xoáy; tải bản thu câu hỏi xoáy (kiểm tra câu hỏi xoáy thuộc đúng câu trả lời của chính sinh viên) |
+| Presentation | `Pages/VoiceRoom/Index.cshtml(.cs)` | Handler `OnPostReady`; nút "Kiểm tra mic và bắt đầu câu 1"; công tắc "Giám khảo ảo", dòng giới hạn hỏi xoáy, handler `Audio` nhận `followUpId` |
 | | `UI Assets/js/voice-examiner.js` (**mới**) | Điều phối đọc câu hỏi → chờ 0,45 s → bật ghi âm |
 | | `UI Assets/js/voice-capture.js` | Tách `speak()` (trả về đã đọc hết hay chưa) và `startRecording()`; reset trạng thái theo từng *mục* (câu hỏi hoặc câu hỏi xoáy) |
 | | `UI Assets/js/voice-room.js` | Phát `voice-item-changed`; hiện "HỎI THÊM n/N", link nghe bản thu câu hỏi xoáy |
-| | `UI Assets/js/voice-mic-check.js` | Phát `voice-mic-ready` khi đóng hộp kiểm tra mic |
-| DataAccess | — | Không đổi. Bảng `follow_up_questions` đã có đủ cột |
+| | `UI Assets/js/voice-mic-check.js` | Không tự mở lúc tải trang nữa; ghi `data-mic-check="open/closed"` **đồng bộ** khi mở / đóng; phát `voice-mic-ready` khi đóng |
+| | `UI Assets/js/voice-room.js` (thêm) | Khi máy chủ báo `awaitingReady`: mở hộp thử mic, hiện "--:--"; nhận `voice-mic-ready` thì gọi `Ready` |
 
 Nguyên tắc giữ nguyên:
 
@@ -82,7 +84,32 @@ Nguyên tắc giữ nguyên:
 - `voice-examiner.js` chỉ nghe một sự kiện DOM và gọi `window.voiceCapture`; tắt công tắc thì
   phòng thi trở về đúng hành vi cũ.
 
-## 3. Luồng một câu hỏi
+## 3. Vào phòng thi: thử mic trước, tính giờ sau
+
+```mermaid
+sequenceDiagram
+    participant SV as Sinh viên
+    participant UI as voice-room.js / voice-mic-check.js
+    participant VR as VoiceRoomService
+    SV->>VR: Vào thi (EnterAsync) — ghi voice-room.started, CHƯA mở câu nào
+    VR-->>UI: AwaitingReady = true, Question = null
+    UI->>SV: Mở hộp kiểm tra mic (đồng hồ hiện --:--)
+    SV->>UI: "Vào phòng thi" hoặc "Bỏ qua"
+    UI->>VR: POST ?handler=Ready (ReadyAsync)
+    VR->>VR: ghi voice-room.ready, mở câu 1, AskedAt = lúc này
+    VR-->>UI: câu 1 với đủ SecondsPerQuestion
+```
+
+- Thời gian thử mic chỉ tính vào **khung giờ của lượt thi** (lịch thi), không tính vào thời
+  gian từng câu.
+- `ReadyAsync` gọi lại nhiều lần không mở lại câu hay dời hạn (bấm đúp, tab thứ hai).
+- Lượt thi đã mở câu trước bản cập nhật (câu 1 đã có `AskedAt`) được coi là sẵn sàng, không bị
+  giữ lại.
+- Hết khung giờ khi chưa thử mic xong: lượt thi vẫn đóng như bình thường.
+- Tải lại trang giữa giờ thi **không** tự mở lại hộp thử mic (sẽ ăn vào giờ của câu đang mở);
+  sinh viên chỉ mở lại bằng nút "Kiểm tra Mic".
+
+## 4. Luồng một câu hỏi
 
 ```mermaid
 sequenceDiagram
@@ -107,8 +134,9 @@ sequenceDiagram
 
 ### Giám khảo ảo không tự mở mic khi
 
-- Hộp kiểm tra microphone còn mở (chờ sự kiện `voice-mic-ready`, cũng là cú bấm cho phép
-  trình duyệt phát giọng nói).
+- Hộp kiểm tra mic đang mở, kể cả khi sinh viên mở lại giữa giờ. Giám khảo đọc cờ
+  `data-mic-check` **vào lúc cần nói**, không phải lúc tải script, nên thứ tự tải
+  `voice-examiner.js` (trước) và `voice-mic-check.js` (sau) không còn ảnh hưởng.
 - Không đọc được câu hỏi (trình duyệt chặn TTS, không hỗ trợ, hoặc sinh viên bấm dừng).
 - Tải lại trang khi câu đang trả lời dở (đã có văn bản hoặc bản thu).
 - Câu hỏi còn dưới 3 giây.
@@ -122,7 +150,7 @@ trước. Đáp án ngắn (< 5 từ, ví dụ `lock`) được so nguyên cụm
 "Không") bỏ qua vì quá phổ biến. Nhờ vậy giám khảo vẫn được hỏi "Em vừa nói X, …" khi chính sinh
 viên đã nói X.
 
-## 4. Cấu hình
+## 5. Cấu hình
 
 Không thêm khoá cấu hình mới. Giảng viên chỉnh ở **Phiên thi → Cấu hình vấn đáp**:
 
@@ -136,7 +164,7 @@ Hằng số trong code: còn ≥ 20 giây mới hỏi xoáy (`FollowUpTurnRules.
 đáp án 5 từ (`FollowUpQuestionGuard.LeakRunLength`), ngưỡng trùng 80%
 (`FollowUpQuestionGuard.RepeatSimilarity`).
 
-## 5. Demo
+## 6. Demo
 
 1. Chuẩn bị như [phan-6-tong-ket.md mục 6](phan-6-tong-ket.md#6-cách-chạy-thử) (MySQL, Ollama
    `qwen2.5:7b-instruct`, seed `seed_test_flow.sql` + `seed_test_rubrics.sql`). Dùng Chrome hoặc
@@ -150,29 +178,33 @@ Hằng số trong code: còn ≥ 20 giây mới hỏi xoáy (`FollowUpTurnRules.
 6. Mở "Các câu đã nộp": mỗi câu hỏi xoáy có link **Nghe bản thu câu hỏi thêm**.
 7. Tắt công tắc "Giám khảo ảo…" → phòng thi trở về chế độ bấm tay.
 
-## 6. Kiểm thử
+## 7. Kiểm thử
 
 | Nhóm | File | Ca mới |
 |---|---|---|
 | Luật chặn lộ đáp án / lặp | `tests/AssignmentPRN.Tests/FollowUpQuestionGuardTests.cs` | 13 |
 | Phòng thi với AI giả lập | `VoiceFollowUpTests.cs` (guard, diễn biến hỏi đáp, giới hạn, bản thu câu hỏi xoáy) | 6 |
 | Prompt | `FollowUpAnalyzerTests.cs` | 2 |
-| Giám khảo ảo (trình duyệt) | `tests/browser/voice-examiner.test.cjs` | 9 |
+| Thử mic trước khi tính giờ | `VoiceReadyGateTests.cs` (thử mic 40 s trên câu 30 s vẫn còn đủ 30 s, không trả lời trước khi sẵn sàng, gọi lại không dời hạn, lượt cũ không bị giữ, hết giờ vẫn đóng) | 7 |
+| Giám khảo ảo (trình duyệt) | `tests/browser/voice-examiner.test.cjs` — có 2 ca tải **thật** `voice-examiner.js` rồi `voice-mic-check.js` theo đúng thứ tự trên trang | 11 |
+| Hộp kiểm tra mic | `tests/browser/voice-mic-check.test.cjs` (không tự mở, đóng thì báo ngay) | 2 |
 
 ```bash
 dotnet test AssignmentPRN.slnx
-node --test tests/browser/voice-examiner.test.cjs
+node --test tests/browser/*.test.cjs
 ```
 
-Script Chrome tuỳ chọn `voice-room-smoke.cjs` tắt giám khảo ảo để giữ kịch bản bấm tay.
+Script Chrome tuỳ chọn `voice-room-smoke.cjs` bấm "Bỏ qua" ở hộp thử mic và tắt giám khảo ảo
+để giữ kịch bản bấm tay (chưa chạy lại vì máy chưa có `playwright-core`).
 
-## 7. Giới hạn còn lại
+## 8. Giới hạn còn lại
 
 - TTS/STT dùng Web Speech API của trình duyệt: chất lượng giọng và độ chính xác nhận dạng phụ
   thuộc Chrome/Edge và mạng; Firefox không có STT.
-- Trình duyệt chỉ cho phát giọng nói sau một cú bấm trên trang. Nếu sinh viên tải lại trang và
-  bỏ qua hộp kiểm tra mic (đã kiểm tra trong phiên), lần đọc đầu có thể bị chặn — màn hình khi
-  đó hướng dẫn bấm "Nghe câu hỏi".
+- Trình duyệt chỉ cho phát giọng nói sau một cú bấm trên trang. Câu 1 luôn mở sau cú bấm ở hộp
+  thử mic nên đọc được; nhưng nếu sinh viên **tải lại trang giữa giờ**, lần đọc kế tiếp có thể bị
+  chặn — màn hình khi đó hướng dẫn bấm "Nghe câu hỏi".
+- Thử mic vẫn dùng thời gian của khung giờ lượt thi (không cộng thêm giờ).
 - Guard lộ đáp án là luật so khớp từ, không hiểu nghĩa: diễn đạt lại đáp án bằng từ khác vẫn
   lọt. Giảng viên vẫn duyệt kết quả trước khi chốt điểm.
 - Chưa đo lại chất lượng câu hỏi xoáy với `qwen2.5:7b-instruct` sau khi thêm diễn biến hỏi đáp.
