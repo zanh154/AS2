@@ -851,22 +851,17 @@ public sealed class GradingRepository(AivesDbContext db, IExamStatePolicy? polic
 
 
     public async Task<IReadOnlyList<int>> PendingCandidateIdsAsync(CancellationToken ct = default) =>
-
         await db.ExamCandidates.AsNoTracking()
-
             .Where(candidate => candidate.Status == CandidateStatus.Completed
-
+                && !db.Set<ExamLog>().Any(log => log.CandidateId == candidate.CandidateId && log.Action == "CHEAT_DISQUALIFIED")
                 && db.Answers.Any(answer => answer.CandidateId == candidate.CandidateId
-
-                    && !db.AiEvaluations.Any(evaluation => evaluation.AnswerId == answer.AnswerId)))
-
-            .OrderBy(candidate => candidate.FinishedAt)
-
-            .ThenBy(candidate => candidate.CandidateId)
-
+                    && answer.SelectedOptionId == null
+                    && !db.AiEvaluations.Any(evaluation => evaluation.AnswerId == answer.AnswerId)
+                    && ((answer.Transcript != null && answer.Transcript.Trim() != "")
+                        || db.FollowUpQuestions.Any(f => f.AnswerId == answer.AnswerId && f.AnswerTranscript != null && f.AnswerTranscript.Trim() != ""))))
+            .OrderByDescending(candidate => candidate.FinishedAt)
+            .ThenByDescending(candidate => candidate.CandidateId)
             .Select(candidate => candidate.CandidateId)
-
+            .Take(20)
             .ToListAsync(ct);
-
 }
-

@@ -440,4 +440,52 @@ public sealed class FeatureUpdatesTests
         Assert.Contains("gemini-embedding-001:embedContent", factory.CapturedUrl);
         Assert.Contains("\"outputDimensionality\":768", factory.CapturedBody.Replace(" ", ""));
     }
+
+    [Fact]
+    public async Task PendingCandidateIdsAsync_skips_mcq_empty_and_disqualified_and_orders_newest_first()
+    {
+        await using var db = await IssuedPaperEditTests.OpenAsync();
+        db.Roles.Add(new Role { RoleId = 3, RoleName = "Student" });
+        var baseCandidate = await db.ExamCandidates.SingleAsync();
+        baseCandidate.Status = CandidateStatus.InProgress; // ignore default seeded candidate
+
+        var opt = new QuestionOption { OptionId = 1, QuestionId = 1, OptionText = "A", IsCorrect = true, DisplayOrder = 1 };
+        db.QuestionOptions.Add(opt);
+        await db.SaveChangesAsync();
+
+        var nextUserId = 10;
+        var nextCandidateId = 10;
+        var nextEqId = 10;
+
+        async Task<int> AddCandidateAsync(string email, DateTime finishedAt, string? transcript, int? selectedOptionId = null, bool disqualified = false)
+        {
+            var uid = nextUserId++;
+            var cid = nextCandidateId++;
+            var eqid = nextEqId++;
+            db.Users.Add(new User { UserId = uid, RoleId = 3, FullName = email, Email = email, PasswordHash = "x", Status = "Active" });
+            db.ExamCandidates.Add(new ExamCandidate { CandidateId = cid, ExamId = 1, StudentId = uid, Status = CandidateStatus.Completed, FinishedAt = finishedAt });
+            db.ExamQuestions.Add(new ExamQuestion { ExamQuestionId = eqid, ExamId = 1, CandidateId = cid, QuestionId = 1, OrderNo = 1 });
+            db.Answers.Add(new Answer { CandidateId = cid, ExamQuestionId = eqid, Transcript = transcript, SelectedOptionId = selectedOptionId });
+            if (disqualified)
+            {
+                db.Set<ExamLog>().Add(new ExamLog { CandidateId = cid, UserId = uid, Action = "CHEAT_DISQUALIFIED", Description = "Cheat", Timestamp = DateTime.UtcNow });
+            }
+            await db.SaveChangesAsync();
+            return cid;
+        }
+
+        var oldValid = await AddCandidateAsync("old_valid@aives.test", DateTime.UtcNow.AddHours(-3), "Older valid spoken answer");
+        _ = await AddCandidateAsync("empty@aives.test", DateTime.UtcNow.AddHours(-1), "   ");
+        _ = await AddCandidateAsync("mcq@aives.test", DateTime.UtcNow.AddMinutes(-30), null, selectedOptionId: opt.OptionId);
+        _ = await AddCandidateAsync("cheat@aives.test", DateTime.UtcNow.AddMinutes(-10), "Cheated answer", disqualified: true);
+        var newValid = await AddCandidateAsync("new_valid@aives.test", DateTime.UtcNow.AddMinutes(-5), "Newest valid spoken answer");
+
+        var repo = new GradingRepository(db, new ExamStatePolicy());
+        var pending = await repo.PendingCandidateIdsAsync();
+
+        Assert.Contains(newValid, pending);
+        Assert.Contains(oldValid, pending);
+        Assert.True(pending.ToList().IndexOf(newValid) < pending.ToList().IndexOf(oldValid));
+        Assert.Equal(2, pending.Count);
+    }
 }

@@ -59,6 +59,15 @@
                         AI tự động chấm sau khi sinh viên nộp bài. Giảng viên có thể chỉnh sửa linh hoạt từng câu hoặc điểm tổng rồi lưu.
                     </p>
                 </div>
+                @if (isCompleted && !review.IsDisqualified && review.Answers.Count > 0)
+                {
+                    var hasAnyAiScore = review.Answers.Any(a => !a.NotGraded);
+                    <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="GradeWithGemini" asp-route-id="@candidate.Paper.CandidateId">
+                        <button type="submit" class="btn btn-outline-primary text-nowrap">
+                            @(hasAnyAiScore ? "Chấm lại bằng Gemini AI" : "Chấm ngay bằng Gemini AI")
+                        </button>
+                    </form>
+                }
             </div>
             <p class="info-note" id="grading-live-status" role="status" aria-live="polite" hidden></p>
 

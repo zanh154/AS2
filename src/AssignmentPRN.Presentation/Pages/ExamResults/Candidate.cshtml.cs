@@ -76,4 +76,35 @@ public sealed class CandidateModel(
 
         return RedirectToPage(new { id });
     }
+
+    public async Task<IActionResult> OnPostGradeWithGeminiAsync(int id, CancellationToken ct)
+    {
+        if (gradingService is null)
+        {
+            TempData["Error"] = "Dịch vụ chấm điểm Gemini AI hiện chưa khả dụng.";
+            return RedirectToPage(new { id });
+        }
+
+        var check = await reviewService.GetAsync(id, LecturerId, ct);
+        if (!check.Success)
+        {
+            TempData["Error"] = check.Error;
+            return RedirectToPage(new { id });
+        }
+
+        if (check.Data?.IsDisqualified == true)
+        {
+            TempData["Error"] = "Bài thi bị đình chỉ do gian lận (0 điểm), không áp dụng chấm AI.";
+            return RedirectToPage(new { id });
+        }
+
+        var result = await gradingService.GradeCandidateAsync(id, ct);
+        TempData[result.Success ? "Success" : "Error"] = result.Success && result.Data is { } outcome
+            ? outcome.GradedAnswers > 0
+                ? $"Gemini AI đã chấm {outcome.GradedAnswers} câu (AI đề xuất: {outcome.SlotScore?.ToString("0.00") ?? "—"} / 10)."
+                : "Gemini AI chưa thể chấm vì bài chưa có câu trả lời hợp lệ."
+            : result.Error ?? "Không thể chấm bằng Gemini AI.";
+
+        return RedirectToPage(new { id });
+    }
 }
