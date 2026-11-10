@@ -93,6 +93,9 @@ public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpA
         _ => FollowUpReason.Sufficient
     };
 
+    private static string Said(string? transcript) =>
+        string.IsNullOrWhiteSpace(transcript) ? "(không nói gì)" : transcript.Trim();
+
     /// <summary>The shape Ollama is told to produce, so the reply parses or not at all.</summary>
     private static object Schema => new
     {
@@ -106,7 +109,7 @@ public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpA
         required = new[] { "needsFollowUp", "reason", "question" }
     };
 
-    private static string BuildPrompt(FollowUpContext context)
+    internal static string BuildPrompt(FollowUpContext context)
     {
         var prompt = new StringBuilder();
         prompt.AppendLine("Bạn là giám khảo vấn đáp, đang ngồi trước mặt sinh viên. Hãy đọc câu trả lời và quyết định có hỏi thêm một câu không.");
@@ -152,7 +155,25 @@ public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpA
             }
         }
 
-        if (context.PreviousProbes.Count > 0)
+        var exchanges = context.Exchanges ?? [];
+        if (exchanges.Count > 0)
+        {
+            // Đưa cả diễn biến hỏi đáp, không chỉ câu trả lời mới nhất: "Contradictory"
+            // chỉ phát hiện được khi model thấy điều sinh viên đã nói ở lượt trước.
+            prompt.AppendLine();
+            prompt.AppendLine("Diễn biến hỏi đáp cho câu này (theo thứ tự):");
+            prompt.Append("- Sinh viên trả lời lần đầu: ").AppendLine(Said(context.OriginalAnswer));
+            foreach (var exchange in exchanges.Take(exchanges.Count - 1))
+            {
+                prompt.Append("- Giám khảo hỏi thêm: ").AppendLine(exchange.Question);
+                prompt.Append("- Sinh viên: ").AppendLine(Said(exchange.Transcript));
+            }
+
+            prompt.Append("- Giám khảo hỏi thêm: ").AppendLine(exchanges[^1].Question);
+            prompt.AppendLine();
+            prompt.AppendLine("Không lặp lại các câu giám khảo đã hỏi ở trên. Đối chiếu câu trả lời mới nhất với những gì sinh viên đã nói trước đó.");
+        }
+        else if (context.PreviousProbes.Count > 0)
         {
             prompt.AppendLine();
             prompt.AppendLine("Các câu đã hỏi thêm cho câu này:");
@@ -163,7 +184,9 @@ public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpA
         }
 
         prompt.AppendLine();
-        prompt.AppendLine("Câu trả lời của sinh viên (chuyển từ giọng nói, có thể sai chính tả):");
+        prompt.AppendLine(exchanges.Count > 0
+            ? "Câu trả lời mới nhất của sinh viên (chuyển từ giọng nói, có thể sai chính tả):"
+            : "Câu trả lời của sinh viên (chuyển từ giọng nói, có thể sai chính tả):");
         prompt.AppendLine(context.Transcript);
 
         return prompt.ToString();

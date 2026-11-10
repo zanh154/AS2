@@ -153,4 +153,32 @@ public class FollowUpAnalyzerTests
 
         Assert.Equal(FollowUpDecision.None, await analyzer.AnalyzeAsync(context));
     }
+
+    [Fact]
+    public void The_prompt_lays_out_the_whole_exchange_after_a_probe()
+    {
+        var context = new FollowUpContext("Lock dùng để làm gì?", null, [], "Không chặn luồng nào.",
+            ["Em nói rõ hơn được không?"], "Lock chặn mọi luồng.",
+            [new FollowUpExchange("Em nói rõ hơn được không?", "Không chặn luồng nào.")]);
+
+        var prompt = OllamaFollowUpAnalyzer.BuildPrompt(context);
+
+        // The first answer and the latest reply both reach the model, in order, so a
+        // contradiction between them is visible.
+        var first = prompt.IndexOf("Sinh viên trả lời lần đầu: Lock chặn mọi luồng.", StringComparison.Ordinal);
+        var probe = prompt.IndexOf("Giám khảo hỏi thêm: Em nói rõ hơn được không?", StringComparison.Ordinal);
+        var latest = prompt.IndexOf("Câu trả lời mới nhất", StringComparison.Ordinal);
+        Assert.True(first >= 0 && probe > first && latest > probe, prompt);
+        Assert.EndsWith("Không chặn luồng nào." + Environment.NewLine, prompt);
+    }
+
+    [Fact]
+    public void The_prompt_for_a_first_answer_has_no_exchange_section()
+    {
+        var prompt = OllamaFollowUpAnalyzer.BuildPrompt(
+            new FollowUpContext("Lock dùng để làm gì?", null, [], "Để khoá.", [], "Để khoá.", []));
+
+        Assert.DoesNotContain("Diễn biến hỏi đáp", prompt);
+        Assert.Contains("Câu trả lời của sinh viên", prompt);
+    }
 }

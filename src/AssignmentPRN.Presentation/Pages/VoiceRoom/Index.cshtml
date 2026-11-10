@@ -51,12 +51,20 @@
         </div>
         <h2 id="voice-question">Đang chuẩn bị câu hỏi…</h2>
         <p class="voice-followup-reason" id="voice-followup-reason" role="status" aria-live="polite" hidden></p>
+        <p class="voice-followup-budget" id="voice-followup-budget" hidden></p>
         <p class="voice-awaiting" id="voice-awaiting" role="status" aria-live="polite" hidden>
             Giám khảo đang xem câu trả lời vừa nộp. Có thể sẽ có một câu hỏi thêm; nếu không, câu tiếp theo sẽ mở ngay.
         </p>
         <div class="voice-question-footer">
             <p>Đọc kỹ câu hỏi hoặc nghe trước khi bắt đầu trả lời.</p>
             <button type="button" class="btn btn-outline-primary" id="voice-read">Nghe câu hỏi</button>
+        </div>
+        <div class="voice-examiner">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="voice-examiner-auto" checked />
+                <label class="form-check-label" for="voice-examiner-auto">Giám khảo ảo tự đọc câu hỏi và bật ghi âm</label>
+            </div>
+            <p class="voice-examiner__status" id="voice-examiner-status" role="status" aria-live="polite" hidden></p>
         </div>
         <!-- Modal kiểm tra Microphone trước khi vào phòng thi -->
     <div id="voice-mic-modal" class="voice-mic-modal" role="dialog" aria-modal="true" aria-labelledby="voice-mic-title" hidden>
@@ -211,5 +219,6 @@
     <script src="~/js/voice-capture.js" asp-append-version="true"></script>
     <script src="~/js/voice-room.js" asp-append-version="true"></script>
     <script src="~/js/voice-room-ui.js" asp-append-version="true"></script>
+    <script src="~/js/voice-examiner.js" asp-append-version="true"></script>
     <script src="~/js/voice-mic-check.js" asp-append-version="true"></script>
 }

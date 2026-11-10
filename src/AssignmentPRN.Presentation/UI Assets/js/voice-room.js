@@ -49,7 +49,9 @@
         }
         const next = await response.json();
         offset = Date.parse(next.serverNow) - (sent + Date.now()) / 2;
-        if (itemKey(state?.question) !== itemKey(next.question)) {
+        const itemChanged = itemKey(state?.question) !== itemKey(next.question);
+        const firstLoad = !state, finishedNow = !!state && !state.completed && next.completed;
+        if (itemChanged) {
           const initial = !state;
           transcript.value = next.question?.transcript || "";
           dirty = false; version++;
@@ -80,8 +82,17 @@
         root.dataset.followUp = String(!!probe);
         const questionNumber = document.getElementById("voice-question-number");
         if (questionNumber) questionNumber.textContent = next.completed ? "ĐÃ HOÀN THÀNH"
-          : probe ? `HỎI THÊM · CÂU ${String(probe.orderNo).padStart(2, "0")}`
+          : probe ? `HỎI THÊM ${probe.followUpNumber && probe.followUpLimit ? `${probe.followUpNumber}/${probe.followUpLimit} ` : ""}· CÂU ${String(probe.orderNo).padStart(2, "0")}`
           : `CÂU HỎI ${String(next.question?.orderNo || next.completedCount + 1).padStart(2, "0")}`;
+        // Tell the student up front how far the examiner may dig, so a probe is expected.
+        const budget = document.getElementById("voice-followup-budget");
+        if (budget) {
+          const limit = next.question?.followUpLimit || 0;
+          budget.hidden = !next.question || !!probe;
+          budget.textContent = limit
+            ? `Giám khảo AI có thể hỏi thêm tối đa ${limit} câu để làm rõ câu trả lời này, trong cùng thời gian của câu.`
+            : "Câu này không có câu hỏi thêm.";
+        }
         const reason = document.getElementById("voice-followup-reason");
         if (reason) {
           reason.hidden = !probe;
@@ -112,6 +123,12 @@
               probeTitle.textContent = `Hỏi thêm (${reasonLabels[probe.reason] || "cần làm rõ"}): ${probe.text}`;
               probeBody.textContent = probe.transcript || "Chưa có nội dung nhận dạng.";
               row.append(probeTitle, probeBody);
+              if (probe.hasAudio) {
+                const link = document.createElement("a"), url = new URL(root.dataset.audio, location.href);
+                url.searchParams.set("questionId", answer.examQuestionId);
+                url.searchParams.set("followUpId", probe.followUpId);
+                link.href = url; link.textContent = "Nghe bản thu câu hỏi thêm"; link.target = "_blank"; link.rel = "noopener"; row.append(link);
+              }
             }
             if (answer.hasAudio) {
               const link = document.createElement("a"), url = new URL(root.dataset.audio, location.href);
@@ -123,6 +140,11 @@
         }
         form.hidden = next.completed || next.awaitingFollowUp;
         if (next.completed) document.getElementById("voice-clock").textContent = "00:00";
+        // The virtual examiner (voice-examiner.js) speaks each new item; it reacts to this
+        // event only, so it never has to know how the room is synchronised.
+        if ((itemChanged || finishedNow) && typeof CustomEvent === "function")
+          root.dispatchEvent(new CustomEvent("voice-item-changed", { detail: { question: next.question,
+            completed: next.completed, finishedNow, initial: firstLoad } }));
         startRealtime();
         return true;
       } catch (error) { status.textContent = error.message; return false; }

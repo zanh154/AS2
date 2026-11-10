@@ -138,11 +138,19 @@
       return null;
     }
   };
-  const stopReading = () => { window.speechSynthesis?.cancel(); reading = false; buttons(); };
-  read.addEventListener("click", () => {
-    if (reading) { stopReading(); return; }
-    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { status.textContent = "Trình duyệt chưa hỗ trợ đọc tự động; hãy đọc câu hỏi trên màn hình."; return; }
-    if (!question || active()) return;
+  let finishReading = null;
+  const stopReading = () => {
+    window.speechSynthesis?.cancel(); reading = false;
+    finishReading?.(false); finishReading = null; buttons();
+  };
+  // Reads the open question aloud. Resolves true when it was read to the end, false when
+  // it could not be read or was interrupted, so the virtual examiner knows whether the
+  // student actually heard it before the microphone opens.
+  const speak = () => new Promise(resolve => {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      status.textContent = "Trình duyệt chưa hỗ trợ đọc tự động; hãy đọc câu hỏi trên màn hình."; resolve(false); return;
+    }
+    if (!question || active() || reading) { resolve(false); return; }
     const textToRead = question.text;
     const lang = detectLanguage(textToRead);
     const utterance = new SpeechSynthesisUtterance(textToRead);
@@ -151,12 +159,23 @@
     if (voice) {
       utterance.voice = voice;
     }
-    reading = true; buttons();
-    utterance.onend = () => { reading = false; buttons(); };
-    utterance.onerror = () => { reading = false; status.textContent = "Không đọc được tự động. Bạn có thể đọc câu hỏi trên màn hình."; buttons(); };
+    reading = true; finishReading = resolve; buttons();
+    const done = (ok, message) => {
+      if (finishReading !== resolve) return;
+      reading = false; finishReading = null;
+      if (message) status.textContent = message;
+      buttons(); resolve(ok);
+    };
+    utterance.onend = () => done(true);
+    utterance.onerror = event => done(false, event?.error === "interrupted" || event?.error === "canceled" ? ""
+      : "Không đọc được tự động. Bạn có thể đọc câu hỏi trên màn hình.");
     speechSynthesis.speak(utterance);
   });
-  record.addEventListener("click", async () => {
+  read.addEventListener("click", () => {
+    if (reading) { stopReading(); return; }
+    speak();
+  });
+  const startRecording = async () => {
     if (!question || active() || pending?.id === question.examQuestionId) return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { status.textContent = "Cần HTTPS/localhost và trình duyệt hỗ trợ MediaRecorder. Bạn vẫn có thể nhập nội dung trả lời."; return; }
     const id = question.examQuestionId;
@@ -208,7 +227,8 @@
       status.textContent = ({ NotAllowedError: "Bạn chưa cho phép microphone. Hãy cấp quyền và thử lại.",
         NotFoundError: "Không tìm thấy microphone.", NotReadableError: "Microphone đang bận hoặc không đọc được." })[error.name] || error.message;
     } finally { requesting = false; buttons(); }
-  });
+  };
+  record.addEventListener("click", startRecording);
   const startSpeech = id => {
       const prefix = text.value.trim();
       const lang = detectLanguage(question?.text);
@@ -246,6 +266,10 @@
   }, 200);
   window.voiceCapture = {
     detectLanguage,
+    speak,
+    startRecording,
+    get reading() { return reading; },
+    get recording() { return recorder?.state === "recording" || requesting; },
     beforeSubmit: () => stopRecording(true),
     get busy() { return active() || uploading; },
     get hasPendingAudio() { return pending?.id === question?.examQuestionId && !!pending; },
@@ -261,7 +285,10 @@
         }
       }
       if (snapshotVersion !== stateVersion) return;
-      if (question?.examQuestionId !== state.question?.examQuestionId) {
+      // A probe shares the examQuestionId of the question it probes, so the follow-up id
+      // is part of what makes the open item new.
+      const itemOf = q => q ? `${q.examQuestionId}:${q.followUpId || 0}` : null;
+      if (itemOf(question) !== itemOf(state.question)) {
         stopReading(); adapter.stop();
         if (active()) stopRecording(false).catch(() => {});
         preview.pause?.(); preview.hidden = true;
@@ -275,7 +302,9 @@
       const link = byId("voice-stored-audio");
       link.hidden = !question?.hasAudio;
       if (question?.hasAudio) {
-        const url = new URL(root.dataset.audio, location.href); url.searchParams.set("questionId", question.examQuestionId); link.href = url;
+        const url = new URL(root.dataset.audio, location.href); url.searchParams.set("questionId", question.examQuestionId);
+        if (question.followUpId) url.searchParams.set("followUpId", question.followUpId);
+        link.href = url;
         if (preview.hidden && !active() && pending?.id !== question.examQuestionId) { preview.src = url.href; preview.hidden = false; }
       }
       byId("voice-capture").hidden = state.completed && !pending && !recordings.size;

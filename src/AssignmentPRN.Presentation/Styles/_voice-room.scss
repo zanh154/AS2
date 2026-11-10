@@ -75,6 +75,16 @@
   color: $color-warning; background: $color-warning-soft; border: 1px solid $color-warning-border;
 }
 .voice-awaiting { color: $color-accent; background: $color-accent-soft; }
+// How far the examiner may dig on this question: told up front, quietly.
+.voice-followup-budget { margin: (-$space-3) 0 $space-4; color: $color-muted; font-size: $font-size-xs; }
+// The virtual examiner switch sits under the question it reads out.
+.voice-examiner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: $space-2;
+  margin-top: $space-3; font-size: $font-size-xs;
+  .form-check { margin: 0; }
+  .form-check-label { color: $color-muted; }
+}
+.voice-examiner__status { flex: 1 1 100%; margin: 0; color: $color-accent; }
 // The question card marks a probe so the student can see at a glance that the turn
 // has not moved on.
 .voice-room[data-follow-up="true"] .voice-question-panel { border-top-color: $color-warning; }

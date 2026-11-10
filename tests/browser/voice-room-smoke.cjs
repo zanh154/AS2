@@ -7,6 +7,9 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
  const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args});
  try {
  const context=await browser.newContext({permissions:['microphone'],viewport:{width:1400,height:1000}});
+ // This flow drives the buttons by hand; the virtual examiner (voice-examiner.js) is
+ // switched off so it does not open the microphone on its own. voice-examiner.test.cjs covers it.
+ await context.addInitScript(()=>{try{localStorage.setItem('voice_examiner_auto','off')}catch{}});
  const page=await context.newPage(); const errors=[]; page.on('pageerror',e=>errors.push(e.message));
  let voiceSocket;
  await page.routeWebSocket('**/hubs/voice-room*',ws=>{voiceSocket=ws;ws.connectToServer()});

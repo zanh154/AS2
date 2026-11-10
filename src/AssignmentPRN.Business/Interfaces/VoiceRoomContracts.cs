@@ -6,9 +6,15 @@ namespace AssignmentPRN.Business.Interfaces;
 /// landing beside the answer it belongs to.
 /// </param>
 /// <param name="FollowUpReason">Why the probe was asked, for the student to see.</param>
+/// <param name="FollowUpNumber">1 for the first probe on this question, 2 for the next; 0 for the question itself.</param>
+/// <param name="FollowUpLimit">
+/// The most probes this question can have, counting those already asked, given both the
+/// per-question and the per-slot budget. An upper bound: the examiner may ask fewer, and
+/// asks none once too little time is left.
+/// </param>
 public sealed record VoiceQuestion(int ExamQuestionId, int OrderNo, string Text, DateTimeOffset AskedAt,
     DateTimeOffset Deadline, string? Transcript, bool HasAudio, int? FollowUpId = null,
-    FollowUpReason? FollowUpReason = null);
+    FollowUpReason? FollowUpReason = null, int FollowUpNumber = 0, int FollowUpLimit = 0);
 
 /// <param name="FollowUps">Probes asked on this answer, oldest first.</param>
 public sealed record VoiceSavedAnswer(int ExamQuestionId, int OrderNo, string Text, string? Transcript, bool HasAudio,
@@ -47,5 +53,7 @@ public interface IVoiceRoomService
     Task<ServiceResponse<VoiceRoomState>> SyncAsync(int candidateId, int studentId, VoiceAnswerRequest? answer = null, CancellationToken ct = default);
     Task<ServiceResponse<VoiceRoomState>> UploadAsync(int candidateId, int studentId, int questionId,
         string contentType, long length, double durationSeconds, Stream content, CancellationToken ct = default);
-    Task<ServiceResponse<VoiceAudioDownload>> DownloadAsync(int candidateId, int studentId, int questionId, CancellationToken ct = default);
+    /// <param name="followUpId">Set to fetch the recording of a probe on that question rather than of the answer.</param>
+    Task<ServiceResponse<VoiceAudioDownload>> DownloadAsync(int candidateId, int studentId, int questionId,
+        int? followUpId = null, CancellationToken ct = default);
 }

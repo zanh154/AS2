@@ -410,4 +410,145 @@ public sealed class VoiceFollowUpTests
 
         Assert.Empty(await GradingQueueTests.DrainAsync(queue));
     }
+
+    // ---- Nhóm chức năng 3: lõi phỏng vấn AI ---------------------------------------------
+
+    /// <summary>A store that hands out one key per save, so answer and probe audio differ.</summary>
+    private sealed class KeyedAudioStore : AssignmentPRN.DataAccess.Services.IVoiceAudioStore
+    {
+        private int _saves;
+        public Task<string> SaveAsync(int candidateId, int questionId, string contentType, Stream content, CancellationToken ct) =>
+            Task.FromResult($"{candidateId}/{questionId}/{++_saves}.webm");
+        public Task<AssignmentPRN.DataAccess.Services.StoredVoiceAudio> OpenAsync(string key, CancellationToken ct) =>
+            Task.FromResult(new AssignmentPRN.DataAccess.Services.StoredVoiceAudio(
+                new MemoryStream(System.Text.Encoding.UTF8.GetBytes(key)), "audio/webm"));
+    }
+
+    [Fact]
+    public async Task A_probe_that_gives_the_expected_answer_away_is_never_asked()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock);
+        var question = await db.Questions.SingleAsync(x => x.QuestionId == 1);
+        question.ExpectedAnswer = "Lock đảm bảo chỉ một luồng được vào vùng găng tại một thời điểm.";
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var analyzer = new StubAnalyzer(new FollowUpDecision(FollowUpReason.MissingPoint,
+            "Em có biết chỉ một luồng được vào vùng găng tại một thời điểm không?"));
+
+        var state = await Service(db, clock, analyzer).SyncAsync(1, 2, Submit(1, "Em không biết ạ."));
+
+        // The model asked, the guard refused: the room moves on as if nothing was asked.
+        Assert.True(state.Success, state.Error);
+        Assert.Equal(1, analyzer.Calls);
+        Assert.Null(state.Data!.Question!.FollowUpId);
+        Assert.Equal(2, state.Data.Question.OrderNo);
+        Assert.Empty(await db.FollowUpQuestions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_second_probe_sees_the_whole_exchange_so_contradictions_can_be_caught()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 2);
+        var analyzer = new StubAnalyzer(Probe);
+
+        await Service(db, clock, analyzer).SyncAsync(1, 2, Submit(1, "Lock chặn mọi luồng."));
+        Assert.Equal("Lock chặn mọi luồng.", analyzer.Seen[0].OriginalAnswer);
+        Assert.Empty(analyzer.Seen[0].Exchanges!);
+
+        var followUpId = (await db.FollowUpQuestions.SingleAsync()).FollowUpId;
+        clock.At = clock.At.AddSeconds(2);
+        db.ChangeTracker.Clear();
+        await Service(db, clock, analyzer).SyncAsync(1, 2,
+            new VoiceAnswerRequest(1, "Lock không chặn luồng nào cả.", Submit: true, FollowUpId: followUpId));
+
+        var seen = analyzer.Seen[1];
+        Assert.Equal("Lock chặn mọi luồng.", seen.OriginalAnswer);
+        var exchange = Assert.Single(seen.Exchanges!);
+        Assert.Equal(Probe.Question, exchange.Question);
+        Assert.Equal("Lock không chặn luồng nào cả.", exchange.Transcript);
+    }
+
+    [Fact]
+    public async Task The_same_probe_is_not_asked_twice_on_one_question()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 2);
+        var analyzer = new StubAnalyzer(Probe);
+
+        var probed = await Service(db, clock, analyzer).SyncAsync(1, 2, Submit(1, "Có khoá."));
+        clock.At = clock.At.AddSeconds(2);
+        db.ChangeTracker.Clear();
+        var next = await Service(db, clock, analyzer).SyncAsync(1, 2,
+            new VoiceAnswerRequest(1, "Dạ em chưa rõ.", Submit: true, FollowUpId: probed.Data!.Question!.FollowUpId));
+
+        // Budget allowed a second probe, but the model repeated itself: next question.
+        Assert.Equal(2, analyzer.Calls);
+        Assert.Null(next.Data!.Question!.FollowUpId);
+        Assert.Equal(2, next.Data.Question.OrderNo);
+        Assert.Single(await db.FollowUpQuestions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task The_student_is_told_how_many_probes_a_question_can_have()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 2, perSlot: 3);
+        var analyzer = new StubAnalyzer(Probe);
+
+        var first = await Service(db, clock, analyzer).SyncAsync(1, 2);
+        Assert.Equal(0, first.Data!.Question!.FollowUpNumber);
+        Assert.Equal(2, first.Data.Question.FollowUpLimit);
+
+        db.ChangeTracker.Clear();
+        var probed = await Service(db, clock, analyzer).SyncAsync(1, 2, Submit(1, "Có khoá."));
+        Assert.Equal(1, probed.Data!.Question!.FollowUpNumber);
+        Assert.Equal(2, probed.Data.Question.FollowUpLimit);
+    }
+
+    [Fact]
+    public async Task The_slot_budget_caps_what_the_student_is_told()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock, perQuestion: 3, perSlot: 1);
+
+        var state = await Service(db, clock, new StubAnalyzer(Probe)).SyncAsync(1, 2);
+
+        Assert.Equal(1, state.Data!.Question!.FollowUpLimit);
+    }
+
+    [Fact]
+    public async Task A_probe_recording_is_kept_apart_and_only_its_owner_can_play_it()
+    {
+        var clock = new VoiceRoomTests.Clock();
+        await using var db = await SeedAsync(clock);
+        var store = new KeyedAudioStore();
+        VoiceRoomService Room() => new(new VoiceRoomRepository(db, new ExamStatePolicy()),
+            new QuestionService(new QuestionRepository(db, new ExamStatePolicy()), new CatalogRepository(db), null!),
+            clock, store, null, new StubAnalyzer(Probe));
+
+        await Room().SyncAsync(1, 2);
+        clock.At = clock.At.AddSeconds(5);
+        db.ChangeTracker.Clear();
+        Assert.True((await Room().UploadAsync(1, 2, 1, "audio/webm", 12, 4, Stream.Null)).Success);
+        db.ChangeTracker.Clear();
+        var probed = await Room().SyncAsync(1, 2, Submit(1, "Có khoá."));
+        var followUpId = probed.Data!.Question!.FollowUpId!.Value;
+        clock.At = clock.At.AddSeconds(3);
+        db.ChangeTracker.Clear();
+        Assert.True((await Room().UploadAsync(1, 2, 1, "audio/webm", 12, 2, Stream.Null)).Success);
+
+        db.ChangeTracker.Clear();
+        var answerAudio = await Room().DownloadAsync(1, 2, 1);
+        var probeAudio = await Room().DownloadAsync(1, 2, 1, followUpId);
+        Assert.True(probeAudio.Success, probeAudio.Error);
+        Assert.Equal("1/1/1.webm", await new StreamReader(answerAudio.Data!.Content).ReadToEndAsync());
+        Assert.Equal("1/1/2.webm", await new StreamReader(probeAudio.Data!.Content).ReadToEndAsync());
+
+        // Another account, or a probe id that does not hang off this answer, gets nothing.
+        Assert.False((await Room().DownloadAsync(1, 1, 1, followUpId)).Success);
+        Assert.False((await Room().DownloadAsync(1, 2, 2, followUpId)).Success);
+        Assert.False((await Room().DownloadAsync(1, 2, 1, followUpId + 99)).Success);
+    }
 }

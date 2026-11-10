@@ -24,12 +24,22 @@ public sealed record RubricCriterionInfo(int CriteriaId, string Name, string? De
 /// layer so the analyzer never touches a repository, and so a test can hand it a plain
 /// object.
 /// </summary>
+/// <param name="Transcript">The last thing the student said: the answer, or the reply to the latest probe.</param>
+/// <param name="PreviousProbes">Probes already asked on this question, oldest first.</param>
+/// <param name="OriginalAnswer">
+/// What the student said to the question itself. Equal to <paramref name="Transcript"/>
+/// before any probe; afterwards it is what lets the examiner notice a reply that
+/// contradicts the first answer.
+/// </param>
+/// <param name="Exchanges">Every probe asked so far on this question with the student's reply, oldest first.</param>
 public sealed record FollowUpContext(
     string QuestionText,
     string? ExpectedAnswer,
     IReadOnlyList<RubricCriterionInfo> Criteria,
     string? Transcript,
-    IReadOnlyList<string> PreviousProbes);
+    IReadOnlyList<string> PreviousProbes,
+    string? OriginalAnswer = null,
+    IReadOnlyList<FollowUpExchange>? Exchanges = null);
 
 /// <summary>
 /// What the analyzer suggests. <see cref="Question"/> is set only when

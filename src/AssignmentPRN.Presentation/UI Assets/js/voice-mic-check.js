@@ -88,6 +88,8 @@
       sessionStorage.setItem(storageKey, "1");
     } catch {}
     closeModal();
+    // The click that closed the check is what lets the virtual examiner speak.
+    root?.dispatchEvent(new CustomEvent("voice-mic-ready"));
   };
 
   const startMicTest = async () => {

@@ -63,14 +63,20 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             }, ct);
         }, "Không thể lưu âm thanh. Giữ bản thu và thử lại.");
 
-    public Task<ServiceResponse<VoiceAudioDownload>> DownloadAsync(int candidateId, int studentId, int questionId, CancellationToken ct = default) =>
+    public Task<ServiceResponse<VoiceAudioDownload>> DownloadAsync(int candidateId, int studentId, int questionId,
+        int? followUpId = null, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () => {
             var key = await repository.UpdateAsync(candidateId, studentId, a => {
                 ValidateOwner(a);
                 if (a.Logs.Count == 0 || !a.Questions.Any(x => x.ExamQuestionId == questionId))
                     throw new BusinessValidationException("Không có quyền truy cập bản thu.");
-                return a.Answers.SingleOrDefault(x => x.ExamQuestionId == questionId)?.AudioPath
-                    ?? throw new BusinessValidationException("Câu trả lời chưa có bản thu.");
+                var answer = a.Answers.SingleOrDefault(x => x.ExamQuestionId == questionId);
+                if (followUpId is null)
+                    return answer?.AudioPath ?? throw new BusinessValidationException("Câu trả lời chưa có bản thu.");
+                // The probe must hang off this very answer: an id from another slot or
+                // another question reads as "no recording", never as someone else's file.
+                return a.FollowUps.SingleOrDefault(x => x.FollowUpId == followUpId && x.AnswerId == answer?.AnswerId)?.AudioPath
+                    ?? throw new BusinessValidationException("Câu hỏi thêm chưa có bản thu.");
             }, ct);
             var file = await (audioStore ?? throw new InvalidOperationException()).OpenAsync(key, ct);
             return new VoiceAudioDownload(file.Content, file.ContentType);
@@ -215,6 +221,10 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         }
         if (!decision.NeedsFollowUp) return null;
 
+        // A probe that hands out the expected answer or asks the same thing twice is
+        // worse than none. The room moves on exactly as when the model declines.
+        if (!FollowUpQuestionGuard.IsUsable(decision.Question!, context)) return null;
+
         try
         {
             var asked = await repository.UpdateAsync(candidateId, studentId, a => {
@@ -279,7 +289,11 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             // The last thing the student said: the answer itself, or their reply to the
             // probe before this one.
             probes.LastOrDefault()?.AnswerTranscript ?? answer.Transcript,
-            probes.Select(x => x.QuestionText).ToArray());
+            probes.Select(x => x.QuestionText).ToArray(),
+            // The whole exchange on this question, so a reply that contradicts the first
+            // answer can be noticed the way a lecturer would.
+            answer.Transcript,
+            probes.Select(x => new FollowUpExchange(x.QuestionText, x.AnswerTranscript)).ToArray());
     }
 
     /// <summary>
@@ -468,7 +482,8 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             var parent = ParentOf(a, open)!;
             return Snapshot(a, now, awaiting: false, new VoiceQuestion(parent.ExamQuestionId, parent.OrderNo,
                 open.QuestionText, Stamp(open.AskedAt!.Value), Stamp(ProbeDeadline(a, open)),
-                open.AnswerTranscript, open.AudioPath != null, open.FollowUpId, ReadReason(open.Reason)));
+                open.AnswerTranscript, open.AudioPath != null, open.FollowUpId, ReadReason(open.Reason),
+                open.OrderNo, FollowUpLimit(a, open.AnswerId)));
         }
 
         var current2 = a.Candidate.Status == CandidateStatus.Completed || awaiting
@@ -477,7 +492,20 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
         var saved = current2 == null ? null : a.Answers.SingleOrDefault(x => x.ExamQuestionId == current2.ExamQuestionId);
         return Snapshot(a, now, awaiting, current2 == null ? null : new VoiceQuestion(current2.ExamQuestionId,
             current2.OrderNo, current2.Question.QuestionText, Stamp(current2.AskedAt!.Value),
-            Stamp(Deadline(a, current2)), saved?.Transcript, saved?.AudioPath != null));
+            Stamp(Deadline(a, current2)), saved?.Transcript, saved?.AudioPath != null,
+            FollowUpLimit: FollowUpLimit(a, saved?.AnswerId)));
+    }
+
+    /// <summary>
+    /// The most probes the question behind <paramref name="answerId"/> can end up with:
+    /// those already asked plus what both budgets still allow. Shown to the student so
+    /// the examiner's questions never come as a surprise.
+    /// </summary>
+    private static int FollowUpLimit(VoiceRoomAggregate a, int? answerId)
+    {
+        var asked = answerId is int id && id > 0 ? ProbesFor(a, id).Count : 0;
+        var settings = new Interfaces.ExamVivaSettings(a.Settings.SecondsPerQuestion, a.Settings.MaxFollowUpsPerQuestion);
+        return asked + FollowUpTurnRules.Remaining(asked, a.FollowUps.Count, a.Candidate.Session.MaxFollowUpCount, settings);
     }
 
     private VoiceRoomState Snapshot(VoiceRoomAggregate a, DateTime now, bool awaiting, VoiceQuestion? question) =>

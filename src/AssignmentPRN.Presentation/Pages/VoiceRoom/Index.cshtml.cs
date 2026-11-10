@@ -48,10 +48,10 @@ public sealed class IndexModel(IVoiceRoomService service) : PageModel
         return result.Success ? new JsonResult(result.Data) : BadRequest(new { error = result.Error });
     }
 
-    public async Task<IActionResult> OnGetAudioAsync(int id, int questionId, CancellationToken ct)
+    public async Task<IActionResult> OnGetAudioAsync(int id, int questionId, int? followUpId, CancellationToken ct)
     {
         if (!IsStudent) return StatusCode(403);
-        var result = await service.DownloadAsync(id, UserId, questionId, ct);
+        var result = await service.DownloadAsync(id, UserId, questionId, followUpId, ct);
         if (!result.Success || result.Data == null) return NotFound();
         Response.Headers.CacheControl = "private, no-store";
         Response.Headers.XContentTypeOptions = "nosniff";
