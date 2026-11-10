@@ -643,6 +643,7 @@ public sealed class SessionResultResponse
 
     /// <summary>Mean score of the completed papers; null while none is completed.</summary>
     public decimal? AverageScore => CompletedCount == 0
+        || !Candidates.Any(item => item.Score.HasValue)
         ? null
         : Math.Round(
             Candidates.Where(item => item.Score.HasValue).Average(item => item.Score!.Value),

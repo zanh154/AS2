@@ -264,4 +264,26 @@ public sealed class FeatureUpdatesTests
         Assert.True(entered.Success, entered.Error);
         Assert.Single(entered.Data!.Questions);
     }
+
+    [Fact]
+    public void SessionResultResponse_AverageScore_is_null_when_completed_candidate_awaits_ai_score()
+    {
+        var session = new SessionResultResponse
+        {
+            ExamId = 65,
+            Status = AssignmentPRN.Business.Interfaces.ExamSessionStatus.Completed,
+            Candidates =
+            [
+                new CandidateResultItemResponse
+                {
+                    CandidateId = 1,
+                    Status = AssignmentPRN.Business.Interfaces.CandidateStatus.Completed,
+                    Score = null
+                }
+            ]
+        };
+
+        Assert.Equal(1, session.CompletedCount);
+        Assert.Null(session.AverageScore);
+    }
 }
