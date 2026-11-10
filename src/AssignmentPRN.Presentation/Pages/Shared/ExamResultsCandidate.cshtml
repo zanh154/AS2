@@ -53,11 +53,16 @@
     {
         <div class="content-card exam-result-ai">
             <div class="section-heading">
-                <div>
-                    <h2>AI đề xuất &amp; điểm chốt</h2>
-                    <p class="text-muted">
-                        AI tự động chấm sau khi sinh viên nộp bài. Giảng viên có thể chỉnh sửa linh hoạt từng câu hoặc điểm tổng rồi lưu.
-                    </p>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <h2 class="mb-0">AI đề xuất &amp; điểm chốt</h2>
+                    @if (review.FinalizedAt is { } finalizedAt)
+                    {
+                        <span class="status-chip status-chip--success">Đã công bố · @finalizedAt.ToString("HH:mm dd/MM")</span>
+                    }
+                    else
+                    {
+                        <span class="status-chip status-chip--warning">Chưa công bố</span>
+                    }
                 </div>
                 @if (isCompleted && !review.IsDisqualified && review.Answers.Count > 0)
                 {
@@ -74,43 +79,31 @@
             @if (review.IsDisqualified)
             {
                 <div class="proctor-alert proctor-alert--danger" role="alert">
-                    <span class="proctor-alert__badge">GIAN LẬN · CHẤM DỨT BÀI THI · 0 ĐIỂM</span>
-                    <strong>Sinh viên có dấu hiệu gian lận (rời màn hình / chuyển tab @review.CheatViolationCount lần, vượt quá 3/3 cảnh báo).</strong>
-                    <p>Hệ thống đã tự động chấm dứt bài thi và ghi nhận 0 điểm. Giảng viên vẫn có thể kiểm tra nhật ký vi phạm bên dưới.</p>
+                    <span class="proctor-alert__badge">GIAN LẬN · ĐÌNH CHỈ · 0 ĐIỂM</span>
+                    <strong>Rời màn hình / chuyển tab @review.CheatViolationCount lần (vượt mức 3/3).</strong>
                 </div>
             }
             else if (review.CheatViolationCount > 0)
             {
                 <div class="proctor-alert proctor-alert--warning" role="status">
-                    <span class="proctor-alert__badge">CẢNH BÁO GIAN LẬN · @review.CheatViolationCount / 3</span>
-                    <strong>Sinh viên có @review.CheatViolationCount lần rời màn hình / chuyển tab trong lúc thi.</strong>
-                    <p>Xem chi tiết các mốc thời gian rời màn hình tại mục Lịch sử bên dưới.</p>
+                    <span class="proctor-alert__badge">CẢNH BÁO · @review.CheatViolationCount / 3</span>
+                    <strong>Phát hiện @review.CheatViolationCount lần rời màn hình trong lúc thi.</strong>
                 </div>
             }
 
             <div class="metric-row">
                 <div class="metric-card"><span>AI đề xuất</span><strong>@ExamResultText.Score(review.AiScore)</strong></div>
-                <div class="metric-card"><span>Tổng điểm các câu</span><strong id="flex-total-display">@(review.QuestionTotalScore is { } qt ? $"{qt:0.##} / {review.GradedQuestionCount * 10}" : "—")</strong></div>
-                <div class="metric-card"><span>Trung bình mỗi câu</span><strong id="flex-avg-display">@(review.QuestionAverageScore is { } qa ? $"{qa:0.##} / 10" : "—")</strong></div>
+                <div class="metric-card"><span>Tổng các câu</span><strong id="flex-total-display">@(review.QuestionTotalScore is { } qt ? $"{qt:0.##} / {review.GradedQuestionCount * 10}" : "—")</strong></div>
+                <div class="metric-card"><span>TB mỗi câu</span><strong id="flex-avg-display">@(review.QuestionAverageScore is { } qa ? $"{qa:0.##} / 10" : "—")</strong></div>
                 <div class="metric-card"><span>Giảng viên chốt</span><strong>@ExamResultText.Score(review.LecturerScore)</strong></div>
-                <div class="metric-card"><span>Điểm cuối</span><strong>@ExamResultText.Score(review.FinalScore)</strong></div>
             </div>
-
-            @if (review.FinalizedAt is { } finalizedAt)
-            {
-                <p class="info-note"><strong>Đã công bố điểm cho sinh viên</strong> · Chốt bởi @(review.FinalizedByName ?? "—") lúc @finalizedAt.ToString("HH:mm dd/MM/yyyy").</p>
-            }
-            else
-            {
-                <p class="info-note"><strong>Chưa công bố điểm cho sinh viên:</strong> Sinh viên hiện chỉ xem được câu trả lời của mình. Hãy bấm <strong>Lưu &amp; công bố điểm</strong> bên dưới khi sẵn sàng công bố.</p>
-            }
 
             <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="Adjust" asp-route-id="@candidate.Paper.CandidateId"
                   class="exam-result-adjust" id="flexible-grading-form">
                 @if (review.Answers.Count > 0)
                 {
                     <div class="form-row">
-                        <label>Chấm linh hoạt từng câu (tự động cập nhật điểm tổng &amp; trung bình)</label>
+                        <label>Điểm từng câu</label>
                         <table class="data-table">
                             <thead>
                                 <tr>
@@ -147,13 +140,12 @@
                     </div>
                 }
                 <div class="form-row">
-                    <label for="lecturer-score">Điểm giảng viên chốt tổng (0–10)</label>
+                    <label for="lecturer-score">Điểm chốt tổng (0–10)</label>
                     <input class="form-control" id="lecturer-score" name="score" type="number" inputmode="decimal"
                            min="0" max="10" step="0.01" value="@review.LecturerScore?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" />
-                    <small class="text-muted">Tự động tính trung bình khi bạn chỉnh điểm từng câu bên trên, hoặc nhập trực tiếp điểm bạn muốn chốt.</small>
                 </div>
                 <div class="form-row">
-                    <label for="lecturer-comment">Nhận xét của giảng viên</label>
+                    <label for="lecturer-comment">Nhận xét</label>
                     <textarea class="form-control" id="lecturer-comment" name="comment" rows="3"
                               maxlength="2000">@review.LecturerComment</textarea>
                 </div>
@@ -192,31 +184,33 @@
 
             @if (review.Answers.Count > 0)
             {
-                <h3 class="mt-4 mb-3">Chi tiết bài làm &amp; đối chiếu đáp án từng câu</h3>
+                <h3 class="mt-4 mb-3">Chi tiết từng câu</h3>
                 <ol class="exam-result-ai-answers">
                     @foreach (var answer in review.Answers)
                     {
                         <li>
-                            <h3>Câu @answer.OrderNo · AI chấm: @ExamResultText.Score(answer.AiScore)</h3>
+                            <h3>Câu @answer.OrderNo · AI: @ExamResultText.Score(answer.AiScore)</h3>
                             <p class="fw-medium mb-2">@answer.QuestionText</p>
 
-                            <div class="exam-result-expected mb-2">
-                                <span>Câu trả lời của sinh viên</span>
-                                <p>@(string.IsNullOrWhiteSpace(answer.Transcript) ? "(Sinh viên không nói / chưa có bản ghi)" : answer.Transcript)</p>
-                            </div>
-
-                            <div class="exam-result-expected mb-3">
-                                <span>Đáp án chuẩn có sẵn</span>
-                                <p>@(string.IsNullOrWhiteSpace(answer.ExpectedAnswer) ? "(Câu hỏi chưa cài đặt đáp án chuẩn)" : answer.ExpectedAnswer)</p>
+                            <div class="exam-result-compare">
+                                <div class="exam-result-expected">
+                                    <span>Sinh viên trả lời</span>
+                                    <p>@(string.IsNullOrWhiteSpace(answer.Transcript) ? "(Chưa ghi nhận câu trả lời)" : answer.Transcript)</p>
+                                </div>
+                                <div class="exam-result-expected exam-result-expected--answer">
+                                    <span>Đáp án chuẩn</span>
+                                    <p>@(string.IsNullOrWhiteSpace(answer.ExpectedAnswer) ? "(Chưa cài đặt)" : answer.ExpectedAnswer)</p>
+                                </div>
                             </div>
 
                             @if (answer.NotGraded)
                             {
-                                <p class="info-note">Câu trả lời chưa đủ nội dung để AI chấm hoặc chưa nhận được phản hồi từ AI. Giảng viên có thể nhập điểm trực tiếp ở trên.</p>
+                                <p class="text-muted small">Chưa có điểm AI — nhập điểm trực tiếp ở trên.</p>
                             }
                             else
                             {
-                                @if (!string.IsNullOrWhiteSpace(answer.Feedback))
+                                @if (!string.IsNullOrWhiteSpace(answer.Feedback)
+                                    && !answer.Feedback.StartsWith("AI chấm tổng quan", StringComparison.OrdinalIgnoreCase))
                                 {
                                     <p class="info-note">@answer.Feedback</p>
                                 }
@@ -255,7 +249,7 @@
                             {
                                 <div class="exam-result-probes">
                                     <div class="exam-result-probes__header">
-                                        <span class="exam-result-probes__badge">Câu hỏi bổ sung / đào sâu · @answer.Probes.Count</span>
+                                        <span class="exam-result-probes__badge">Câu bổ sung (@answer.Probes.Count)</span>
                                     </div>
                                     <ol class="exam-result-probes__list">
                                         @for (var pIdx = 0; pIdx < answer.Probes.Count; pIdx++)
@@ -263,10 +257,10 @@
                                             var probe = answer.Probes[pIdx];
                                             var noProbeReply = string.IsNullOrWhiteSpace(probe.Transcript);
                                             <li class="exam-result-probes__item">
-                                                <p class="exam-result-probes__question">Câu bổ sung @(pIdx + 1): @probe.Question</p>
+                                                <p class="exam-result-probes__question">@(pIdx + 1). @probe.Question</p>
                                                 <p class="exam-result-probes__answer @(noProbeReply ? "exam-result-probes__answer--empty" : null)">
-                                                    <strong>Sinh viên trả lời:</strong>
-                                                    @(noProbeReply ? "Sinh viên không trả lời." : probe.Transcript)
+                                                    <strong>Trả lời:</strong>
+                                                    @(noProbeReply ? "Không trả lời." : probe.Transcript)
                                                 </p>
                                             </li>
                                         }

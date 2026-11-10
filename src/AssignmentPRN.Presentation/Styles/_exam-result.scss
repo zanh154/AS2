@@ -34,13 +34,35 @@
 }
 
 // -- Examiner notes on a question (lecturer's review only) ------------------
+.exam-result-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+  margin-top: $space-2;
+  margin-bottom: $space-3;
+
+  @include respond-below($breakpoint-md) {
+    grid-template-columns: 1fr;
+  }
+
+  .exam-result-expected {
+    margin-top: 0;
+  }
+}
+
 .exam-result-expected {
-  margin-top: $space-3;
+  margin-top: $space-2;
   padding: $space-3 $space-4;
   color: $color-info;
   background: $color-info-soft;
   border: 1px solid $color-info-border;
   border-radius: $radius-md;
+
+  &--answer {
+    color: $color-accent;
+    background: $color-accent-soft;
+    border-color: rgba($color-accent, 0.3);
+  }
 
   span {
     display: block;
