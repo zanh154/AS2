@@ -332,4 +332,41 @@ public sealed class ResultReviewTests
         Assert.Equal("Trả lời tốt phần câu hỏi thêm.", published.Data.LecturerComment);
         Assert.Equal(8m, Assert.Single(published.Data.Answers).AiScore);
     }
+
+    [Fact]
+    public async Task Lecturer_per_question_scores_persist_across_reload_and_reset_when_cleared()
+    {
+        await using var db = await SeedAsync();
+
+        var saved = await Service(db).AdjustAsync(
+            candidateId: 1,
+            lecturerId: 1,
+            score: 9.5m,
+            comment: "Chấm lại câu 1",
+            questionScores: [new QuestionScoreAdjustment(1, 9.5m)],
+            ownerLecturerId: 1);
+        Assert.True(saved.Success, saved.Error);
+        db.ChangeTracker.Clear();
+
+        var reloaded = await Service(db).GetAsync(1, lecturerId: 1);
+        Assert.True(reloaded.Success, reloaded.Error);
+        var ans = Assert.Single(reloaded.Data!.Answers);
+        Assert.Equal(8m, ans.AiScore);
+        Assert.Equal(9.5m, ans.LecturerScore);
+        Assert.Equal(9.5m, ans.EffectiveScore);
+        Assert.Equal(9.5m, reloaded.Data.QuestionAverageScore);
+
+        var studentView = await Service(db).GetForStudentAsync(1, studentId: 2);
+        Assert.True(studentView.Success, studentView.Error);
+        Assert.Equal(9.5m, Assert.Single(studentView.Data!.Answers).EffectiveScore);
+
+        // Clearing override restores AI baseline
+        var cleared = await Service(db).AdjustAsync(1, 1, null, null, null, 1);
+        Assert.True(cleared.Success, cleared.Error);
+        db.ChangeTracker.Clear();
+
+        var afterClear = await Service(db).GetAsync(1, lecturerId: 1);
+        Assert.Null(Assert.Single(afterClear.Data!.Answers).LecturerScore);
+        Assert.Equal(8m, Assert.Single(afterClear.Data.Answers).EffectiveScore);
+    }
 }

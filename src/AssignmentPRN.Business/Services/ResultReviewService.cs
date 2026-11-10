@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Policies;
 using AssignmentPRN.DataAccess.Repositories;
@@ -23,10 +25,14 @@ public sealed record ReviewAnswer(
     string? MissingPoints,
     IReadOnlyList<ReviewCriterion> Criteria,
     IReadOnlyList<ReviewProbe> Probes,
-    string? ExpectedAnswer = null)
+    string? ExpectedAnswer = null,
+    decimal? LecturerScore = null)
 {
     /// <summary>True when the model never marked this one, so the examiner must.</summary>
     public bool NotGraded => AiScore is null;
+
+    /// <summary>The effective question mark: lecturer's override when saved, otherwise AI's suggestion.</summary>
+    public decimal? EffectiveScore => LecturerScore ?? AiScore;
 }
 
 /// <summary>One recorded change of the mark.</summary>
@@ -49,11 +55,11 @@ public sealed record CandidateReview(
 {
     public bool IsPublished => FinalizedAt.HasValue;
 
-    public int GradedQuestionCount => Answers.Count(a => a.AiScore.HasValue);
+    public int GradedQuestionCount => Answers.Count(a => a.EffectiveScore.HasValue);
 
     public decimal? QuestionTotalScore => GradedQuestionCount == 0
         ? null
-        : Answers.Where(a => a.AiScore.HasValue).Sum(a => a.AiScore!.Value);
+        : Answers.Where(a => a.EffectiveScore.HasValue).Sum(a => a.EffectiveScore!.Value);
 
     public decimal? QuestionAverageScore => GradedQuestionCount == 0
         ? null
@@ -91,11 +97,17 @@ public interface IResultReviewService
 /// <see cref="IExamResultService"/>, the same way the results screens already do, so a
 /// lecturer only ever reaches a session they run.
 /// </summary>
-public sealed class ResultReviewService(
+public sealed partial class ResultReviewService(
     IGradingRepository repository,
     IExamResultService results,
     TimeProvider clock) : IResultReviewService
 {
+    [GeneratedRegex(@"\[Chi tiết câu:\s*(?<detail>[^\]]+)\]", RegexOptions.CultureInvariant)]
+    private static partial Regex QuestionDetailBlockPattern();
+
+    [GeneratedRegex(@"Câu\s*(?<order>\d+)\s*:\s*(?<score>\d+(?:[.,]\d+)?)", RegexOptions.CultureInvariant)]
+    private static partial Regex QuestionDetailItemPattern();
+
     public Task<ServiceResponse<CandidateReview>> GetAsync(int candidateId, int? lecturerId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>
         {
@@ -106,6 +118,7 @@ public sealed class ResultReviewService(
                 ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
             var trail = await repository.AuditTrailAsync(id, ct);
             var (isDisqualified, cheatCount) = await repository.ProctorStatusAsync(id, ct);
+            var perQuestionLecturer = ParseLatestQuestionScores(trail, review.LecturerScore.HasValue);
 
             return new CandidateReview(
                 review.CandidateId,
@@ -130,7 +143,8 @@ public sealed class ResultReviewService(
                         .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
                         .ToArray(),
                     answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
-                    answer.ExpectedAnswer))
+                    answer.ExpectedAnswer,
+                    perQuestionLecturer.TryGetValue(answer.OrderNo, out var qLectScore) ? qLectScore : null))
                     .ToArray(),
                 trail.Select(x => new ReviewAuditEntry(x.ByName, x.At, x.Description)).ToArray(),
                 isDisqualified,
@@ -183,6 +197,9 @@ public sealed class ResultReviewService(
                 ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
 
             var isPublished = review.FinalizedAt.HasValue;
+            var perQuestionLecturer = isPublished && review.LecturerScore.HasValue
+                ? ParseLatestQuestionScores(await repository.AuditTrailAsync(id, ct), hasLecturerOverride: true)
+                : new Dictionary<int, decimal>();
 
             // Scores, AI evaluations, and lecturer comments remain confidential until the
             // lecturer publishes/finalizes the score. Before then, the student can only
@@ -212,17 +229,43 @@ public sealed class ResultReviewService(
                             .ToArray()
                         : [],
                     answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
-                    null))
+                    null,
+                    isPublished && perQuestionLecturer.TryGetValue(answer.OrderNo, out var qLectScore) ? qLectScore : null))
                     .ToArray(),
                 []);
         }, "Không thể tải kết quả bài thi.");
+
+    private static Dictionary<int, decimal> ParseLatestQuestionScores(IReadOnlyList<ResultAuditRow> trail, bool hasLecturerOverride)
+    {
+        var map = new Dictionary<int, decimal>();
+        if (!hasLecturerOverride || trail.Count == 0) return map;
+
+        var latestAdjustment = trail.FirstOrDefault(row =>
+            row.Description.StartsWith("Điểm chốt:", StringComparison.Ordinal));
+        if (latestAdjustment is null) return map;
+
+        var block = QuestionDetailBlockPattern().Match(latestAdjustment.Description);
+        if (!block.Success) return map;
+
+        foreach (Match item in QuestionDetailItemPattern().Matches(block.Groups["detail"].Value))
+        {
+            if (int.TryParse(item.Groups["order"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var orderNo)
+                && decimal.TryParse(item.Groups["score"].Value.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var qScore))
+            {
+                map[orderNo] = Math.Round(Math.Clamp(qScore, 0m, 10m), 2, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        return map;
+    }
 
     /// <summary>Returns the exam the candidate sits, once the caller is allowed to see it.</summary>
     private static string FormatAuditLine(decimal? previous, decimal? final, string? comment, IReadOnlyList<QuestionScoreAdjustment>? questionScores)
     {
         var baseLine = ResultAdjustmentRules.AuditLine(previous, final, comment);
         if (questionScores is null || questionScores.Count == 0) return baseLine;
-        var detail = string.Join(", ", questionScores.OrderBy(q => q.OrderNo).Select(q => $"Câu {q.OrderNo}: {q.Score:0.##}"));
+        var detail = string.Join(", ", questionScores.OrderBy(q => q.OrderNo)
+            .Select(q => $"Câu {q.OrderNo}: {q.Score.ToString("0.##", CultureInfo.InvariantCulture)}"));
         return $"{baseLine} [Chi tiết câu: {detail}]";
     }
 

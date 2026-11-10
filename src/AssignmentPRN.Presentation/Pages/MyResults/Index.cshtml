@@ -16,20 +16,22 @@
                 <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi
             </a>
             <h1>@(isPublished ? "Kết quả bài thi" : "Bài làm của bạn")</h1>
-            <p>@(isPublished ? "Điểm đã được giảng viên công bố." : "Điểm sẽ hiển thị sau khi giảng viên công bố.")</p>
+            <p>
+                @if (isPublished)
+                {
+                    <span>Điểm đã được giảng viên công bố.</span>
+                }
+                else
+                {
+                    <span class="status-chip status-chip--warning">Chờ giảng viên công bố điểm</span>
+                }
+            </p>
         </div>
-        @if (isPublished)
-        {
-            <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(review.FinalScore) trên 10">
-                <span>Điểm</span>
-                <strong>@ExamResultText.Score(review.FinalScore)</strong>
-                <small>/ 10</small>
-            </div>
-        }
-        else
-        {
-            <span class="status-chip status-chip--warning">Chờ công bố điểm</span>
-        }
+        <div class="exam-result-score" aria-label="Điểm @(isPublished ? ExamResultText.Score(review.FinalScore) : "--") trên 10">
+            <span>Điểm</span>
+            <strong>@(isPublished ? ExamResultText.Score(review.FinalScore) : "--")</strong>
+            <small>/ 10</small>
+        </div>
     </div>
 
     @if (isPublished && !string.IsNullOrWhiteSpace(review.LecturerComment))
@@ -37,14 +39,6 @@
         <div class="content-card">
             <h2>Nhận xét của giảng viên</h2>
             <p>@review.LecturerComment</p>
-        </div>
-    }
-
-    @if (isPublished && review.GradedQuestionCount > 0)
-    {
-        <div class="metric-row mb-3">
-            <div class="metric-card"><span>TB mỗi câu</span><strong>@($"{review.QuestionAverageScore:0.##} / 10")</strong></div>
-            <div class="metric-card"><span>Số câu</span><strong>@($"{review.GradedQuestionCount} / {review.Answers.Count}")</strong></div>
         </div>
     }
 
@@ -64,10 +58,11 @@
             <ol class="exam-result-ai-answers">
                 @foreach (var answer in review.Answers)
                 {
+                    var shownScore = isPublished ? answer.EffectiveScore : null;
                     <li>
-                        @if (isPublished && answer.AiScore.HasValue)
+                        @if (shownScore.HasValue)
                         {
-                            <h3>Câu @answer.OrderNo · @ExamResultText.Score(answer.AiScore)</h3>
+                            <h3>Câu @answer.OrderNo · @ExamResultText.Score(shownScore)</h3>
                         }
                         else
                         {

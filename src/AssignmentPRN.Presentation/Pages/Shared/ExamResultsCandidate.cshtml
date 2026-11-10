@@ -129,7 +129,7 @@
                                         <input type="number" class="form-control" name="questionScore"
                                                min="0" max="10" step="0.01" inputmode="decimal"
                                                data-flex-q-input
-                                               value="@answer.AiScore?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"
+                                               value="@(answer.EffectiveScore?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))"
                                                placeholder="0 – 10" />
                                     </td>
                                 </tr>
@@ -141,7 +141,8 @@
                 <div class="form-row">
                     <label for="lecturer-score">Điểm chốt tổng (0–10)</label>
                     <input class="form-control" id="lecturer-score" name="score" type="number" inputmode="decimal"
-                           min="0" max="10" step="0.01" value="@review.LecturerScore?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" />
+                           min="0" max="10" step="0.01"
+                           value="@((review.LecturerScore ?? review.AiScore)?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))" />
                 </div>
                 <div class="form-row">
                     <label for="lecturer-comment">Nhận xét</label>
@@ -185,7 +186,13 @@
                     @foreach (var answer in review.Answers)
                     {
                         <li>
-                            <h3>Câu @answer.OrderNo · AI: @ExamResultText.Score(answer.AiScore)</h3>
+                            <h3>
+                                Câu @answer.OrderNo · AI: @ExamResultText.Score(answer.AiScore)
+                                @if (answer.LecturerScore.HasValue)
+                                {
+                                    <span>· Giảng viên: @ExamResultText.Score(answer.LecturerScore)</span>
+                                }
+                            </h3>
                             <p class="fw-medium mb-2">@answer.QuestionText</p>
 
                             <div class="exam-result-compare">
