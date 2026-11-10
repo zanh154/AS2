@@ -10,7 +10,9 @@ namespace AssignmentPRN.Presentation.Pages.MyResults;
 /// each answer. The service decides whether the slot is theirs and finished; this page
 /// only checks that a student is signed in and routes.
 /// </summary>
-public sealed class IndexModel(IResultReviewService reviewService) : PageModel
+public sealed class IndexModel(
+    IResultReviewService reviewService,
+    IGradingService? gradingService = null) : PageModel
 {
     public CandidateReview Review { get; private set; } = null!;
 
@@ -27,6 +29,21 @@ public sealed class IndexModel(IResultReviewService reviewService) : PageModel
         {
             TempData["Error"] = result.Error;
             return RedirectToPage("/StudentSchedule/Mine");
+        }
+
+        if (!result.Data.IsDisqualified
+            && gradingService is not null
+            && result.Data.Answers.Any(a => a.NotGraded
+                && (!string.IsNullOrWhiteSpace(a.Transcript)
+                    || a.Probes.Any(p => !string.IsNullOrWhiteSpace(p.Transcript)))))
+        {
+            await gradingService.GradeCandidateAsync(id, ct);
+            result = await reviewService.GetForStudentAsync(id, userId, ct);
+            if (!result.Success || result.Data is null)
+            {
+                TempData["Error"] = result.Error;
+                return RedirectToPage("/StudentSchedule/Mine");
+            }
         }
 
         Review = result.Data;

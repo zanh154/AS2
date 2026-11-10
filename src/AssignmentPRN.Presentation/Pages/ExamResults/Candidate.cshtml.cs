@@ -17,9 +17,18 @@ public sealed class CandidateModel(
         var paper = await Paper(id, ct);
         if (Data is not CandidateResultViewModel model) return paper;
 
-        // The AI side is extra, not essential: a paper still has to open when grading
-        // has not run or the review cannot be read.
         var review = await reviewService.GetAsync(id, LecturerId, ct);
+        if (review.Success && review.Data is { IsDisqualified: false } current
+            && model.Candidate.Status == CandidateStatus.Completed
+            && gradingService is not null
+            && current.Answers.Any(a => a.NotGraded
+                && (!string.IsNullOrWhiteSpace(a.Transcript)
+                    || a.Probes.Any(p => !string.IsNullOrWhiteSpace(p.Transcript)))))
+        {
+            await gradingService.GradeCandidateAsync(id, ct);
+            review = await reviewService.GetAsync(id, LecturerId, ct);
+        }
+
         model.Review = review.Data;
         model.ReviewError = review.Success ? null : review.Error;
         return paper;
@@ -61,28 +70,9 @@ public sealed class CandidateModel(
         var result = await reviewService.AdjustAsync(id, userId, finalScoreInput, comment, perQuestion, LecturerId, ct);
         TempData[result.Success ? "Success" : "Error"] = result.Success
             ? finalScoreInput is null
-                ? "Đã bỏ điểm chốt; bài quay lại dùng điểm AI đề xuất."
+                ? "Đã xóa điểm chốt; bài quay lại dùng điểm AI đề xuất."
                 : "Đã lưu điểm chốt của giảng viên."
             : result.Error;
-
-        return RedirectToPage(new { id });
-    }
-
-    public async Task<IActionResult> OnPostGradeNowAsync(int id, CancellationToken ct)
-    {
-        var paper = await Paper(id, ct);
-        if (Data is not CandidateResultViewModel) return paper;
-
-        if (gradingService is null)
-        {
-            TempData["Error"] = "Dịch vụ chấm AI chưa được cấu hình.";
-            return RedirectToPage(new { id });
-        }
-
-        var graded = await gradingService.GradeCandidateAsync(id, ct);
-        TempData[graded.Success ? "Success" : "Error"] = graded.Success
-            ? $"AI đã chấm xong {graded.Data!.GradedAnswers} câu (bỏ qua {graded.Data.SkippedAnswers} câu)."
-            : graded.Error;
 
         return RedirectToPage(new { id });
     }

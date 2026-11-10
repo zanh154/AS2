@@ -22,7 +22,8 @@ public sealed record ReviewAnswer(
     string? Weaknesses,
     string? MissingPoints,
     IReadOnlyList<ReviewCriterion> Criteria,
-    IReadOnlyList<ReviewProbe> Probes)
+    IReadOnlyList<ReviewProbe> Probes,
+    string? ExpectedAnswer = null)
 {
     /// <summary>True when the model never marked this one, so the examiner must.</summary>
     public bool NotGraded => AiScore is null;
@@ -132,7 +133,8 @@ public sealed class ResultReviewService(
                     answer.Criteria
                         .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
                         .ToArray(),
-                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray()))
+                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
+                    answer.ExpectedAnswer))
                     .ToArray(),
                 trail.Select(x => new ReviewAuditEntry(x.ByName, x.At, x.Description)).ToArray(),
                 isDisqualified,
@@ -208,7 +210,8 @@ public sealed class ResultReviewService(
                     answer.Criteria
                         .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
                         .ToArray(),
-                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray()))
+                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
+                    null))
                     .ToArray(),
                 []);
         }, "Không thể tải kết quả bài thi.");

@@ -118,6 +118,10 @@ public sealed class FeatureUpdatesTests
         Assert.Equal(2, review.GradedQuestionCount);
         Assert.Equal(16.0m, review.QuestionTotalScore);
         Assert.Equal(8.0m, review.QuestionAverageScore);
+        Assert.Contains(review.Answers, a => a.Transcript == "Ans 1");
+
+        var studentReview = (await reviewService.GetForStudentAsync(candidate.CandidateId, 2)).Data!;
+        Assert.All(studentReview.Answers, a => Assert.Null(a.ExpectedAnswer));
 
         var adj = await reviewService.AdjustAsync(
             candidate.CandidateId, 1, 8.75m, "Cộng thêm điểm trình bày",
