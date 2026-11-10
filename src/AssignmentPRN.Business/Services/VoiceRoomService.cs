@@ -530,7 +530,25 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             Stamp(Deadline(a, current2)), saved?.Transcript, saved?.AudioPath != null));
     }
 
-    private VoiceRoomState Snapshot(VoiceRoomAggregate a, DateTime now, bool awaiting, VoiceQuestion? question) =>
+    private static (bool Disqualified, int ViolationCount) ProctorStatus(VoiceRoomAggregate a)
+    {
+        var logs = a.ProctorLogs;
+        if (logs is null || logs.Count == 0) return (false, 0);
+        var lastReinstated = -1;
+        for (var i = logs.Count - 1; i >= 0; i--)
+        {
+            if (logs[i].Action == "CHEAT_REINSTATED") { lastReinstated = i; break; }
+        }
+        var active = logs.Skip(lastReinstated + 1).ToList();
+        var disqualified = a.Candidate.Status == CandidateStatus.Completed
+            && active.Any(x => x.Action == "CHEAT_DISQUALIFIED");
+        return (disqualified, active.Count);
+    }
+
+    private VoiceRoomState Snapshot(VoiceRoomAggregate a, DateTime now, bool awaiting, VoiceQuestion? question)
+    {
+        var (disqualified, violationCount) = ProctorStatus(a);
+        return
         new(a.Candidate.CandidateId, a.Candidate.ExamId, a.Candidate.Session.ExamName, Stamp(now), Stamp(SlotEnd(a)),
             a.Candidate.Status == CandidateStatus.Completed, a.Questions.Count(x => x.IsCompleted), a.Questions.Count,
             question,
@@ -544,7 +562,8 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
                 return new VoiceSavedAnswer(q.ExamQuestionId, q.OrderNo, q.Question.QuestionText, answer?.Transcript,
                     answer?.AudioPath != null, probes);
             }).ToArray(),
-            awaiting);
+            awaiting, disqualified, violationCount);
+    }
 
     /// <summary>Reads back what was stored in follow_up_questions.reason.</summary>
     internal static FollowUpReason ReadReason(string? reason) =>

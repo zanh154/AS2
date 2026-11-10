@@ -60,7 +60,8 @@ function loadVoiceProctor({ initialViolations = 0 } = {}) {
     document,
     sessionStorage: {
       getItem: key => storage.get(key) || null,
-      setItem: (key, val) => storage.set(key, val)
+      setItem: (key, val) => storage.set(key, val),
+      removeItem: key => storage.delete(key)
     },
     fetch: async (url, options) => {
       posts.push(JSON.parse(options.body));
@@ -99,4 +100,18 @@ test("disqualifies candidate on 4th violation", async () => {
   assert.equal(h.window.voiceProctor.isDisqualified, true);
   assert.equal(h.elements.get("voice-room").dataset.disqualified, "true");
   assert.equal(h.elements.get("voice-disqualified-overlay").hidden, false);
+});
+
+test("lifts disqualification and resets violations when server reports reinstated", async () => {
+  const h = loadVoiceProctor({ initialViolations: 3 });
+  await h.window.voiceProctor.triggerViolation("Chuyển tab lần thứ 4");
+  assert.equal(h.window.voiceProctor.isDisqualified, true);
+  assert.equal(h.storage.get("voice_disqualified_99"), "1");
+
+  h.window.voiceProctor.syncState({ disqualified: false, proctorViolationCount: 0 });
+  assert.equal(h.window.voiceProctor.isDisqualified, false);
+  assert.equal(h.window.voiceProctor.violations, 0);
+  assert.equal(h.storage.get("voice_disqualified_99"), undefined);
+  assert.equal(h.elements.get("voice-disqualified-overlay").hidden, true);
+  assert.equal(h.elements.get("voice-transcript").readOnly, false);
 });

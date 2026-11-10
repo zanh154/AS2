@@ -34,4 +34,15 @@ public sealed class CandidateModel(IExamResultService resultService, IResultRevi
 
         return RedirectToPage(new { id });
     }
+
+    public async Task<IActionResult> OnPostReinstateAsync(int id, CancellationToken ct)
+    {
+        var userId = HttpContext.Session.GetInt32(SessionKeys.UserId) ?? 0;
+        var result = await reviewService.ReinstateAsync(id, userId, LecturerId, ct);
+        TempData[result.Success ? "Success" : "Error"] = result.Success
+            ? "Đã gỡ đình chỉ thi và khôi phục quyền làm bài cho sinh viên."
+            : result.Error;
+
+        return RedirectToPage(new { id });
+    }
 }

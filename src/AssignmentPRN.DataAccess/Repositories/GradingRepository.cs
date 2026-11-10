@@ -1,4 +1,5 @@
-using System.Data;
+using System.Data;
+using AssignmentPRN.DataAccess.Contracts;
 using AssignmentPRN.DataAccess.Data;
 using AssignmentPRN.DataAccess.Entities;
 using AssignmentPRN.DataAccess.Enums;
@@ -85,6 +86,8 @@ public interface IGradingRepository
     Task AdjustAsync(int candidateId, int examId, int lecturerId, decimal? score, decimal? finalScore,
         string? comment, string auditLine, DateTime at, CancellationToken ct = default);
     Task DisqualifyCandidateAsync(int candidateId, int examId, string comment, DateTime at, CancellationToken ct = default);
+    Task<(bool IsDisqualified, int ViolationCount)> ProctorStatusAsync(int candidateId, CancellationToken ct = default) => Task.FromResult((false, 0));
+    Task ReinstateDisqualifiedCandidateAsync(int candidateId, int examId, int lecturerId, DateTime at, CancellationToken ct = default) => Task.CompletedTask;
 
     /// <summary>The trail of mark changes for one candidate, newest first.</summary>
     Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default);
@@ -111,7 +114,7 @@ public interface IGradingRepository
     Task<IReadOnlyList<int>> PendingCandidateIdsAsync(CancellationToken ct = default);
 }
 
-public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
+public sealed class GradingRepository(AivesDbContext db, IExamStatePolicy? policy = null) : IGradingRepository
 {
     public async Task<GradingSlotRow?> LoadAsync(int candidateId, CancellationToken ct = default)
     {
@@ -365,6 +368,67 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
         result.FinalizedAt = at;
         await db.SaveChangesAsync(ct);
     }
+    public async Task<(bool IsDisqualified, int ViolationCount)> ProctorStatusAsync(int candidateId, CancellationToken ct = default)
+    {
+        var completed = await db.ExamCandidates.AsNoTracking()
+            .Where(x => x.CandidateId == candidateId)
+            .Select(x => x.Status == CandidateStatus.Completed)
+            .SingleOrDefaultAsync(ct);
+
+        var logs = await db.Set<ExamLog>().AsNoTracking()
+            .Where(log => log.CandidateId == candidateId && (log.Action == "CHEAT_WARNING" || log.Action == "CHEAT_DISQUALIFIED" || log.Action == "CHEAT_REINSTATED"))
+            .OrderBy(log => log.Timestamp).ThenBy(log => log.LogId)
+            .Select(log => log.Action)
+            .ToListAsync(ct);
+
+        var lastReinstated = logs.LastIndexOf("CHEAT_REINSTATED");
+        var active = logs.Skip(lastReinstated + 1).ToList();
+        var disqualified = completed && active.Any(action => action == "CHEAT_DISQUALIFIED");
+        return (disqualified, active.Count);
+    }
+
+    public async Task ReinstateDisqualifiedCandidateAsync(int candidateId, int examId, int lecturerId, DateTime at, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+        db.ChangeTracker.Clear();
+
+        var candidate = await db.ExamCandidates.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct)
+            ?? throw new KeyNotFoundException("Không tìm thấy lượt thi.");
+
+        candidate.Status = CandidateStatus.InProgress;
+        candidate.FinishedAt = null;
+
+        var finalResult = await db.FinalResults.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct);
+        if (finalResult is not null)
+        {
+            db.FinalResults.Remove(finalResult);
+        }
+
+        db.Set<ExamLog>().Add(new ExamLog
+        {
+            ExamId = examId,
+            CandidateId = candidateId,
+            UserId = lecturerId,
+            Action = "CHEAT_REINSTATED",
+            Description = "Giảng viên đã gỡ đình chỉ thi và cho phép sinh viên tiếp tục làm bài.",
+            Timestamp = at
+        });
+
+        var session = await db.ExamSessions.SingleOrDefaultAsync(x => x.ExamId == examId, ct);
+        if (session is not null && session.Status == ExamSessionStatus.Completed)
+        {
+            session.Status = ExamSessionStatus.InProgress;
+            session.UpdatedAt = at;
+        }
+
+        await db.SaveChangesAsync(ct);
+        if (policy is not null)
+        {
+            await ExamSessionLifecycle.SynchronizeAsync(db, policy, examId, at, ct);
+        }
+        await tx.CommitAsync(ct);
+    }
+
     public async Task AdjustAsync(int candidateId, int examId, int lecturerId, decimal? score, decimal? finalScore,
         string? comment, string auditLine, DateTime at, CancellationToken ct = default)
     {
@@ -412,7 +476,7 @@ public sealed class GradingRepository(AivesDbContext db) : IGradingRepository
 
     public async Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default) =>
         await db.Set<ExamLog>().AsNoTracking()
-            .Where(log => log.CandidateId == candidateId && (log.Action == AdjustedAction || log.Action == "CHEAT_WARNING" || log.Action == "CHEAT_DISQUALIFIED"))
+            .Where(log => log.CandidateId == candidateId && (log.Action == AdjustedAction || log.Action == "CHEAT_WARNING" || log.Action == "CHEAT_DISQUALIFIED" || log.Action == "CHEAT_REINSTATED"))
             .OrderByDescending(log => log.Timestamp).ThenByDescending(log => log.LogId)
             .Select(log => new ResultAuditRow(
                 db.Users.Where(user => user.UserId == log.UserId).Select(user => user.FullName).FirstOrDefault(),

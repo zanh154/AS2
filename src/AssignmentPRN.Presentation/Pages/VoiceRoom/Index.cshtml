@@ -7,6 +7,7 @@
 <section class="voice-room" id="voice-room" data-sync="@Url.Page(null, "Sync", new { id = Model.CandidateId })"
          data-upload="@Url.Page(null, "Upload", new { id = Model.CandidateId })"
          data-audio="@Url.Page(null, "Audio", new { id = Model.CandidateId })"
+         data-tts="@Url.Page(null, "Tts", new { id = Model.CandidateId })"
          data-proctor="@Url.Page(null, "ProctorViolation", new { id = Model.CandidateId })">
     <span id="voice-identity" hidden data-user="@Model.RecoveryUserId" data-candidate="@Model.CandidateId"></span>
     <header class="voice-room__header">

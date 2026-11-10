@@ -122,6 +122,8 @@
           }
         }
         form.hidden = next.completed || next.awaitingFollowUp;
+        root.dataset.completed = next.completed ? "true" : "false";
+        window.voiceProctor?.syncState?.(next);
         if (next.completed) document.getElementById("voice-clock").textContent = "00:00";
         startRealtime();
         return true;

@@ -42,7 +42,9 @@ public sealed record CandidateReview(
     string? FinalizedByName,
     DateTime? FinalizedAt,
     IReadOnlyList<ReviewAnswer> Answers,
-    IReadOnlyList<ReviewAuditEntry> Trail);
+    IReadOnlyList<ReviewAuditEntry> Trail,
+    bool IsDisqualified = false,
+    int CheatViolationCount = 0);
 
 public interface IResultReviewService
 {
@@ -61,6 +63,12 @@ public interface IResultReviewService
     /// is refused.
     /// </summary>
     Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lifts a proctoring disqualification on a slot, clears the zeroed final score, and
+    /// restores the candidate to InProgress so they can continue their exam.
+    /// </summary>
+    Task<ServiceResponse> ReinstateAsync(int candidateId, int lecturerId, int? ownerLecturerId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -83,6 +91,7 @@ public sealed class ResultReviewService(
             var review = await repository.LoadReviewAsync(id, ct)
                 ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
             var trail = await repository.AuditTrailAsync(id, ct);
+            var (isDisqualified, cheatCount) = await repository.ProctorStatusAsync(id, ct);
 
             return new CandidateReview(
                 review.CandidateId,
@@ -108,7 +117,9 @@ public sealed class ResultReviewService(
                         .ToArray(),
                     answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray()))
                     .ToArray(),
-                trail.Select(x => new ReviewAuditEntry(x.ByName, x.At, x.Description)).ToArray());
+                trail.Select(x => new ReviewAuditEntry(x.ByName, x.At, x.Description)).ToArray(),
+                isDisqualified,
+                cheatCount);
         }, "Không thể tải đánh giá của AI.");
 
     public Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
@@ -132,6 +143,20 @@ public sealed class ResultReviewService(
                 ResultAdjustmentRules.AuditLine(review.FinalScore, final, trimmed),
                 clock.GetLocalNow().DateTime, ct);
         }, "Không thể lưu điểm.");
+
+    public Task<ServiceResponse> ReinstateAsync(int candidateId, int lecturerId, int? ownerLecturerId, CancellationToken ct = default) =>
+        ServiceExecutor.RunAsync(async () =>
+        {
+            var id = BusinessValidation.PositiveId(candidateId, "lượt thi");
+            BusinessValidation.PositiveId(lecturerId, "người gỡ đình chỉ");
+
+            var examId = await EnsureOwnedAsync(id, ownerLecturerId, ct);
+            var (isDisqualified, _) = await repository.ProctorStatusAsync(id, ct);
+            if (!isDisqualified)
+                throw new BusinessValidationException("Sinh viên này hiện không ở trạng thái bị đình chỉ.");
+
+            await repository.ReinstateDisqualifiedCandidateAsync(id, examId, lecturerId, clock.GetLocalNow().DateTime, ct);
+        }, "Không thể gỡ đình chỉ thi.");
 
     public Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>

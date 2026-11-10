@@ -44,9 +44,22 @@
     }
   };
 
+  const clearDisqualifiedScreen = (resetCount = 0) => {
+    isDisqualified = false;
+    violations = resetCount;
+    sessionStorage.removeItem(`voice_disqualified_${candidateId}`);
+    sessionStorage.setItem(storageKey, violations.toString());
+    root.dataset.disqualified = "false";
+    const transcript = document.getElementById("voice-transcript");
+    if (transcript) transcript.readOnly = false;
+    if (cheatOverlay) {
+      cheatOverlay.classList.remove("is-visible");
+      cheatOverlay.setAttribute("hidden", "");
+    }
+  };
+
   if (isDisqualified) {
     showDisqualifiedScreen("Bài thi này đã bị đình chỉ và cho 0 điểm do vi phạm quy chế thi trước đó.");
-    return;
   }
 
   const triggerViolation = async (reason) => {
@@ -117,9 +130,27 @@
     }
   });
 
+  const syncState = (state) => {
+    if (!state || typeof state !== "object") return;
+    const serverCount = typeof state.proctorViolationCount === "number" ? state.proctorViolationCount : violations;
+    if (state.disqualified === true) {
+      violations = Math.max(violations, serverCount, 4);
+      sessionStorage.setItem(storageKey, violations.toString());
+      showDisqualifiedScreen("Bài thi này đã bị đình chỉ và cho 0 điểm do vi phạm quy chế thi quá 3 lần.");
+    } else if (state.disqualified === false) {
+      if (isDisqualified || sessionStorage.getItem(`voice_disqualified_${candidateId}`) === "1") {
+        clearDisqualifiedScreen(serverCount);
+      } else if (serverCount === 0 && violations > 0) {
+        violations = 0;
+        sessionStorage.setItem(storageKey, "0");
+      }
+    }
+  };
+
   window.voiceProctor = {
     get violations() { return violations; },
     get isDisqualified() { return isDisqualified; },
-    triggerViolation
+    triggerViolation,
+    syncState
   };
 })();

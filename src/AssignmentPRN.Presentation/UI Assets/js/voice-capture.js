@@ -230,17 +230,48 @@
       return null;
     }
   };
-  const stopReading = () => { window.speechSynthesis?.cancel(); reading = false; buttons(); };
+  let ttsAudio = null;
+  const stopReading = () => {
+    window.speechSynthesis?.cancel();
+    if (ttsAudio) {
+      try { ttsAudio.pause(); ttsAudio.currentTime = 0; } catch {}
+      ttsAudio = null;
+    }
+    reading = false;
+    buttons();
+  };
   read.addEventListener("click", () => {
     if (reading) { stopReading(); return; }
-    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { status.textContent = "Trình duyệt chưa hỗ trợ đọc tự động; hãy đọc câu hỏi trên màn hình."; return; }
     if (!question || active()) return;
     const textToRead = question.text;
     const lang = detectLanguage(textToRead);
+    const voice = pickVoice(lang);
+    if (!voice && root.dataset.tts && typeof Audio === "function") {
+      const ttsUrl = new URL(root.dataset.tts, location.href);
+      ttsUrl.searchParams.set("text", textToRead);
+      ttsUrl.searchParams.set("lang", lang);
+      const audioEl = new Audio(ttsUrl.href);
+      ttsAudio = audioEl;
+      reading = true; buttons();
+      audioEl.onended = () => { if (ttsAudio === audioEl) ttsAudio = null; reading = false; buttons(); };
+      audioEl.onerror = () => {
+        if (ttsAudio === audioEl) ttsAudio = null;
+        reading = false;
+        status.textContent = "Không đọc được tự động. Bạn có thể đọc câu hỏi trên màn hình.";
+        buttons();
+      };
+      audioEl.play().catch(() => {
+        if (ttsAudio === audioEl) ttsAudio = null;
+        reading = false;
+        status.textContent = "Không đọc được tự động. Bạn có thể đọc câu hỏi trên màn hình.";
+        buttons();
+      });
+      return;
+    }
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { status.textContent = "Trình duyệt chưa hỗ trợ đọc tự động; hãy đọc câu hỏi trên màn hình."; return; }
     const utterance = new SpeechSynthesisUtterance(textToRead);
     utterance.lang = lang;
-    const voice = pickVoice(lang);
-    if (voice) {
+        if (voice) {
       utterance.voice = voice;
     }
     reading = true; buttons();

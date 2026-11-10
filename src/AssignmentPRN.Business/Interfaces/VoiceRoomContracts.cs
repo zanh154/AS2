@@ -24,7 +24,8 @@ public sealed record VoiceSavedFollowUp(int FollowUpId, string Text, string? Tra
 /// </param>
 public sealed record VoiceRoomState(int CandidateId, int ExamId, string ExamName, DateTimeOffset ServerNow,
     DateTimeOffset SlotEnd, bool Completed, int CompletedCount, int TotalCount, VoiceQuestion? Question,
-    IReadOnlyList<VoiceSavedAnswer>? SavedAnswers = null, bool AwaitingFollowUp = false);
+    IReadOnlyList<VoiceSavedAnswer>? SavedAnswers = null, bool AwaitingFollowUp = false,
+    bool Disqualified = false, int ProctorViolationCount = 0);
 
 /// <param name="FollowUpId">
 /// Set when answering a probe. It must be the probe that is currently open; anything

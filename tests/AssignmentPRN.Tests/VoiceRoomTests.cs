@@ -167,4 +167,46 @@ public sealed class VoiceRoomTests
         clock.At = clock.At.AddSeconds(6);
         Assert.True((await Service(db, clock).SyncAsync(1, 2)).Data!.Completed);
     }
+
+    [Fact]
+    public async Task Proctor_disqualification_can_be_reinstated_by_lecturer()
+    {
+        var clock = new Clock();
+        await using var db = await SeedAsync(clock);
+        var policy = new ExamStatePolicy();
+        var gradingRepo = new GradingRepository(db, policy);
+        var voiceService = new VoiceRoomService(
+            new VoiceRoomRepository(db, policy),
+            new QuestionService(new QuestionRepository(db, policy), new CatalogRepository(db), null!),
+            clock, gradingRepo: gradingRepo);
+
+        var disq = await voiceService.RecordProctorViolationAsync(1, 2, 4, "Chuyển tab lần 4");
+        Assert.True(disq.Success);
+        Assert.True(disq.Data!.Disqualified);
+
+        var lockedState = (await voiceService.SyncAsync(1, 2)).Data!;
+        Assert.True(lockedState.Completed);
+        Assert.True(lockedState.Disqualified);
+        Assert.Equal(0m, (await db.FinalResults.SingleAsync()).FinalScore);
+
+        var reviewService = new ResultReviewService(
+            gradingRepo,
+            new ExamResultService(new ExamResultRepository(db, policy), new QuestionRepository(db, policy)),
+            clock);
+
+        var beforeReview = (await reviewService.GetAsync(1, 1)).Data!;
+        Assert.True(beforeReview.IsDisqualified);
+
+        var reinstated = await reviewService.ReinstateAsync(1, 1, 1);
+        Assert.True(reinstated.Success, reinstated.Error);
+        Assert.Empty(await db.FinalResults.ToListAsync());
+        Assert.Equal(CandidateStatus.InProgress, (await db.ExamCandidates.SingleAsync()).Status);
+
+        var resumedRes = await voiceService.SyncAsync(1, 2);
+        Assert.True(resumedRes.Success, resumedRes.Error);
+        var resumedState = resumedRes.Data!;
+        Assert.False(resumedState.Completed);
+        Assert.False(resumedState.Disqualified);
+        Assert.Equal(0, resumedState.ProctorViolationCount);
+    }
 }

@@ -55,7 +55,29 @@
                     </p>
                 </div>
             </div>
-            <p class="info-note" id="grading-live-status" role="status" aria-live="polite" hidden></p>
+            <p class="info-note" id="grading-live-status" role="status" aria-live="polite" hidden></p>
+
+            @if (review.IsDisqualified)
+            {
+                <div class="proctor-alert proctor-alert--danger" role="alert">
+                    <span class="proctor-alert__badge">ĐÌNH CHỈ THI · 0 ĐIỂM</span>
+                    <strong>Sinh viên bị đánh trượt do vi phạm quy chế giám sát (rời màn hình làm bài quá 3 lần).</strong>
+                    <p>Nếu xác nhận do sự cố kỹ thuật hoặc cho phép sinh viên tiếp tục làm bài, giảng viên có thể gỡ đình chỉ và xóa điểm 0 này.</p>
+                    <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="Reinstate"
+                          asp-route-id="@candidate.Paper.CandidateId"
+                          data-confirm="Bạn chắc chắn muốn gỡ đình chỉ, xóa điểm 0 và cho phép sinh viên thi tiếp?">
+                        <button class="btn btn-danger btn-sm mt-2" type="submit">Gỡ đình chỉ &amp; cho thi tiếp</button>
+                    </form>
+                </div>
+            }
+            else if (review.CheatViolationCount > 0)
+            {
+                <div class="proctor-alert proctor-alert--warning" role="status">
+                    <span class="proctor-alert__badge">CẢNH BÁO GIÁM SÁT · @review.CheatViolationCount / 3</span>
+                    <strong>Sinh viên có @review.CheatViolationCount lần rời màn hình làm bài trong phiên thi.</strong>
+                    <p>Xem chi tiết các mốc thời gian rời màn hình tại mục Lịch sử bên dưới.</p>
+                </div>
+            }
 
             <div class="metric-row">
                 <div class="metric-card"><span>AI đề xuất</span><strong>@ExamResultText.Score(review.AiScore)</strong></div>

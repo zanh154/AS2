@@ -17,7 +17,8 @@ namespace AssignmentPRN.DataAccess.Repositories;
 /// </param>
 public sealed record VoiceRoomAggregate(ExamCandidate Candidate, List<ExamQuestion> Questions,
     List<Answer> Answers, ExamVivaSettings Settings, List<ExamLog> Logs,
-    List<FollowUpQuestion> FollowUps, IReadOnlyDictionary<int, List<RubricCriteria>> CriteriaByQuestion);
+    List<FollowUpQuestion> FollowUps, IReadOnlyDictionary<int, List<RubricCriteria>> CriteriaByQuestion,
+    IReadOnlyList<ExamLog>? ProctorLogs = null);
 
 public interface IVoiceRoomRepository
 {
@@ -51,6 +52,10 @@ public sealed class VoiceRoomRepository(AivesDbContext db, IExamStatePolicy poli
         var settings = await db.Set<ExamVivaSettings>().SingleOrDefaultAsync(x => x.ExamId == candidate.ExamId, ct)
             ?? new ExamVivaSettings { ExamId = candidate.ExamId };
         var logs = await db.Set<ExamLog>().Where(x => x.CandidateId == candidateId && x.Action == StartedAction).ToListAsync(ct);
+        var proctorLogs = await db.Set<ExamLog>()
+            .Where(x => x.CandidateId == candidateId && (x.Action == "CHEAT_WARNING" || x.Action == "CHEAT_DISQUALIFIED" || x.Action == "CHEAT_REINSTATED"))
+            .OrderBy(x => x.Timestamp).ThenBy(x => x.LogId)
+            .ToListAsync(ct);
         var followUps = await db.FollowUpQuestions
             .Where(x => db.Answers.Any(answer => answer.AnswerId == x.AnswerId && answer.CandidateId == candidateId))
             .OrderBy(x => x.AnswerId).ThenBy(x => x.OrderNo).ThenBy(x => x.FollowUpId)
@@ -65,7 +70,7 @@ public sealed class VoiceRoomRepository(AivesDbContext db, IExamStatePolicy poli
         try
         {
             result = apply(new(candidate, questions, answers, settings, logs, followUps,
-                criteria.ToDictionary(x => x.QuestionId, x => x.Criteria)));
+                criteria.ToDictionary(x => x.QuestionId, x => x.Criteria), proctorLogs));
         }
         catch { db.ChangeTracker.Clear(); throw; }
 
