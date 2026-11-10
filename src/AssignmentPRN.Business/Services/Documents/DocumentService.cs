@@ -410,6 +410,11 @@ public sealed class DocumentService : IDocumentService
         return path;
     }
     private async Task<float[]> EmbedAsync(string text, CancellationToken ct) {
+        if (_aiClient is not null)
+        {
+            var vec = await _aiClient.EmbedAsync(text, ct);
+            return vec is { Length: > 0 } ? vec : throw new BusinessValidationException("AI chưa tạo được embedding (hãy kiểm tra lại Gemini API key).");
+        }
         var client = _httpClientFactory.CreateClient(); client.BaseAddress = new Uri(_ollamaOptions.BaseUrl); client.Timeout = TimeSpan.FromMinutes(3);
         using var response = await client.PostAsJsonAsync("/api/embeddings", new { model = _ollamaOptions.EmbeddingModel, prompt = text }, ct);
         response.EnsureSuccessStatusCode();

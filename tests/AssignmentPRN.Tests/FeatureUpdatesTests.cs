@@ -388,5 +388,52 @@ public sealed class FeatureUpdatesTests
             geminiClient,
             ollamaClient);
         Assert.Equal(ollamaClient.Model, forcedOllama.Model);
+
+        var geminiOnlyWithoutFallback = new RoutingAiJsonClient(
+            new StubGeminiOptions(new AssignmentPRN.Business.GeminiOptions { Provider = "Gemini", ApiKey = "", Model = "gemini-2.5-flash" }),
+            geminiClient,
+            ollamaClient);
+        Assert.Equal("gemini-2.5-flash", geminiOnlyWithoutFallback.Model);
+    }
+
+    private sealed class EmbeddingHttpClientFactory : IHttpClientFactory
+    {
+        public string? CapturedUrl { get; private set; }
+        public string CapturedBody { get; private set; } = "";
+
+        public HttpClient CreateClient(string name) => new(new Handler(this));
+
+        private sealed class Handler(EmbeddingHttpClientFactory parent) : HttpMessageHandler
+        {
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                parent.CapturedUrl = request.RequestUri?.ToString();
+                parent.CapturedBody = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
+                var payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    embedding = new { values = new[] { 0.1f, 0.2f, 0.3f } }
+                });
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GeminiJsonClient_EmbedAsync_calls_embedContent_with_768_dimensions()
+    {
+        var factory = new EmbeddingHttpClientFactory();
+        var client = new GeminiJsonClient(
+            factory,
+            new StubGeminiOptions(new AssignmentPRN.Business.GeminiOptions { Provider = "Gemini", ApiKey = "embed-key", EmbeddingModel = "gemini-embedding-001" }),
+            new NullLogger<GeminiJsonClient>());
+
+        var vec = await client.EmbedAsync("Hello RAG");
+        Assert.NotNull(vec);
+        Assert.Equal([0.1f, 0.2f, 0.3f], vec);
+        Assert.Contains("gemini-embedding-001:embedContent", factory.CapturedUrl);
+        Assert.Contains("\"outputDimensionality\":768", factory.CapturedBody.Replace(" ", ""));
     }
 }

@@ -5,14 +5,16 @@ public sealed class GeminiOptions
     public const string SectionName = "Gemini";
 
     /// <summary>
-    /// Chọn bộ AI suy luận: "Auto" (tự dùng Gemini nếu có ApiKey, ngược lại dùng Ollama),
-    /// "Gemini" hoặc "Ollama".
+    /// Chọn bộ AI: "Gemini" (mặc định, không gọi Ollama local), "Auto" (dùng Gemini nếu có ApiKey),
+    /// hoặc "Ollama".
     /// </summary>
-    public string Provider { get; set; } = "Auto";
+    public string Provider { get; set; } = "Gemini";
 
     public string ApiKey { get; set; } = string.Empty;
 
     public string Model { get; set; } = "gemini-2.5-flash";
+
+    public string EmbeddingModel { get; set; } = "gemini-embedding-001";
 
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com";
 
@@ -26,9 +28,8 @@ public sealed class GeminiOptions
         get
         {
             if (Provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase)) return false;
-            var hasKey = !string.IsNullOrWhiteSpace(ResolveApiKey());
-            if (Provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase)) return hasKey;
-            return hasKey; // Auto
+            if (Provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase)) return true;
+            return !string.IsNullOrWhiteSpace(ResolveApiKey());
         }
     }
 }
