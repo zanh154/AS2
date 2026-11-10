@@ -360,7 +360,7 @@ public sealed class FeatureUpdatesTests
         Assert.Equal(9.0m, doc!.RootElement.GetProperty("score").GetDecimal());
         Assert.NotNull(capturedReq);
         Assert.Equal("test-secret-key", capturedReq!.Headers.GetValues("x-goog-api-key").Single());
-        Assert.Contains("thinkingBudget", capturedBody);
+        Assert.Equal("test-secret-key", capturedReq!.Headers.GetValues("x-goog-api-key").Single());
 
         // Integer enum stripped for Gemini compatibility; string enum preserved
         using var reqJson = System.Text.Json.JsonDocument.Parse(capturedBody);

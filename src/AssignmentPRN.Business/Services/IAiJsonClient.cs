@@ -36,7 +36,7 @@ public sealed class GeminiJsonClient(
 {
     private readonly GeminiOptions _options = options.Value;
 
-    public string Model => string.IsNullOrWhiteSpace(_options.Model) ? "gemini-2.5-flash" : _options.Model.Trim();
+    public string Model => string.IsNullOrWhiteSpace(_options.Model) ? "gemini-3.5-flash-lite" : _options.Model.Trim();
 
     private string EmbeddingModel => string.IsNullOrWhiteSpace(_options.EmbeddingModel)
         ? "gemini-embedding-001"
@@ -64,35 +64,45 @@ public sealed class GeminiJsonClient(
             var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl)
                 ? "https://generativelanguage.googleapis.com"
                 : _options.BaseUrl.TrimEnd('/');
-            var endpoint = $"{baseUrl}/v1beta/models/{Uri.EscapeDataString(Model)}:generateContent";
+            var modelsToTry = new List<string> { Model };
+            if (!string.Equals(Model, "gemini-3.1-flash-lite", StringComparison.OrdinalIgnoreCase))
+            {
+                modelsToTry.Add("gemini-3.1-flash-lite");
+            }
 
-            var payload = BuildRequestPayload(prompt, format, maxTokens, Model);
+            var payload = BuildRequestPayload(prompt, format, maxTokens);
             var client = httpClientFactory.CreateClient();
             client.Timeout = Timeout.InfiniteTimeSpan;
 
             HttpResponseMessage? response = null;
-            for (var attempt = 0; attempt < 2; attempt++)
+            foreach (var candidateModel in modelsToTry)
             {
+                var endpoint = $"{baseUrl}/v1beta/models/{Uri.EscapeDataString(candidateModel)}:generateContent";
                 using var req = new HttpRequestMessage(HttpMethod.Post, endpoint);
                 req.Headers.Add("x-goog-api-key", apiKey);
                 req.Content = JsonContent.Create(payload);
 
                 response?.Dispose();
                 response = await client.SendAsync(req, budget.Token);
-                if (response.StatusCode is not (HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable) || attempt == 1)
+                if (response.IsSuccessStatusCode) break;
+
+                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.ServiceUnavailable or HttpStatusCode.TooManyRequests)
                 {
-                    break;
+                    logger.LogWarning("Gemini model {Model} returned HTTP {Status}; trying fallback if available.", candidateModel, (int)response.StatusCode);
+                    continue;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(1.5), budget.Token);
+                break;
             }
 
             if (response is null || !response.IsSuccessStatusCode)
             {
                 var status = response is null ? 0 : (int)response.StatusCode;
-                logger.LogWarning("Gemini returned HTTP {Status}; continuing without AI.", status);
+                var detail = response is null ? "" : await response.Content.ReadAsStringAsync(budget.Token);
+                logger.LogWarning("Gemini returned HTTP {Status}: {Detail}", status, detail.Length > 300 ? detail[..300] : detail);
                 return null;
             }
+
 
             using var doc = await JsonDocument.ParseAsync(
                 await response.Content.ReadAsStreamAsync(budget.Token),
@@ -182,11 +192,9 @@ public sealed class GeminiJsonClient(
         }
     }
 
-    internal static JsonObject BuildRequestPayload(string prompt, object format, int maxTokens, string model)
+    internal static JsonObject BuildRequestPayload(string prompt, object format, int maxTokens)
     {
         var schemaNode = SanitizeSchemaForGemini(JsonSerializer.SerializeToNode(format));
-        var isGemini25 = model.Contains("2.5", StringComparison.OrdinalIgnoreCase);
-
         var genConfig = new JsonObject
         {
             ["temperature"] = 0.2,
@@ -195,10 +203,6 @@ public sealed class GeminiJsonClient(
             ["responseMimeType"] = "application/json",
             ["responseSchema"] = schemaNode
         };
-        if (isGemini25)
-        {
-            genConfig["thinkingConfig"] = new JsonObject { ["thinkingBudget"] = 0 };
-        }
 
         return new JsonObject
         {
