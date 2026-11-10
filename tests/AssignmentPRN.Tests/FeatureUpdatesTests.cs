@@ -488,4 +488,99 @@ public sealed class FeatureUpdatesTests
         Assert.True(pending.ToList().IndexOf(newValid) < pending.ToList().IndexOf(oldValid));
         Assert.Equal(2, pending.Count);
     }
+
+    [Fact]
+    public async Task Scheduling_checks_conflict_per_student_only_and_ignores_completed_slots()
+    {
+        await using var db = await IssuedPaperEditTests.OpenAsync();
+        db.Roles.Add(new Role { RoleId = 3, RoleName = "Student" });
+        db.Users.AddRange(
+            new User { UserId = 2, RoleId = 3, FullName = "An", Email = "an_sched@test.local", PasswordHash = "x", Status = "Active" },
+            new User { UserId = 3, RoleId = 3, FullName = "Binh", Email = "binh_sched@test.local", PasswordHash = "x", Status = "Active" });
+        db.AcademicClasses.Add(new AcademicClass { ClassId = 1, ClassCode = "SE1801", ClassName = "SE1801", CourseId = 1, LecturerId = 1, IsActive = true });
+        db.ClassStudents.AddRange(
+            new ClassStudent { ClassId = 1, StudentId = 2 },
+            new ClassStudent { ClassId = 1, StudentId = 3 });
+        var q1 = await db.Questions.SingleAsync(q => q.QuestionId == 1);
+        q1.Status = AssignmentPRN.DataAccess.Enums.QuestionStatus.Approved;
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var policy = new ExamStatePolicy();
+        var service = new ExamSessionService(
+            new ExamSessionRepository(db, policy),
+            new CatalogRepository(db),
+            new QuestionRepository(db, policy));
+
+        var slotStart = DateTime.Today.AddDays(1).AddHours(10);
+
+        // 1. Lecturer creates session 1 for Student 2 at 10:00
+        var s1 = await service.CreateAsync(new ExamSessionCreateRequest
+        {
+            CourseId = 1,
+            LecturerId = 1,
+            ClassId = 1,
+            ExamName = "Session 1",
+            StartTime = slotStart,
+            TimePerStudent = 30,
+            MainQuestionCount = 1,
+            MaxFollowUpCount = 0,
+            SelectedStudentIds = [2],
+            FilterStudentsBySelection = true
+        });
+        Assert.True(s1.Success, s1.Error);
+
+        // 2. Same lecturer creates session 2 for Student 3 at the exact same time -> succeeds (no lecturer conflict)
+        var s2 = await service.CreateAsync(new ExamSessionCreateRequest
+        {
+            CourseId = 1,
+            LecturerId = 1,
+            ClassId = 1,
+            ExamName = "Session 2",
+            StartTime = slotStart,
+            TimePerStudent = 30,
+            MainQuestionCount = 1,
+            MaxFollowUpCount = 0,
+            SelectedStudentIds = [3],
+            FilterStudentsBySelection = true
+        });
+        Assert.True(s2.Success, s2.Error);
+
+        // 3. Same student 2 cannot be double-booked while slot in Session 1 is still Waiting
+        var conflict = await service.CreateAsync(new ExamSessionCreateRequest
+        {
+            CourseId = 1,
+            LecturerId = 1,
+            ClassId = 1,
+            ExamName = "Session 3 Conflict",
+            StartTime = slotStart,
+            TimePerStudent = 30,
+            MainQuestionCount = 1,
+            MaxFollowUpCount = 0,
+            SelectedStudentIds = [2],
+            FilterStudentsBySelection = true
+        });
+        Assert.False(conflict.Success);
+        Assert.Contains("sinh viên An", conflict.Error);
+
+        // 4. Once student 2's slot in Session 1 is Completed, booking at 10:00 succeeds
+        var c2 = await db.ExamCandidates.SingleAsync(x => x.ExamId == s1.Data!.ExamId && x.StudentId == 2);
+        c2.Status = CandidateStatus.Completed;
+        await db.SaveChangesAsync();
+
+        var afterCompleted = await service.CreateAsync(new ExamSessionCreateRequest
+        {
+            CourseId = 1,
+            LecturerId = 1,
+            ClassId = 1,
+            ExamName = "Session 3 After Completed",
+            StartTime = slotStart,
+            TimePerStudent = 30,
+            MainQuestionCount = 1,
+            MaxFollowUpCount = 0,
+            SelectedStudentIds = [2],
+            FilterStudentsBySelection = true
+        });
+        Assert.True(afterCompleted.Success, afterCompleted.Error);
+    }
 }

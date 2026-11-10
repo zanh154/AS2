@@ -485,9 +485,9 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
     }
 
     /// <summary>
-    /// Rejects a slot that overlaps an existing one for the same student or the same lecturer.
-    /// Each slot lasts its own session's TimePerStudent, so the overlap test runs in memory
-    /// after narrowing the rows down to the same calendar day.
+    /// Rejects a slot that overlaps an existing active or upcoming slot for the same student.
+    /// Lecturers can schedule parallel AI-viva sessions for different students, and completed,
+    /// absent, or cancelled slots do not block future scheduling.
     /// </summary>
     private async Task EnsureNoConflictAsync(
         int studentId,
@@ -498,6 +498,7 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
         CancellationToken cancellationToken,
         int? excludedExamId = null)
     {
+        _ = lecturerId;
         var dayStart = startTime.Date;
         var dayEnd = dayStart.AddDays(1);
 
@@ -506,18 +507,17 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
             .Where(candidate => candidate.ScheduledTime != null
                 && candidate.ScheduledTime >= dayStart
                 && candidate.ScheduledTime < dayEnd
-                && candidate.Status != CandidateStatus.Cancelled
+                && (candidate.Status == CandidateStatus.Waiting || candidate.Status == CandidateStatus.InProgress)
                 && candidate.Session.Status != ExamSessionStatus.Cancelled
+                && candidate.Session.Status != ExamSessionStatus.Completed
                 && (!excludedExamId.HasValue || candidate.ExamId != excludedExamId.Value)
                 && (!excludedCandidateId.HasValue || candidate.CandidateId != excludedCandidateId.Value)
-                && (candidate.StudentId == studentId || candidate.Session.LecturerId == lecturerId))
+                && candidate.StudentId == studentId)
             .Select(candidate => new
             {
-                SameStudent = candidate.StudentId == studentId,
                 Start = candidate.ScheduledTime!.Value,
                 candidate.Session.TimePerStudent,
-                StudentName = candidate.Student.FullName,
-                LecturerName = candidate.Session.Lecturer.FullName
+                StudentName = candidate.Student.FullName
             })
             .ToListAsync(cancellationToken);
 
@@ -531,12 +531,8 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
                 continue;
             }
 
-            var owner = other.SameStudent
-                ? $"sinh viên {other.StudentName}"
-                : $"giảng viên {other.LecturerName}";
-
             throw new ExamScheduleConflictException(
-                $"Trùng lịch với {owner} trong khung {other.Start:HH:mm}-{otherEnd:HH:mm} ngày {other.Start:dd/MM/yyyy}.");
+                $"Trùng lịch với sinh viên {other.StudentName} trong khung {other.Start:HH:mm}-{otherEnd:HH:mm} ngày {other.Start:dd/MM/yyyy}.");
         }
     }
 
