@@ -111,9 +111,9 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
         return new ExamStudentSearchResult
         {
             Total = total, Page = page,
-            Sessions = await sessions.OrderBy(s => s.StartTime).ThenBy(s => s.ExamId)
+            Sessions = await sessions.OrderByDescending(s => s.StartTime).ThenByDescending(s => s.ExamId)
                 .Select(s => new ExamStudentSessionOption(s.ExamId, s.ExamName)).ToListAsync(cancellationToken),
-            Items = await query.OrderBy(c => c.ScheduledTime).ThenBy(c => c.CandidateId)
+            Items = await query.OrderByDescending(c => c.ScheduledTime).ThenByDescending(c => c.CandidateId)
                 .Skip((page - 1) * 20).Take(20)
                 .Select(c => new ExamStudentRow(c.CandidateId, c.ExamId, c.Student.FullName,
                     c.Student.Email, c.Session.ExamName, c.Session.Course.CourseName,
@@ -186,12 +186,82 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
         return detail;
     }
 
+    public async Task<ExamSessionDetail> ContinueCompletedAsync(int examId, int? studentId, DateTime startFrom, bool allowCheated, CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, cancellationToken);
+        var session = await context.ExamSessions.Include(x => x.Candidates)
+            .FirstOrDefaultAsync(item => item.ExamId == examId, cancellationToken)
+            ?? throw new KeyNotFoundException("Không tìm thấy phiên thi.");
+        if (session.Status != ExamSessionStatus.Completed)
+            throw new ArgumentException("Chỉ được mở thi tiếp khi phiên thi đã hoàn thành.");
+        if (session.Candidates.Any(c => c.Status is CandidateStatus.Waiting or CandidateStatus.InProgress))
+            throw new ArgumentException("Phiên thi vẫn còn sinh viên đang chờ hoặc đang thi.");
+
+        var candidateIds = session.Candidates.Select(c => c.CandidateId).ToList();
+        var cheatedCandidateIds = await context.Set<ExamLog>()
+            .Where(log => log.CandidateId != null && candidateIds.Contains(log.CandidateId.Value) && log.Action == "CHEAT_DISQUALIFIED")
+            .Select(log => log.CandidateId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        List<int> targetStudents;
+        if (studentId.HasValue)
+        {
+            var latestForStudent = session.Candidates
+                .Where(c => c.StudentId == studentId.Value)
+                .OrderByDescending(c => c.CandidateId)
+                .FirstOrDefault()
+                ?? throw new ArgumentException("Sinh viên chưa từng tham gia phiên thi này.");
+            if (!allowCheated && cheatedCandidateIds.Contains(latestForStudent.CandidateId))
+                throw new ArgumentException("Lượt thi này đã bị chấm dứt 0 điểm do vi phạm quy chế giám sát.");
+            targetStudents = [studentId.Value];
+        }
+        else
+        {
+            targetStudents = session.Candidates
+                .GroupBy(c => c.StudentId)
+                .Select(g => g.OrderByDescending(c => c.CandidateId).First())
+                .Where(latest => allowCheated || !cheatedCandidateIds.Contains(latest.CandidateId))
+                .OrderBy(latest => latest.CandidateId)
+                .Select(latest => latest.StudentId)
+                .ToList();
+            if (targetStudents.Count == 0)
+                throw new ArgumentException("Không có sinh viên hợp lệ để mở thi tiếp.");
+        }
+
+        for (var i = 0; i < targetStudents.Count; i++)
+        {
+            var slotStart = startFrom.AddMinutes((double)i * session.TimePerStudent);
+            context.ExamCandidates.Add(new ExamCandidate
+            {
+                ExamId = examId,
+                StudentId = targetStudents[i],
+                ScheduledTime = slotStart,
+                Status = CandidateStatus.Waiting
+            });
+        }
+
+        var lastEnd = startFrom.AddMinutes((double)targetStudents.Count * session.TimePerStudent);
+        session.Status = startFrom <= DateTime.Now.AddSeconds(5)
+            ? ExamSessionStatus.InProgress
+            : ExamSessionStatus.Scheduled;
+        if (lastEnd > session.EndTime) session.EndTime = lastEnd;
+        session.UpdatedAt = DateTime.Now;
+
+        await context.SaveChangesAsync(cancellationToken);
+        var detail = await LoadDetailAsync(examId, cancellationToken)
+            ?? throw new InvalidOperationException("Không thể đọc phiên thi vừa cập nhật.");
+        await transaction.CommitAsync(cancellationToken);
+        return detail;
+    }
+
     public async Task<IReadOnlyList<ExamSessionListItem>> ListAsync(CancellationToken cancellationToken = default)
     {
         return await context.ExamSessions
             .AsNoTracking()
-            .OrderBy(session => session.StartTime)
-            .ThenBy(session => session.ExamName)
+            .OrderByDescending(session => session.StartTime)
+            .ThenByDescending(session => session.ExamId)
             .Select(session => new ExamSessionListItem
             {
                 LecturerId = session.LecturerId,
@@ -247,7 +317,8 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
                 && candidate.ScheduledTime != null
                 && candidate.Status != CandidateStatus.Cancelled
                 && candidate.Session.Status != ExamSessionStatus.Cancelled)
-            .OrderBy(candidate => candidate.ScheduledTime)
+            .OrderByDescending(candidate => candidate.ScheduledTime)
+            .ThenByDescending(candidate => candidate.CandidateId)
             .Select(candidate => new StudentScheduleItem
             {
                 ExamId = candidate.ExamId,
@@ -260,7 +331,9 @@ public class ExamSessionRepository(AivesDbContext context, IExamStatePolicy poli
                 ScheduledTime = candidate.ScheduledTime!.Value,
                 TimePerStudent = candidate.Session.TimePerStudent,
                 SessionStatus = candidate.Session.Status,
-                CandidateStatus = candidate.Status
+                CandidateStatus = candidate.Status,
+                IsCheatingTerminated = candidate.Status == CandidateStatus.Completed
+                    && context.Set<ExamLog>().Any(log => log.CandidateId == candidate.CandidateId && log.Action == "CHEAT_DISQUALIFIED")
             })
             .ToListAsync(cancellationToken);
 

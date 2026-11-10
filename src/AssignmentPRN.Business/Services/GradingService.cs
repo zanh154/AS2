@@ -78,6 +78,24 @@ public sealed class GradingService(
 
                 // Nothing came back: leave the answer unmarked so the examiner can see
                 // it was never judged, rather than storing a zero.
+                if (grade.Marks.Count == 0 && grade.HolisticScore is decimal holistic)
+                {
+                    var clamped = Math.Round(Math.Clamp(holistic, 0m, RubricScoring.MaxScore), 2, MidpointRounding.AwayFromZero);
+                    weighted.Add((answer.IsFollowUpQuestion, clamped));
+                    evaluations.Add(new AnswerEvaluation(
+                        answer.AnswerId,
+                        clamped,
+                        grade.Confidence,
+                        "AI chấm tổng quan theo câu hỏi và đáp án chuẩn.",
+                        grade.Strengths,
+                        grade.Weaknesses,
+                        grade.MissingPoints,
+                        []));
+                    done++;
+                    notifier?.Progress(info, done + skipped);
+                    continue;
+                }
+
                 if (grade.Marks.Count == 0)
                 {
                     skipped++;

@@ -61,6 +61,45 @@ public class ExamSessionService(
             await examSessionRepository.ChangeStatusAsync(examId, status.ToDataAccess(), cancellationToken);
         }, "Không thể cập nhật trạng thái.");
 
+    public Task<ServiceResponse<ExamSessionDetailResponse>> ContinueCompletedSessionAsync(
+        int examId,
+        int? studentId,
+        int? lecturerId,
+        DateTime? startFrom = null,
+        CancellationToken cancellationToken = default) =>
+        ServiceExecutor.RunAsync(async () =>
+        {
+            var id = BusinessValidation.PositiveId(examId, "phiên thi");
+            var current = await examSessionRepository.GetDetailAsync(id, cancellationToken)
+                ?? throw new BusinessValidationException("Không tìm thấy phiên thi.");
+            if (lecturerId.HasValue && current.Lecturer.UserId != lecturerId.Value)
+                throw new BusinessValidationException("Bạn không có quyền mở lại phiên thi này.");
+            var detail = await examSessionRepository.ContinueCompletedAsync(
+                id,
+                studentId,
+                startFrom ?? DateTime.Now,
+                allowCheated: true,
+                cancellationToken);
+            return MapDetail(detail);
+        }, "Không thể mở cho sinh viên thi tiếp.");
+
+    public Task<ServiceResponse<ExamSessionDetailResponse>> ContinueAsStudentAsync(
+        int examId,
+        int studentUserId,
+        CancellationToken cancellationToken = default) =>
+        ServiceExecutor.RunAsync(async () =>
+        {
+            var id = BusinessValidation.PositiveId(examId, "phiên thi");
+            var sid = BusinessValidation.PositiveId(studentUserId, "sinh viên");
+            var detail = await examSessionRepository.ContinueCompletedAsync(
+                id,
+                sid,
+                DateTime.Now,
+                allowCheated: false,
+                cancellationToken);
+            return MapDetail(detail);
+        }, "Không thể bắt đầu lượt thi tiếp.");
+
     public Task<ServiceResponse<ExamStudentSearchResult>> SearchExamStudentsAsync(
         ExamStudentSearch filter, int? lecturerId, CancellationToken cancellationToken = default)
     {
@@ -659,6 +698,25 @@ public class ExamSessionService(
                 $"Danh sách lớp có sinh viên bị trùng: {string.Join(", ", duplicateStudents)}.");
         }
 
+        if (request.FilterStudentsBySelection || request.SelectedStudentIds is not null)
+        {
+            var selectedSet = (request.SelectedStudentIds ?? Array.Empty<int>()).ToHashSet();
+            var classStudentSet = activeStudents.Select(student => student.UserId).ToHashSet();
+            if (selectedSet.Any(id => !classStudentSet.Contains(id)))
+            {
+                throw new BusinessValidationException(
+                    $"Danh sách sinh viên được chọn có người không thuộc lớp {academicClass.ClassCode}.");
+            }
+
+            activeStudents = activeStudents
+                .Where(student => selectedSet.Contains(student.UserId))
+                .ToList();
+            if (activeStudents.Count == 0)
+            {
+                throw new BusinessValidationException("Vui lòng chọn ít nhất một sinh viên để đi thi.");
+            }
+        }
+
         var studentIds = activeStudents
             .OrderBy(student => student.FullName)
             .ThenBy(student => student.Email)
@@ -787,7 +845,8 @@ public class ExamSessionService(
             ScheduledTime = item.ScheduledTime,
             EndTime = item.ScheduledTime.AddMinutes(item.TimePerStudent),
             SessionStatus = item.SessionStatus.ToBusiness(),
-            CandidateStatus = item.CandidateStatus.ToBusiness()
+            CandidateStatus = item.CandidateStatus.ToBusiness(),
+            IsCheatingTerminated = item.IsCheatingTerminated
         }).ToList()
     };
 }

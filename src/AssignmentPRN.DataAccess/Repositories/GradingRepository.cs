@@ -87,7 +87,7 @@ public interface IGradingRepository
         string? comment, string auditLine, DateTime at, CancellationToken ct = default);
     Task DisqualifyCandidateAsync(int candidateId, int examId, string comment, DateTime at, CancellationToken ct = default);
     Task<(bool IsDisqualified, int ViolationCount)> ProctorStatusAsync(int candidateId, CancellationToken ct = default) => Task.FromResult((false, 0));
-    Task ReinstateDisqualifiedCandidateAsync(int candidateId, int examId, int lecturerId, DateTime at, CancellationToken ct = default) => Task.CompletedTask;
+    // Disqualification reinstate workflow removed; 4th violation ends exam with 0 score.
 
     /// <summary>The trail of mark changes for one candidate, newest first.</summary>
     Task<IReadOnlyList<ResultAuditRow>> AuditTrailAsync(int candidateId, CancellationToken ct = default);
@@ -114,7 +114,9 @@ public interface IGradingRepository
     Task<IReadOnlyList<int>> PendingCandidateIdsAsync(CancellationToken ct = default);
 }
 
-public sealed class GradingRepository(AivesDbContext db, IExamStatePolicy? policy = null) : IGradingRepository
+#pragma warning disable CS9113 // Preserved for DI/test constructor compatibility
+public sealed class GradingRepository(AivesDbContext db, IExamStatePolicy? policy = null) : IGradingRepository
+#pragma warning restore CS9113
 {
     public async Task<GradingSlotRow?> LoadAsync(int candidateId, CancellationToken ct = default)
     {
@@ -385,48 +387,6 @@ public sealed class GradingRepository(AivesDbContext db, IExamStatePolicy? polic
         var active = logs.Skip(lastReinstated + 1).ToList();
         var disqualified = completed && active.Any(action => action == "CHEAT_DISQUALIFIED");
         return (disqualified, active.Count);
-    }
-
-    public async Task ReinstateDisqualifiedCandidateAsync(int candidateId, int examId, int lecturerId, DateTime at, CancellationToken ct = default)
-    {
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-        db.ChangeTracker.Clear();
-
-        var candidate = await db.ExamCandidates.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct)
-            ?? throw new KeyNotFoundException("Không tìm thấy lượt thi.");
-
-        candidate.Status = CandidateStatus.InProgress;
-        candidate.FinishedAt = null;
-
-        var finalResult = await db.FinalResults.SingleOrDefaultAsync(x => x.CandidateId == candidateId, ct);
-        if (finalResult is not null)
-        {
-            db.FinalResults.Remove(finalResult);
-        }
-
-        db.Set<ExamLog>().Add(new ExamLog
-        {
-            ExamId = examId,
-            CandidateId = candidateId,
-            UserId = lecturerId,
-            Action = "CHEAT_REINSTATED",
-            Description = "Giảng viên đã gỡ đình chỉ thi và cho phép sinh viên tiếp tục làm bài.",
-            Timestamp = at
-        });
-
-        var session = await db.ExamSessions.SingleOrDefaultAsync(x => x.ExamId == examId, ct);
-        if (session is not null && session.Status == ExamSessionStatus.Completed)
-        {
-            session.Status = ExamSessionStatus.InProgress;
-            session.UpdatedAt = at;
-        }
-
-        await db.SaveChangesAsync(ct);
-        if (policy is not null)
-        {
-            await ExamSessionLifecycle.SynchronizeAsync(db, policy, examId, at, ct);
-        }
-        await tx.CommitAsync(ct);
     }
 
     public async Task AdjustAsync(int candidateId, int examId, int lecturerId, decimal? score, decimal? finalScore,

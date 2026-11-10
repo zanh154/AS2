@@ -47,6 +47,14 @@ public sealed class CandidateResultRow
 
     public DateTime? FinishedAt { get; init; }
 
+    public decimal? FinalScore { get; init; }
+
+    public bool HasFinalResult { get; init; }
+
+    public int CheatViolationCount { get; init; }
+
+    public bool IsCheatingTerminated { get; init; }
+
     public IReadOnlyList<GradedSlot> Slots { get; init; } = Array.Empty<GradedSlot>();
 }
 

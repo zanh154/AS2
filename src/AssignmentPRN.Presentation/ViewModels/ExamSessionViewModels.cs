@@ -59,6 +59,10 @@ public class ExamSessionCreateViewModel : IValidatableObject
     [Range(0, 50, ErrorMessage = "Số câu hỏi phụ tối đa phải từ 0 đến 50.")]
     public int MaxFollowUpCount { get; set; } = 2;
 
+    public List<int> SelectedStudentIds { get; set; } = new();
+
+    public bool FilterStudentsBySelection { get; set; }
+
     public IReadOnlyList<SelectListItem> CourseOptions { get; set; } = Array.Empty<SelectListItem>();
 
     public IReadOnlyList<SelectListItem> LecturerOptions { get; set; } = Array.Empty<SelectListItem>();

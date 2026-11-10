@@ -169,7 +169,7 @@ public sealed class VoiceRoomTests
     }
 
     [Fact]
-    public async Task Proctor_disqualification_can_be_reinstated_by_lecturer()
+    public async Task Proctor_fourth_violation_terminates_exam_with_zero_score()
     {
         var clock = new Clock();
         await using var db = await SeedAsync(clock);
@@ -189,24 +189,16 @@ public sealed class VoiceRoomTests
         Assert.True(lockedState.Disqualified);
         Assert.Equal(0m, (await db.FinalResults.SingleAsync()).FinalScore);
 
-        var reviewService = new ResultReviewService(
-            gradingRepo,
-            new ExamResultService(new ExamResultRepository(db, policy), new QuestionRepository(db, policy)),
-            clock);
+        var resultService = new ExamResultService(new ExamResultRepository(db, policy), new QuestionRepository(db, policy));
+        var reviewService = new ResultReviewService(gradingRepo, resultService, clock);
 
         var beforeReview = (await reviewService.GetAsync(1, 1)).Data!;
         Assert.True(beforeReview.IsDisqualified);
+        Assert.Equal(1, beforeReview.CheatViolationCount);
 
-        var reinstated = await reviewService.ReinstateAsync(1, 1, 1);
-        Assert.True(reinstated.Success, reinstated.Error);
-        Assert.Empty(await db.FinalResults.ToListAsync());
-        Assert.Equal(CandidateStatus.InProgress, (await db.ExamCandidates.SingleAsync()).Status);
-
-        var resumedRes = await voiceService.SyncAsync(1, 2);
-        Assert.True(resumedRes.Success, resumedRes.Error);
-        var resumedState = resumedRes.Data!;
-        Assert.False(resumedState.Completed);
-        Assert.False(resumedState.Disqualified);
-        Assert.Equal(0, resumedState.ProctorViolationCount);
+        var sheet = (await resultService.GetSessionResultsAsync(1, 1)).Data!;
+        var row = Assert.Single(sheet.Candidates);
+        Assert.True(row.IsCheatingTerminated);
+        Assert.Equal(0m, row.Score);
     }
 }

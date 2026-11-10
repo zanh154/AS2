@@ -59,7 +59,7 @@
   };
 
   if (isDisqualified) {
-    showDisqualifiedScreen("Bài thi này đã bị đình chỉ và cho 0 điểm do vi phạm quy chế thi trước đó.");
+    showDisqualifiedScreen("Bài thi này đã bị chấm dứt và ghi nhận 0 điểm do vi phạm quy chế giám sát.");
   }
 
   const triggerViolation = async (reason) => {
@@ -95,7 +95,7 @@
     }
 
     if (violations >= 4 || serverRes?.disqualified) {
-      showDisqualifiedScreen("Bạn đã rời khỏi màn hình làm bài quá 3 lần (chuyển tab, mở ứng dụng khác). Hệ thống đã lập biên bản đình chỉ thi và ghi nhận 0 ĐIỂM.");
+      showDisqualifiedScreen("Bạn đã vi phạm quy chế quá 3/3 lần (chuyển tab / rời khỏi màn hình). Hệ thống đã chấm dứt bài thi, ghi nhận 0 ĐIỂM và báo cáo gian lận tới Giảng viên.");
     } else {
       // Hiển thị modal cảnh báo cho lần 1, 2, 3
       if (cheatCountEl) cheatCountEl.textContent = `${violations} / 3`;
@@ -136,7 +136,7 @@
     if (state.disqualified === true) {
       violations = Math.max(violations, serverCount, 4);
       sessionStorage.setItem(storageKey, violations.toString());
-      showDisqualifiedScreen("Bài thi này đã bị đình chỉ và cho 0 điểm do vi phạm quy chế thi quá 3 lần.");
+      showDisqualifiedScreen("Bài thi này đã bị chấm dứt và ghi nhận 0 điểm do vi phạm quy chế giám sát quá 3/3 lần.");
     } else if (state.disqualified === false) {
       if (isDisqualified || sessionStorage.getItem(`voice_disqualified_${candidateId}`) === "1") {
         clearDisqualifiedScreen(serverCount);

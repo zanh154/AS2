@@ -117,13 +117,13 @@ public class AnswerGraderTests
     }
 
     [Fact]
-    public async Task An_answer_with_no_rubric_is_not_sent_to_the_model()
+    public async Task An_answer_with_no_rubric_attempts_holistic_grading_safely()
     {
-        // There is nothing to mark against, so the examiner marks this one by hand.
-        var grader = new OllamaAnswerGrader(null!);
-        var context = new GradingContext("Câu hỏi?", null, [], "Em trả lời.", []);
-
+        var grader = new OllamaAnswerGrader(new OllamaJsonClient(
+            new ThrowingHttpClientFactory(), new StubOptions(), new NullLogger<OllamaJsonClient>()));
+        var context = new GradingContext("Cau hoi?", null, [], "Em tra loi.", []);
         Assert.Equal(AnswerGrade.None, await grader.GradeAsync(context));
+        Assert.True(ThrowingHttpClientFactory.Called);
     }
 
     [Fact]

@@ -44,7 +44,20 @@ public sealed record CandidateReview(
     IReadOnlyList<ReviewAnswer> Answers,
     IReadOnlyList<ReviewAuditEntry> Trail,
     bool IsDisqualified = false,
-    int CheatViolationCount = 0);
+    int CheatViolationCount = 0)
+{
+    public int GradedQuestionCount => Answers.Count(a => a.AiScore.HasValue);
+
+    public decimal? QuestionTotalScore => GradedQuestionCount == 0
+        ? null
+        : Answers.Where(a => a.AiScore.HasValue).Sum(a => a.AiScore!.Value);
+
+    public decimal? QuestionAverageScore => GradedQuestionCount == 0
+        ? null
+        : Math.Round(QuestionTotalScore!.Value / GradedQuestionCount, 2, MidpointRounding.AwayFromZero);
+}
+
+public sealed record QuestionScoreAdjustment(int OrderNo, decimal Score);
 
 public interface IResultReviewService
 {
@@ -57,6 +70,10 @@ public interface IResultReviewService
     Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
         int? ownerLecturerId, CancellationToken ct = default);
 
+    Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
+        IReadOnlyList<QuestionScoreAdjustment>? questionScores, int? ownerLecturerId, CancellationToken ct = default) =>
+        AdjustAsync(candidateId, lecturerId, score, comment, ownerLecturerId, ct);
+
     /// <summary>
     /// A student's own report, after their slot is finished: the mark that counts and
     /// what the AI said about each answer. Someone else's slot, or one still being sat,
@@ -68,7 +85,7 @@ public interface IResultReviewService
     /// Lifts a proctoring disqualification on a slot, clears the zeroed final score, and
     /// restores the candidate to InProgress so they can continue their exam.
     /// </summary>
-    Task<ServiceResponse> ReinstateAsync(int candidateId, int lecturerId, int? ownerLecturerId, CancellationToken ct = default);
+    // ReinstateAsync removed cleanly.
 }
 
 /// <summary>
@@ -124,6 +141,10 @@ public sealed class ResultReviewService(
 
     public Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
         int? ownerLecturerId, CancellationToken ct = default) =>
+        AdjustAsync(candidateId, lecturerId, score, comment, null, ownerLecturerId, ct);
+
+    public Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
+        IReadOnlyList<QuestionScoreAdjustment>? questionScores, int? ownerLecturerId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>
         {
             var id = BusinessValidation.PositiveId(candidateId, "lượt thi");
@@ -140,23 +161,9 @@ public sealed class ResultReviewService(
             var trimmed = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
             var final = ResultAdjustmentRules.FinalScore(score, review.AiScore);
             await repository.AdjustAsync(id, candidate, lecturerId, score, final, trimmed,
-                ResultAdjustmentRules.AuditLine(review.FinalScore, final, trimmed),
+                FormatAuditLine(review.FinalScore, final, trimmed, questionScores),
                 clock.GetLocalNow().DateTime, ct);
         }, "Không thể lưu điểm.");
-
-    public Task<ServiceResponse> ReinstateAsync(int candidateId, int lecturerId, int? ownerLecturerId, CancellationToken ct = default) =>
-        ServiceExecutor.RunAsync(async () =>
-        {
-            var id = BusinessValidation.PositiveId(candidateId, "lượt thi");
-            BusinessValidation.PositiveId(lecturerId, "người gỡ đình chỉ");
-
-            var examId = await EnsureOwnedAsync(id, ownerLecturerId, ct);
-            var (isDisqualified, _) = await repository.ProctorStatusAsync(id, ct);
-            if (!isDisqualified)
-                throw new BusinessValidationException("Sinh viên này hiện không ở trạng thái bị đình chỉ.");
-
-            await repository.ReinstateDisqualifiedCandidateAsync(id, examId, lecturerId, clock.GetLocalNow().DateTime, ct);
-        }, "Không thể gỡ đình chỉ thi.");
 
     public Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>
@@ -207,6 +214,14 @@ public sealed class ResultReviewService(
         }, "Không thể tải kết quả bài thi.");
 
     /// <summary>Returns the exam the candidate sits, once the caller is allowed to see it.</summary>
+    private static string FormatAuditLine(decimal? previous, decimal? final, string? comment, IReadOnlyList<QuestionScoreAdjustment>? questionScores)
+    {
+        var baseLine = ResultAdjustmentRules.AuditLine(previous, final, comment);
+        if (questionScores is null || questionScores.Count == 0) return baseLine;
+        var detail = string.Join(", ", questionScores.OrderBy(q => q.OrderNo).Select(q => $"Câu {q.OrderNo}: {q.Score:0.##}"));
+        return $"{baseLine} [Chi tiết câu: {detail}]";
+    }
+
     private async Task<int> EnsureOwnedAsync(int candidateId, int? lecturerId, CancellationToken ct)
     {
         var paper = await results.GetCandidateResultAsync(candidateId, lecturerId, ct);

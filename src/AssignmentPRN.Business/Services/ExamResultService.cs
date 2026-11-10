@@ -205,9 +205,17 @@ public class ExamResultService(
         MainTotal = candidate.Slots.Count(slot => !slot.IsFollowUp),
         FollowUpCorrect = candidate.Slots.Count(slot => slot.IsFollowUp && slot.IsCorrect),
         FollowUpTotal = candidate.Slots.Count(slot => slot.IsFollowUp),
-        Score = candidate.Status.ToBusiness() == CandidateStatus.Completed
-            ? ExamScoring.Score(candidate.Slots.Select(slot => (slot.IsFollowUp, slot.IsCorrect)))
-            : null
+        CheatViolationCount = candidate.CheatViolationCount,
+        IsCheatingTerminated = candidate.IsCheatingTerminated,
+        Score = candidate.Status.ToBusiness() != CandidateStatus.Completed
+            ? null
+            : candidate.IsCheatingTerminated
+                ? 0m
+                : candidate.HasFinalResult
+                    ? candidate.FinalScore
+                    : candidate.Slots.Any(slot => slot.IsAnswered)
+                        ? ExamScoring.Score(candidate.Slots.Select(slot => (slot.IsFollowUp, slot.IsCorrect)))
+                        : null
     };
 }
 

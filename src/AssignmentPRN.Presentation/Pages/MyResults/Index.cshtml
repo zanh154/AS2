@@ -44,6 +44,14 @@
         </div>
     }
 
+    @if (review.GradedQuestionCount > 0)
+    {
+        <div class="metric-row mb-3">
+            <div class="metric-card"><span>Tổng điểm các câu</span><strong>@($"{review.QuestionTotalScore:0.##} / {review.GradedQuestionCount * 10}")</strong></div>
+            <div class="metric-card"><span>Điểm trung bình mỗi câu</span><strong>@($"{review.QuestionAverageScore:0.##} / 10")</strong></div>
+            <div class="metric-card"><span>Số câu đã chấm</span><strong>@($"{review.GradedQuestionCount} / {review.Answers.Count}")</strong></div>
+        </div>
+    }
     <div class="content-card exam-result-ai">
         <div class="section-heading">
             <div>

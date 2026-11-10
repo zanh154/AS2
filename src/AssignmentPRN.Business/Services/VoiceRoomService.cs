@@ -70,7 +70,7 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
             var isDisqualified = count >= 4;
             var action = isDisqualified ? "CHEAT_DISQUALIFIED" : "CHEAT_WARNING";
             var description = isDisqualified
-                ? $"Đình chỉ thi (0 điểm): Rời màn hình {count} lần ({reason ?? "chuyển tab"})."
+                ? $"Chấm dứt bài thi (0 điểm): Rời màn hình {count} lần ({reason ?? "chuyển tab"})."
                 : $"Cảnh báo rời màn hình lần {count}/3 ({reason ?? "chuyển tab"}).";
 
             int examId = 0;
@@ -100,13 +100,13 @@ public sealed class VoiceRoomService(IVoiceRoomRepository repository, IQuestionS
                 await gradingRepo.DisqualifyCandidateAsync(
                     candidateId,
                     examId,
-                    $"ĐÁNH TRƯỢT (0 ĐIỂM): Vi phạm quy chế thi (Rời màn hình {count} lần).",
+                    $"0 ĐIỂM (GIAN LẬN): Chấm dứt bài thi do vi phạm quy chế giám sát (rời màn hình {count} lần).",
                     Now,
                     ct);
             }
 
             var msg = isDisqualified
-                ? "Bài thi đã bị đình chỉ và cho 0 điểm do vi phạm quy chế thi quá 3 lần."
+                ? "Bài thi đã bị chấm dứt và ghi nhận 0 điểm do vi phạm quy chế quá 3/3 lần."
                 : $"Cảnh báo vi phạm lần {count}/3: Vui lòng không rời khỏi màn hình thi!";
 
             return new VoiceProctorResult(isDisqualified, count, msg);

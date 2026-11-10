@@ -57,7 +57,21 @@
     </form>
 }
 
-<p><a class="btn btn-outline-primary" asp-page="/ExamSessions/Settings" asp-route-id="@session.ExamId">Cấu hình vấn đáp</a></p>
+    <p><a class="btn btn-outline-primary" asp-page="/ExamSessions/Settings" asp-route-id="@session.ExamId">Cấu hình vấn đáp</a></p>
+@if (session.Status == ExamSessionStatus.Completed && (Context.Session.GetString(AssignmentPRN.Presentation.Constants.SessionKeys.Role) == AssignmentPRN.Presentation.Constants.RoleNames.Admin || Context.Session.GetInt32(AssignmentPRN.Presentation.Constants.SessionKeys.UserId) == session.Lecturer.UserId))
+{
+    <form asp-page="/ExamSessions/Details" asp-page-handler="ContinueSession" asp-route-id="@session.ExamId" method="post" class="content-card border-primary"
+          data-confirm="Mở lại phiên thi này và cấp lượt thi mới cho toàn bộ sinh viên đã hoàn thành (trừ lượt vi phạm quy chế)?">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <span class="eyebrow">Phiên thi đã hoàn thành</span>
+                <h2 class="h5 mb-1">Cho phép sinh viên thi tiếp</h2>
+                <p class="text-muted mb-0">Tất cả sinh viên trong phiên đã thi xong. Bạn có thể mở thêm lượt thi mới ngay từ bây giờ hoặc mở riêng từng sinh viên ở danh sách bên dưới.</p>
+            </div>
+            <button type="submit" class="btn btn-primary text-nowrap">Mở cho sinh viên thi tiếp</button>
+        </div>
+    </form>
+}
 <section class="metric-row" data-live-region="metrics">
     <div class="metric-card"><span>Ngày thi</span><strong>@session.StartTime.ToString("dd/MM")</strong></div>
     <div class="metric-card">
@@ -214,6 +228,14 @@
                             <span class="status-chip @ExamSessionText.ChipModifier(candidate.Status)">
                                 @ExamSessionText.Status(candidate.Status)
                             </span>
+                            @if (session.Status == ExamSessionStatus.Completed && candidate.Status is CandidateStatus.Completed or CandidateStatus.Absent && (Context.Session.GetString(AssignmentPRN.Presentation.Constants.SessionKeys.Role) == AssignmentPRN.Presentation.Constants.RoleNames.Admin || Context.Session.GetInt32(AssignmentPRN.Presentation.Constants.SessionKeys.UserId) == session.Lecturer.UserId))
+                            {
+                                <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="ContinueSession" asp-route-id="@session.ExamId"
+                                      data-confirm="Mở lượt thi tiếp ngay từ bây giờ cho @candidate.StudentName?">
+                                    <input type="hidden" name="studentId" value="@candidate.StudentId" />
+                                    <button type="submit" class="btn btn-outline-success btn-sm text-nowrap">Cho thi tiếp</button>
+                                </form>
+                            }
                             @if (canManageStudents && candidate.Status == CandidateStatus.Waiting)
                             {
                                 <form method="post" asp-page="/ExamSessions/Details" asp-page-handler="RemoveStudent"

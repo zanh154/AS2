@@ -117,7 +117,20 @@ public interface IExamSessionService
         CancellationToken cancellationToken = default);
 
     /// <summary>Loads the exam schedule of one student account.</summary>
+    /// <summary>Loads the exam schedule of one student account.</summary>
     Task<ServiceResponse<StudentScheduleResponse>> GetStudentScheduleAsync(
+        int studentUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResponse<ExamSessionDetailResponse>> ContinueCompletedSessionAsync(
+        int examId,
+        int? studentId,
+        int? lecturerId,
+        DateTime? startFrom = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResponse<ExamSessionDetailResponse>> ContinueAsStudentAsync(
+        int examId,
         int studentUserId,
         CancellationToken cancellationToken = default);
 }

@@ -8,6 +8,8 @@
             new("Sinh viên"),
             new("Giờ thi"),
             new("Trạng thái"),
+            new("Giám sát"),
+            new("Câu chính đúng"),
             new("Câu chính đúng"),
             new("Đào sâu đúng"),
             new("Điểm / 10"),
@@ -18,6 +20,11 @@
             new StackCell(candidate.StudentName, candidate.StudentEmail),
             new TextCell(candidate.ScheduledTime?.ToString("HH:mm"), Nowrap: true),
             new ChipCell(ExamSessionText.Status(candidate.Status), ExamSessionText.ChipModifier(candidate.Status)),
+            candidate.IsCheatingTerminated
+                ? new ChipCell($"Gian lận ({candidate.CheatViolationCount} lần) · 0đ", "status-chip--danger")
+                : candidate.CheatViolationCount > 0
+                    ? new ChipCell($"Cảnh báo ({candidate.CheatViolationCount}/3)", "status-chip--warning")
+                    : new TextCell("Hợp lệ", Nowrap: true),
             new TextCell(ExamResultText.Ratio(candidate.MainCorrect, candidate.MainTotal), Nowrap: true),
             new TextCell(ExamResultText.Ratio(candidate.FollowUpCorrect, candidate.FollowUpTotal), Nowrap: true),
             new TextCell(ExamResultText.Score(candidate.Score), Nowrap: true),

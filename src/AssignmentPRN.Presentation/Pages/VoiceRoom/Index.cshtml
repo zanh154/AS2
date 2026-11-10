@@ -162,7 +162,7 @@
         </div>
     </div>
 
-    <!-- Màn hình Khóa bài thi vĩnh viễn khi vi phạm quá 3 lần (Đình chỉ thi - 0 điểm) -->
+    <!-- Màn hình chấm dứt bài thi (0 điểm) khi vi phạm quá 3/3 lần -->
     <div id="voice-disqualified-overlay" class="voice-disqualified-overlay" role="alertdialog" aria-modal="true" aria-labelledby="voice-disqualified-title" hidden>
         <div class="voice-disqualified-backdrop"></div>
         <div class="voice-disqualified-card">
@@ -171,13 +171,13 @@
                     <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
                 </svg>
             </div>
-            <h1 id="voice-disqualified-title">BÀI THI BỊ ĐÌNH CHỈ &amp; ĐÁNH TRƯỢT</h1>
+            <h1 id="voice-disqualified-title">BÀI THI ĐÃ CHẤM DỨT · 0 ĐIỂM</h1>
             <div class="voice-disqualified-score">
                 <span>Điểm ghi nhận:</span>
                 <strong>0.0</strong> / 10
             </div>
             <p id="voice-disqualified-desc" class="voice-disqualified-desc">
-                Bạn đã vi phạm quy chế thi nghiêm trọng (Chuyển tab / rời khỏi màn hình quá 3 lần). Hệ thống đã lập biên bản đình chỉ thi, ghi nhận 0 ĐIỂM và gửi báo cáo vi phạm tới Giám khảo.
+                Bạn đã vi phạm quy chế phòng thi quá 3/3 lần (chuyển tab / rời khỏi màn hình). Hệ thống đã chấm dứt bài thi, ghi nhận 0 ĐIỂM và báo cáo gian lận tới Giảng viên.
             </p>
             <div class="voice-disqualified-actions">
                 <a class="btn btn-danger" asp-page="/StudentSchedule/Mine">Quay về Lịch thi của tôi</a>
