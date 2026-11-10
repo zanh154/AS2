@@ -93,7 +93,6 @@
 
             <div class="metric-row">
                 <div class="metric-card"><span>AI đề xuất</span><strong>@ExamResultText.Score(review.AiScore)</strong></div>
-                <div class="metric-card"><span>Tổng các câu</span><strong id="flex-total-display">@(review.QuestionTotalScore is { } qt ? $"{qt:0.##} / {review.GradedQuestionCount * 10}" : "—")</strong></div>
                 <div class="metric-card"><span>TB mỗi câu</span><strong id="flex-avg-display">@(review.QuestionAverageScore is { } qa ? $"{qa:0.##} / 10" : "—")</strong></div>
                 <div class="metric-card"><span>Giảng viên chốt</span><strong>@ExamResultText.Score(review.LecturerScore)</strong></div>
             </div>
@@ -163,18 +162,15 @@
               if (!form) return;
               const qInputs = [...form.querySelectorAll("[data-flex-q-input]")];
               const scoreInput = document.getElementById("lecturer-score");
-              const totalEl = document.getElementById("flex-total-display");
               const avgEl = document.getElementById("flex-avg-display");
               const syncFromQuestions = () => {
                 const vals = qInputs.map(i => parseFloat(i.value)).filter(v => !Number.isNaN(v) && v >= 0 && v <= 10);
                 if (vals.length === 0) {
-                  if (totalEl) totalEl.textContent = "—";
                   if (avgEl) avgEl.textContent = "—";
                   return;
                 }
                 const sum = vals.reduce((a, b) => a + b, 0);
                 const avg = Math.round((sum / vals.length) * 100) / 100;
-                if (totalEl) totalEl.textContent = `${Math.round(sum * 100) / 100} / ${vals.length * 10}`;
                 if (avgEl) avgEl.textContent = `${avg} / 10`;
                 if (scoreInput) scoreInput.value = String(avg);
               };
