@@ -10,7 +10,7 @@ namespace AssignmentPRN.Business.Services;
 /// <see cref="OllamaJsonClient"/>, which never throws, so the worst case here is "no
 /// probe" and the viva moves to the next question.
 /// </summary>
-public sealed class OllamaFollowUpAnalyzer(OllamaJsonClient client) : IFollowUpAnalyzer
+public sealed class OllamaFollowUpAnalyzer(IAiJsonClient client) : IFollowUpAnalyzer
 {
     /// <summary>
     /// What the probe is allowed to be. Anything longer is a sign the model started

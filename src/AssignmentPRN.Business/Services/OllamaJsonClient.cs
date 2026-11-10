@@ -17,7 +17,7 @@ namespace AssignmentPRN.Business.Services;
 public sealed class OllamaJsonClient(
     IHttpClientFactory httpClientFactory,
     IOptions<OllamaOptions> options,
-    ILogger<OllamaJsonClient> logger)
+    ILogger<OllamaJsonClient> logger) : IAiJsonClient
 {
     private readonly OllamaOptions _options = options.Value;
 

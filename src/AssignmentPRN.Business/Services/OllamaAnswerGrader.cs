@@ -12,7 +12,7 @@ namespace AssignmentPRN.Business.Services;
 /// store. Like the analyzer, a model that cannot be reached returns nothing rather than
 /// failing the caller.
 /// </summary>
-public sealed partial class OllamaAnswerGrader(OllamaJsonClient client) : IAnswerGrader
+public sealed partial class OllamaAnswerGrader(IAiJsonClient client) : IAnswerGrader
 {
     /// <summary>
     /// Grading runs after the slot, not between two questions, so it can afford to wait

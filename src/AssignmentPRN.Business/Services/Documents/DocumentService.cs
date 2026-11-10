@@ -26,6 +26,7 @@ public sealed class DocumentService : IDocumentService
     private readonly IDocumentActor _actor;
     private readonly ICourseRepository _courses;
     private readonly RagOptions _rag;
+    private readonly IAiJsonClient? _aiClient;
 
     public DocumentService(
         IDocumentRepository documentRepository,
@@ -34,7 +35,7 @@ public sealed class DocumentService : IDocumentService
         IOptions<OllamaOptions> ollamaOptions,
         IHttpClientFactory httpClientFactory,
         DocumentProcessingQueue processingQueue,
-        ILogger<DocumentService> logger, IDocumentActor actor, ICourseRepository courses, IOptions<RagOptions> rag)
+        ILogger<DocumentService> logger, IDocumentActor actor, ICourseRepository courses, IOptions<RagOptions> rag, IAiJsonClient? aiClient = null)
     {
         _documentRepository = documentRepository;
         _catalogRepository = catalogRepository;
@@ -43,7 +44,7 @@ public sealed class DocumentService : IDocumentService
         _httpClientFactory = httpClientFactory;
         _processingQueue = processingQueue;
         _logger = logger;
-        _actor = actor; _courses = courses; _rag = rag.Value;
+        _actor = actor; _courses = courses; _rag = rag.Value; _aiClient = aiClient;
     }
 
     public async Task<ServiceResponse<DocumentResponse>> GetAsync(int documentId, CancellationToken cancellationToken = default)
@@ -295,6 +296,41 @@ public sealed class DocumentService : IDocumentService
 
     private async Task<string> CallOllamaGenerateAsync(string prompt, GenerateQuestionsRequest settings, CancellationToken cancellationToken)
     {
+        var schema = new
+        {
+            type = "object",
+            properties = new
+            {
+                questions = new
+                {
+                    type = "array",
+                    minItems = settings.Count,
+                    maxItems = settings.Count,
+                    items = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            questionText = new { type = "string" },
+                            answerKey = new { type = "string" },
+                            explanation = new { type = "string" },
+                            bloomLevel = new { type = "integer", @enum = settings.BloomLevel.HasValue ? new[] { (int)settings.BloomLevel.Value } : new[] { 1, 2, 3, 4, 5, 6 } },
+                            topic = new { type = "string" }
+                        },
+                        required = new[] { "questionText", "answerKey", "explanation", "bloomLevel", "topic" }
+                    }
+                }
+            },
+            required = new[] { "questions" }
+        };
+
+        var maxTokens = Math.Clamp(settings.Count * 500, 2048, 8192);
+        if (_aiClient is not null)
+        {
+            using var aiDoc = await _aiClient.GenerateAsync(prompt, schema, TimeSpan.FromMinutes(3), maxTokens, cancellationToken);
+            if (aiDoc is not null) return aiDoc.RootElement.GetRawText();
+        }
+
         var client = _httpClientFactory.CreateClient();
         client.BaseAddress = new Uri(_ollamaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromMinutes(5);
@@ -304,14 +340,8 @@ public sealed class DocumentService : IDocumentService
             model = _ollamaOptions.GenerationModel,
             prompt = prompt,
             stream = false,
-            format = new {
-                type = "object",
-                properties = new { questions = new { type = "array", minItems = settings.Count, maxItems = settings.Count, items = new { type = "object", properties = new {
-                    questionText = new { type = "string" }, answerKey = new { type = "string" }, explanation = new { type = "string" }, bloomLevel = new { type = "integer", @enum = settings.BloomLevel.HasValue ? new[] { (int)settings.BloomLevel.Value } : new[] { 1, 2, 3, 4, 5, 6 } }, topic = new { type = "string" }
-                }, required = new[] { "questionText", "answerKey", "explanation", "bloomLevel", "topic" } } } },
-                required = new[] { "questions" }
-            },
-            options = new { temperature = 0.3, top_p = 0.9, num_ctx = 4096, num_predict = Math.Clamp(settings.Count * 500, 2048, 8192) }
+            format = schema,
+            options = new { temperature = 0.3, top_p = 0.9, num_ctx = 4096, num_predict = maxTokens }
         };
 
         var response = await client.PostAsJsonAsync("/api/generate", request, cancellationToken);

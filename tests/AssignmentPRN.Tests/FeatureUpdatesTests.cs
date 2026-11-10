@@ -286,4 +286,107 @@ public sealed class FeatureUpdatesTests
         Assert.Equal(1, session.CompletedCount);
         Assert.Null(session.AverageScore);
     }
+
+    private sealed class GeminiEnvelopeHttpClientFactory(Action<HttpRequestMessage, string>? capture = null) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new Handler(capture));
+
+        private sealed class Handler(Action<HttpRequestMessage, string>? capture) : HttpMessageHandler
+        {
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var bodyText = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
+                capture?.Invoke(request, bodyText);
+                var payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    candidates = new[]
+                    {
+                        new
+                        {
+                            content = new
+                            {
+                                parts = new[] { new { text = "```json\n{\"score\":9.0,\"strengths\":\"Tot\",\"weaknesses\":\"Khong\",\"missingPoints\":\"\",\"confidence\":0.95}\n```" } }
+                            }
+                        }
+                    }
+                });
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+        }
+    }
+
+    private sealed class StubGeminiOptions(AssignmentPRN.Business.GeminiOptions value)
+        : Microsoft.Extensions.Options.IOptions<AssignmentPRN.Business.GeminiOptions>
+    {
+        public AssignmentPRN.Business.GeminiOptions Value { get; } = value;
+    }
+
+    [Fact]
+    public async Task GeminiJsonClient_sanitizes_schema_and_parses_structured_json_response()
+    {
+        HttpRequestMessage? capturedReq = null;
+        string capturedBody = "";
+        var geminiOpts = new AssignmentPRN.Business.GeminiOptions
+        {
+            Provider = "Gemini",
+            ApiKey = "test-secret-key",
+            Model = "gemini-2.5-flash"
+        };
+        var client = new GeminiJsonClient(
+            new GeminiEnvelopeHttpClientFactory((req, body) => { capturedReq = req; capturedBody = body; }),
+            new StubGeminiOptions(geminiOpts),
+            new NullLogger<GeminiJsonClient>());
+
+        var schemaWithIntEnum = new
+        {
+            type = "object",
+            properties = new
+            {
+                criteriaId = new { type = "integer", @enum = new[] { 1, 2 } },
+                reason = new { type = "string", @enum = new[] { "Sufficient", "Vague" } }
+            },
+            required = new[] { "criteriaId", "reason" }
+        };
+
+        using var doc = await client.GenerateAsync("Cham bai", schemaWithIntEnum, TimeSpan.FromSeconds(10), 400);
+        Assert.NotNull(doc);
+        Assert.Equal(9.0m, doc!.RootElement.GetProperty("score").GetDecimal());
+        Assert.NotNull(capturedReq);
+        Assert.Equal("test-secret-key", capturedReq!.Headers.GetValues("x-goog-api-key").Single());
+        Assert.Contains("thinkingBudget", capturedBody);
+
+        // Integer enum stripped for Gemini compatibility; string enum preserved
+        using var reqJson = System.Text.Json.JsonDocument.Parse(capturedBody);
+        var props = reqJson.RootElement.GetProperty("generationConfig").GetProperty("responseSchema").GetProperty("properties");
+        Assert.False(props.GetProperty("criteriaId").TryGetProperty("enum", out _));
+        Assert.True(props.GetProperty("reason").TryGetProperty("enum", out _));
+    }
+
+    [Fact]
+    public void RoutingAiJsonClient_selects_provider_from_options()
+    {
+        var geminiClient = new GeminiJsonClient(
+            new GeminiEnvelopeHttpClientFactory(),
+            new StubGeminiOptions(new AssignmentPRN.Business.GeminiOptions { ApiKey = "k", Model = "gemini-2.5-flash" }),
+            new NullLogger<GeminiJsonClient>());
+        var ollamaClient = new OllamaJsonClient(
+            new GeminiEnvelopeHttpClientFactory(),
+            new StubOllamaOptions(),
+            new NullLogger<OllamaJsonClient>());
+
+        var autoWithKey = new RoutingAiJsonClient(
+            new StubGeminiOptions(new AssignmentPRN.Business.GeminiOptions { Provider = "Auto", ApiKey = "k", Model = "gemini-2.5-flash" }),
+            geminiClient,
+            ollamaClient);
+        Assert.Equal("gemini-2.5-flash", autoWithKey.Model);
+
+        var forcedOllama = new RoutingAiJsonClient(
+            new StubGeminiOptions(new AssignmentPRN.Business.GeminiOptions { Provider = "Ollama", ApiKey = "k", Model = "gemini-2.5-flash" }),
+            geminiClient,
+            ollamaClient);
+        Assert.Equal(ollamaClient.Model, forcedOllama.Model);
+    }
 }
