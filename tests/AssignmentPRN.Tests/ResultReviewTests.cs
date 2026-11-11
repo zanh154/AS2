@@ -284,4 +284,89 @@ public sealed class ResultReviewTests
         Assert.False((await Service(db).GetAsync(999, 1)).Success);
         Assert.False((await Service(db).AdjustAsync(0, 1, 5m, null, 1)).Success);
     }
+
+    [Fact]
+    public async Task A_student_only_sees_their_own_answers_and_probes_until_lecturer_publishes()
+    {
+        await using var db = await SeedAsync();
+        db.FollowUpQuestions.Add(new FollowUpQuestion
+        {
+            AnswerId = 1,
+            OrderNo = 1,
+            QuestionText = "Bạn giải thích thêm ví dụ được không?",
+            AnswerTranscript = "Dạ ví dụ về ACID."
+        });
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        // Before lecturer publishes (FinalizedAt is null): scores & AI feedback must be hidden
+        var pending = await Service(db).GetForStudentAsync(1, studentId: 2);
+        Assert.True(pending.Success, pending.Error);
+        Assert.False(pending.Data!.IsPublished);
+        Assert.Null(pending.Data.AiScore);
+        Assert.Null(pending.Data.LecturerScore);
+        Assert.Null(pending.Data.FinalScore);
+        Assert.Null(pending.Data.LecturerComment);
+
+        var ans = Assert.Single(pending.Data.Answers);
+        Assert.Equal("Em trả lời.", ans.Transcript);
+        Assert.Null(ans.AiScore);
+        Assert.Null(ans.Strengths);
+        Assert.Null(ans.Weaknesses);
+        Assert.Null(ans.MissingPoints);
+        Assert.Empty(ans.Criteria);
+        Assert.Null(ans.ExpectedAnswer);
+        var probe = Assert.Single(ans.Probes);
+        Assert.Equal("Bạn giải thích thêm ví dụ được không?", probe.Question);
+        Assert.Equal("Dạ ví dụ về ACID.", probe.Transcript);
+
+        // After lecturer publishes via AdjustAsync -> FinalizedAt is set, scores become visible
+        var pub = await Service(db).AdjustAsync(1, 1, 8.5m, "Trả lời tốt phần câu hỏi thêm.", 1);
+        Assert.True(pub.Success, pub.Error);
+        db.ChangeTracker.Clear();
+
+        var published = await Service(db).GetForStudentAsync(1, studentId: 2);
+        Assert.True(published.Success, published.Error);
+        Assert.True(published.Data!.IsPublished);
+        Assert.Equal(8.5m, published.Data.FinalScore);
+        Assert.Equal("Trả lời tốt phần câu hỏi thêm.", published.Data.LecturerComment);
+        Assert.Equal(8m, Assert.Single(published.Data.Answers).AiScore);
+    }
+
+    [Fact]
+    public async Task Lecturer_per_question_scores_persist_across_reload_and_reset_when_cleared()
+    {
+        await using var db = await SeedAsync();
+
+        var saved = await Service(db).AdjustAsync(
+            candidateId: 1,
+            lecturerId: 1,
+            score: 9.5m,
+            comment: "Chấm lại câu 1",
+            questionScores: [new QuestionScoreAdjustment(1, 9.5m)],
+            ownerLecturerId: 1);
+        Assert.True(saved.Success, saved.Error);
+        db.ChangeTracker.Clear();
+
+        var reloaded = await Service(db).GetAsync(1, lecturerId: 1);
+        Assert.True(reloaded.Success, reloaded.Error);
+        var ans = Assert.Single(reloaded.Data!.Answers);
+        Assert.Equal(8m, ans.AiScore);
+        Assert.Equal(9.5m, ans.LecturerScore);
+        Assert.Equal(9.5m, ans.EffectiveScore);
+        Assert.Equal(9.5m, reloaded.Data.QuestionAverageScore);
+
+        var studentView = await Service(db).GetForStudentAsync(1, studentId: 2);
+        Assert.True(studentView.Success, studentView.Error);
+        Assert.Equal(9.5m, Assert.Single(studentView.Data!.Answers).EffectiveScore);
+
+        // Clearing override restores AI baseline
+        var cleared = await Service(db).AdjustAsync(1, 1, null, null, null, 1);
+        Assert.True(cleared.Success, cleared.Error);
+        db.ChangeTracker.Clear();
+
+        var afterClear = await Service(db).GetAsync(1, lecturerId: 1);
+        Assert.Null(Assert.Single(afterClear.Data!.Answers).LecturerScore);
+        Assert.Equal(8m, Assert.Single(afterClear.Data.Answers).EffectiveScore);
+    }
 }

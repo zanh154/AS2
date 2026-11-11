@@ -12,7 +12,7 @@ namespace AssignmentPRN.Business.Services;
 /// store. Like the analyzer, a model that cannot be reached returns nothing rather than
 /// failing the caller.
 /// </summary>
-public sealed partial class OllamaAnswerGrader(OllamaJsonClient client) : IAnswerGrader
+public sealed partial class OllamaAnswerGrader(IAiJsonClient client) : IAnswerGrader
 {
     /// <summary>
     /// Grading runs after the slot, not between two questions, so it can afford to wait
@@ -29,7 +29,18 @@ public sealed partial class OllamaAnswerGrader(OllamaJsonClient client) : IAnswe
 
         // With no rubric there is nothing to mark against, and with nothing said there
         // is nothing to mark. Either way the examiner marks this one by hand.
-        if (context.Criteria.Count == 0) return AnswerGrade.None;
+        if (context.Criteria.Count == 0)
+        {
+            if (string.IsNullOrWhiteSpace(context.Transcript)
+                && context.FollowUps.All(x => string.IsNullOrWhiteSpace(x.Transcript)))
+            {
+                return AnswerGrade.None;
+            }
+
+            using var holisticAnswer = await client.GenerateAsync(
+                BuildHolisticPrompt(context), HolisticSchema(), Budget, maxTokens: 1200, cancellationToken);
+            return holisticAnswer is null ? AnswerGrade.None : ParseHolistic(holisticAnswer);
+        }
         if (string.IsNullOrWhiteSpace(context.Transcript)
             && context.FollowUps.All(x => string.IsNullOrWhiteSpace(x.Transcript)))
         {
@@ -174,6 +185,89 @@ public sealed partial class OllamaAnswerGrader(OllamaJsonClient client) : IAnswe
                 .Append(" · điểm tối đa ").Append(criterion.MaxScore);
             if (!string.IsNullOrWhiteSpace(criterion.Description)) prompt.Append(": ").Append(criterion.Description);
             prompt.AppendLine();
+        }
+
+        prompt.AppendLine();
+        prompt.AppendLine("Câu trả lời của sinh viên:");
+        prompt.AppendLine(string.IsNullOrWhiteSpace(context.Transcript) ? "(không nói gì)" : context.Transcript);
+
+        if (context.FollowUps.Count > 0)
+        {
+            prompt.AppendLine();
+            prompt.AppendLine("Phần hỏi thêm (tính chung vào câu trả lời này):");
+            foreach (var exchange in context.FollowUps)
+            {
+                prompt.Append("- Hỏi: ").AppendLine(exchange.Question);
+                prompt.Append("  Đáp: ").AppendLine(string.IsNullOrWhiteSpace(exchange.Transcript) ? "(không nói gì)" : exchange.Transcript);
+            }
+        }
+
+        return prompt.ToString();
+    }
+
+    internal static AnswerGrade ParseHolistic(JsonDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return AnswerGrade.None;
+        if (!root.TryGetProperty("score", out var scoreEl)
+            || scoreEl.ValueKind != JsonValueKind.Number
+            || !scoreEl.TryGetDecimal(out var score)
+            || !IsFinite(score))
+        {
+            return AnswerGrade.None;
+        }
+
+        var clampedScore = Math.Round(Math.Clamp(score, 0m, 10m), 2, MidpointRounding.AwayFromZero);
+        var confidence = root.TryGetProperty("confidence", out var stated)
+            && stated.ValueKind == JsonValueKind.Number
+            && stated.TryGetDecimal(out var parsed)
+            && parsed is >= 0m and <= 1m
+            ? parsed
+            : (decimal?)null;
+
+        return new AnswerGrade(
+            [],
+            ReadNote(root, "strengths"),
+            ReadNote(root, "weaknesses"),
+            ReadNote(root, "missingPoints"),
+            confidence,
+            clampedScore);
+    }
+
+    private static object HolisticSchema() => new
+    {
+        type = "object",
+        properties = new
+        {
+            score = new { type = "number" },
+            strengths = new { type = "string" },
+            weaknesses = new { type = "string" },
+            missingPoints = new { type = "string" },
+            confidence = new { type = "number" }
+        },
+        required = new[] { "score", "strengths", "weaknesses", "missingPoints", "confidence" }
+    };
+
+    private static string BuildHolisticPrompt(GradingContext context)
+    {
+        var prompt = new StringBuilder();
+        prompt.AppendLine("Bạn là giám khảo vấn đáp. Hãy chấm câu trả lời của sinh viên theo thang điểm 10.");
+        prompt.AppendLine();
+        prompt.AppendLine("Quy tắc:");
+        prompt.AppendLine("- Chấm tổng quan nội dung trả lời trên thang điểm từ 0 đến 10 (cho phép tối đa 2 chữ số thập phân).");
+        prompt.AppendLine("- Nhận xét ngắn gọn bằng tiếng Việt (điểm mạnh, điểm yếu, ý còn thiếu) dựa trên lời của sinh viên.");
+        prompt.AppendLine("- Đây là bản ghi từ giọng nói: bỏ qua lỗi chính tả/nhận dạng âm thanh nhỏ, chỉ chấm ý và kiến thức.");
+        prompt.AppendLine("- confidence là mức độ chắc chắn của bạn, từ 0 đến 1.");
+        prompt.AppendLine();
+        prompt.AppendLine("Câu hỏi:");
+        prompt.AppendLine(context.QuestionText);
+
+        if (!string.IsNullOrWhiteSpace(context.ExpectedAnswer))
+        {
+            prompt.AppendLine();
+            prompt.AppendLine("Đáp án mong đợi:");
+            prompt.AppendLine(context.ExpectedAnswer);
         }
 
         prompt.AppendLine();

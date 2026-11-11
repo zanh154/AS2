@@ -35,6 +35,15 @@ else if (Model.Schedule is not null)
     else
     {
         <div class="student-schedule-list">
+            @{
+                var hasOpenInExam = schedule.Items
+                    .Where(x => x.CandidateStatus is CandidateStatus.Waiting or CandidateStatus.InProgress)
+                    .Select(x => x.ExamId)
+                    .ToHashSet();
+                var latestSlotByExam = schedule.Items
+                    .GroupBy(x => x.ExamId)
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CandidateId).First().CandidateId);
+            }
             @foreach (var item in schedule.Items)
             {
                 var canOpenSession = currentRole == RoleNames.Admin
@@ -73,7 +82,17 @@ else if (Model.Schedule is not null)
                         @if (Model.IsOwnSchedule && item.CandidateStatus == CandidateStatus.Completed)
                         {
                             <a class="btn btn-outline-secondary" asp-page="/ExamRoom/Result" asp-route-id="@item.CandidateId">Xem bài đã nộp</a>
-                            <a class="btn btn-outline-primary" asp-page="/MyResults/Index" asp-route-id="@item.CandidateId">Xem điểm và nhận xét</a>
+                            <a class="btn btn-outline-primary" asp-page="/MyResults/Index" asp-route-id="@item.CandidateId">Xem bài làm &amp; kết quả</a>
+                            @if (item.SessionStatus == ExamSessionStatus.Completed
+                                && !item.IsCheatingTerminated
+                                && !hasOpenInExam.Contains(item.ExamId)
+                                && latestSlotByExam.TryGetValue(item.ExamId, out var latestCandidateId)
+                                && latestCandidateId == item.CandidateId)
+                            {
+                                <form method="post" asp-page="/StudentSchedule/Mine" asp-page-handler="Continue" asp-route-examId="@item.ExamId" class="d-inline">
+                                    <button class="btn btn-success" type="submit">Thi tiếp</button>
+                                </form>
+                            }
                         }
                         @if (canSit)
                         {

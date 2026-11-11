@@ -838,11 +838,17 @@ public class QuestionService(
                     return Array.Empty<ExamQuestionInput>();
                 }
 
-                return await PickPaperAsync(
+                var picked = await PickPaperAsync(
                         filter,
                         candidate.CandidateId,
                         dealt.TakenQuestionIds.ToHashSet(),
-                        cancellationToken)
+                        cancellationToken);
+                if (picked is null && await questionRepository.IsRetakeCandidateAsync(candidate.ExamId, candidate.CandidateId, cancellationToken))
+                {
+                    picked = await PickPaperAsync(filter, candidate.CandidateId, new HashSet<int>(), cancellationToken);
+                }
+
+                return picked
                     ?? throw new BusinessValidationException(
                         $"Ngân hàng câu hỏi của môn {candidate.CourseCode} không còn đủ {count} câu chưa dùng "
                         + "cho lượt thi này. Hãy báo giảng viên bổ sung câu hỏi.");

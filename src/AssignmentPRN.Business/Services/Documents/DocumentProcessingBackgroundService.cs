@@ -29,6 +29,7 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<DocumentProcessingBackgroundService> _logger;
     private readonly IDocumentProgressNotifier? _progress;
+    private readonly IAiJsonClient? _aiClient;
 
     public DocumentProcessingBackgroundService(
         DocumentProcessingQueue processingQueue,
@@ -36,14 +37,14 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
         IOptions<DocumentStorageOptions> storageOptions,
         IOptions<OllamaOptions> ollamaOptions,
         IHttpClientFactory httpClientFactory,
-        ILogger<DocumentProcessingBackgroundService> logger, IDocumentProgressNotifier? progress = null)
+        ILogger<DocumentProcessingBackgroundService> logger, IDocumentProgressNotifier? progress = null, IAiJsonClient? aiClient = null)
     {
         _processingQueue = processingQueue;
         _scopeFactory = scopeFactory;
         _storageOptions = storageOptions.Value;
         _ollamaOptions = ollamaOptions.Value;
         _httpClientFactory = httpClientFactory;
-        _logger = logger; _progress = progress;
+        _logger = logger; _progress = progress; _aiClient = aiClient;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -286,6 +287,12 @@ public sealed class DocumentProcessingBackgroundService : BackgroundService
 
     private async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken)
     {
+        if (_aiClient is not null)
+        {
+            var vec = await _aiClient.EmbedAsync(text, cancellationToken);
+            return vec is { Length: > 0 } ? vec : throw new InvalidOperationException("Không tạo được embedding từ AI (hãy kiểm tra lại Gemini API key).");
+        }
+
         var client = _httpClientFactory.CreateClient();
         client.BaseAddress = new Uri(_ollamaOptions.BaseUrl);
         client.Timeout = TimeSpan.FromMinutes(2);

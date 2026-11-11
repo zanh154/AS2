@@ -4,7 +4,7 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const vm = require("node:vm");
 
-function loadVoiceCapture() {
+function loadVoiceCapture({ customVoices = null, ttsEndpoint = null } = {}) {
   const elements = new Map();
   class Element extends EventTarget {
     constructor(id) { super(); this.dataset = {}; this.children = []; this.value = ""; this.textContent = ""; this.id = id; }
@@ -20,15 +20,22 @@ function loadVoiceCapture() {
   }
   elements.get("voice-room").dataset.upload = "/upload";
   elements.get("voice-room").dataset.audio = "/audio";
+  if (ttsEndpoint) elements.get("voice-room").dataset.tts = ttsEndpoint;
 
   const window = new EventTarget();
   let spokenUtterance = null;
-  const voices = [
+  let playedAudioUrl = null;
+  const voices = customVoices ?? [
     { name: "Microsoft HoaiMy Online (Natural) - Vietnamese (Vietnam)", lang: "vi-VN" },
     { name: "Microsoft NamMinh Online (Natural) - Vietnamese (Vietnam)", lang: "vi-VN" },
     { name: "Microsoft Jenny Online (Natural) - English (United States)", lang: "en-US" },
     { name: "Microsoft David - English (United States)", lang: "en-US" }
   ];
+  class MockAudio {
+    constructor(url) { this.src = url; }
+    async play() { playedAudioUrl = this.src; }
+    pause() {}
+  }
   const speech = {
     cancel() {},
     getVoices: () => voices,
@@ -57,6 +64,7 @@ function loadVoiceCapture() {
     MediaRecorder: Recorder,
     SpeechSynthesisUtterance: window.SpeechSynthesisUtterance,
     speechSynthesis: speech,
+    Audio: MockAudio,
     performance,
     Blob,
     FormData,
@@ -77,7 +85,8 @@ function loadVoiceCapture() {
     window,
     elements,
     speech,
-    getSpoken: () => spokenUtterance
+    getSpoken: () => spokenUtterance,
+    getPlayedAudioUrl: () => playedAudioUrl
   };
 }
 
@@ -131,4 +140,28 @@ test("detects English questions and uses English voice", async () => {
   assert.ok(spoken.voice, "Voice should be selected");
   assert.equal(spoken.voice.lang, "en-US", "Voice language must match en-US");
   assert.match(spoken.voice.name, /Jenny|David/, "English voice should be chosen");
+});
+
+test("uses server Vietnamese TTS fallback when browser has only English voices", async () => {
+  const harness = loadVoiceCapture({
+    customVoices: [{ name: "Microsoft David Desktop - English (United States)", lang: "en-US" }],
+    ttsEndpoint: "/VoiceRoom/1?handler=Tts"
+  });
+
+  await harness.window.voiceCapture.setState({
+    serverNow: new Date().toISOString(),
+    completed: false,
+    question: {
+      examQuestionId: 103,
+      text: "JOIN trong SQL dùng để làm gì?",
+      deadline: new Date(Date.now() + 60000).toISOString()
+    }
+  });
+
+  harness.elements.get("voice-read").dispatchEvent(new Event("click"));
+  assert.equal(harness.getSpoken(), null, "Must not fall back to English OS voice for Vietnamese question");
+  const audioUrl = harness.getPlayedAudioUrl();
+  assert.ok(audioUrl, "Should play audio from server TTS endpoint");
+  assert.match(audioUrl, /handler=Tts/);
+  assert.match(audioUrl, /lang=vi-VN/);
 });

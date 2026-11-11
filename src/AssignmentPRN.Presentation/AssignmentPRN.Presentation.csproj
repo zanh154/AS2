@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Keep the Web SDK/static-assets manifest aligned with Program.cs. -->
     <WebRoot>UI Assets</WebRoot>
+    <UserSecretsId>aives-prn222-local-secrets</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssignmentPRN.Business\AssignmentPRN.Business.csproj" />

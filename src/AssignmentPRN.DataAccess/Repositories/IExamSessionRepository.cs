@@ -15,6 +15,8 @@ public interface IExamSessionRepository
     Task<ExamSessionDetail> AddStudentAsync(int examId, int studentId, DateTime scheduledTime,
         CancellationToken cancellationToken = default);
 
+    Task<ExamSessionDetail> ContinueCompletedAsync(int examId, int? studentId, DateTime startFrom, bool allowCheated, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ExamSessionListItem>> ListAsync(CancellationToken cancellationToken = default);
 
     Task<ExamSessionDetail?> GetDetailAsync(int examId, CancellationToken cancellationToken = default);

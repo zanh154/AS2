@@ -358,9 +358,23 @@ document.addEventListener("DOMContentLoaded", () => {
     let cursor = valid ? start.getTime() : Number.NaN;
     let overflowing = 0;
     let lastEnd = null;
+    let slotIndex = 0;
 
     rows.querySelectorAll("[data-participant-row]").forEach((row) => {
+      const checkbox = row.querySelector("[data-student-select]");
+      const selected = !checkbox || checkbox.checked;
+      const numberEl = row.querySelector(".participant-number");
       const preview = row.querySelector("[data-slot-preview]");
+
+      row.style.opacity = selected ? "" : "0.55";
+      if (!selected) {
+        if (numberEl) numberEl.textContent = "Bỏ qua";
+        if (preview) preview.textContent = "Không dự thi";
+        return;
+      }
+
+      slotIndex += 1;
+      if (numberEl) numberEl.textContent = `Ca ${slotIndex}`;
       if (!valid) {
         preview.textContent = "—";
         return;
@@ -379,6 +393,13 @@ document.addEventListener("DOMContentLoaded", () => {
       cursor = to.getTime();
       lastEnd = to;
     });
+
+    const summaryEl = rows.querySelector("[data-selection-summary]");
+    const selectAllEl = rows.querySelector("[data-select-all]");
+    const allChecks = [...rows.querySelectorAll("[data-student-select]")];
+    const checkedCount = allChecks.filter((item) => item.checked).length;
+    if (summaryEl) summaryEl.textContent = `Đã chọn ${checkedCount} / ${allChecks.length} sinh viên`;
+    if (selectAllEl) selectAllEl.checked = allChecks.length > 0 && checkedCount === allChecks.length;
 
     // The server refuses a session that runs past midnight, so say so while the
     // numbers are still being typed rather than after the form is submitted.
@@ -413,6 +434,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const renderRoster = (students) => {
     rows.innerHTML = "";
+    const preRaw = rows.dataset.preselectedStudents || "";
+    const hasPre = preRaw.length > 0;
+    const preSet = new Set(preRaw.split(",").filter(Boolean).map((v) => Number(v)));
+
+    if (students.length > 0) {
+      const filterFlag = document.createElement("input");
+      filterFlag.type = "hidden";
+      filterFlag.name = "FilterStudentsBySelection";
+      filterFlag.value = "true";
+      rows.appendChild(filterFlag);
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 px-1";
+
+      const selectAllLabel = document.createElement("label");
+      selectAllLabel.className = "form-check d-flex align-items-center gap-2 mb-0";
+      const selectAll = document.createElement("input");
+      selectAll.type = "checkbox";
+      selectAll.className = "form-check-input mt-0";
+      selectAll.dataset.selectAll = "";
+      selectAll.checked = true;
+      const selectAllText = document.createElement("span");
+      selectAllText.className = "fw-semibold";
+      selectAllText.textContent = "Chọn tất cả sinh viên";
+      selectAllLabel.append(selectAll, selectAllText);
+
+      const summary = document.createElement("span");
+      summary.className = "text-muted small";
+      summary.dataset.selectionSummary = "";
+
+      selectAll.addEventListener("change", () => {
+        rows.querySelectorAll("[data-student-select]").forEach((cb) => {
+          cb.checked = selectAll.checked;
+        });
+        updatePreviews();
+      });
+
+      toolbar.append(selectAllLabel, summary);
+      rows.appendChild(toolbar);
+    }
 
     students.forEach((student, index) => {
       const row = document.createElement("div");
@@ -426,8 +487,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const fields = document.createElement("div");
       fields.className = "participant-fields";
 
-      const identity = document.createElement("div");
+      const identity = document.createElement("label");
       identity.className = "student-identity participant-student";
+      identity.style.cursor = "pointer";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "form-check-input me-2";
+      checkbox.name = "SelectedStudentIds";
+      checkbox.value = String(student.id);
+      checkbox.dataset.studentSelect = "";
+      checkbox.checked = !hasPre || preSet.has(Number(student.id));
+      checkbox.addEventListener("change", updatePreviews);
+
       const avatar = document.createElement("div");
       avatar.className = "avatar";
       avatar.setAttribute("aria-hidden", "true");
@@ -438,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = document.createElement("span");
       email.textContent = student.email;
       text.append(name, email);
-      identity.append(avatar, text);
+      identity.append(checkbox, avatar, text);
 
       const preview = document.createElement("div");
       preview.className = "slot-preview";

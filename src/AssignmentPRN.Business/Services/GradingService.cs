@@ -55,34 +55,73 @@ public sealed class GradingService(
             var skipped = 0;
             var done = 0;
 
-            foreach (var answer in slot.Answers)
-            {
-                var context = new GradingContext(
-                    answer.QuestionText,
-                    answer.ExpectedAnswer,
-                    answer.Criteria.Select(x => new RubricCriterionInfo(x.CriteriaId, x.Name, x.Description, x.MaxScore)).ToArray(),
-                    answer.Transcript,
-                    answer.Probes.Select(x => new FollowUpExchange(x.QuestionText, x.AnswerTranscript)).ToArray());
+            var contexts = slot.Answers.Select(answer => new GradingContext(
+                answer.QuestionText,
+                answer.ExpectedAnswer,
+                answer.Criteria.Select(x => new RubricCriterionInfo(x.CriteriaId, x.Name, x.Description, x.MaxScore)).ToArray(),
+                answer.Transcript,
+                answer.Probes.Select(x => new FollowUpExchange(x.QuestionText, x.AnswerTranscript)).ToArray()))
+                .ToArray();
 
-                AnswerGrade grade;
+            var rawGrades = new AnswerGrade[slot.Answers.Count];
+            var progressCount = 0;
+            var progressGate = new object();
+            using var semaphore = new SemaphoreSlim(4);
+
+            await Task.WhenAll(Enumerable.Range(0, slot.Answers.Count).Select(async i =>
+            {
+                await semaphore.WaitAsync(ct);
                 try
                 {
-                    grade = await grader.GradeAsync(context, ct);
+                    AnswerGrade grade;
+                    try
+                    {
+                        grade = await grader.GradeAsync(contexts[i], ct);
+                    }
+                    catch (Exception) when (!ct.IsCancellationRequested)
+                    {
+                        grade = AnswerGrade.None;
+                    }
+                    rawGrades[i] = grade;
+                    lock (progressGate)
+                    {
+                        progressCount++;
+                        notifier?.Progress(info, progressCount);
+                    }
                 }
-                catch (Exception) when (!ct.IsCancellationRequested)
+                finally
                 {
-                    // The contract says a grader swallows its own failures; one that
-                    // breaks it leaves the answer for the examiner instead of the slot.
-                    grade = AnswerGrade.None;
+                    semaphore.Release();
+                }
+            }));
+
+            for (var i = 0; i < slot.Answers.Count; i++)
+            {
+                var answer = slot.Answers[i];
+                var context = contexts[i];
+                var grade = rawGrades[i];
+
+                if (grade.Marks.Count == 0 && grade.HolisticScore is decimal holistic)
+                {
+                    var clamped = Math.Round(Math.Clamp(holistic, 0m, RubricScoring.MaxScore), 2, MidpointRounding.AwayFromZero);
+                    weighted.Add((answer.IsFollowUpQuestion, clamped));
+                    evaluations.Add(new AnswerEvaluation(
+                        answer.AnswerId,
+                        clamped,
+                        grade.Confidence,
+                        "AI chấm tổng quan theo câu hỏi và đáp án chuẩn.",
+                        grade.Strengths,
+                        grade.Weaknesses,
+                        grade.MissingPoints,
+                        []));
+                    done++;
+                    continue;
                 }
 
-                // Nothing came back: leave the answer unmarked so the examiner can see
-                // it was never judged, rather than storing a zero.
                 if (grade.Marks.Count == 0)
                 {
                     skipped++;
                     weighted.Add((answer.IsFollowUpQuestion, null));
-                    notifier?.Progress(info, done + skipped);
                     continue;
                 }
 
@@ -100,7 +139,6 @@ public sealed class GradingService(
                     grade.MissingPoints,
                     scored.Criteria.Select(x => (x.CriteriaId, x.Awarded, x.Comment)).ToArray()));
                 done++;
-                notifier?.Progress(info, done + skipped);
             }
 
             // A retry may grade only part of the paper. Do not replace a previous total

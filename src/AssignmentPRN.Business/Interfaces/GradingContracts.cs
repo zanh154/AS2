@@ -66,10 +66,11 @@ public sealed record AnswerGrade(
     string? Strengths,
     string? Weaknesses,
     string? MissingPoints,
-    decimal? Confidence)
+    decimal? Confidence,
+    decimal? HolisticScore = null)
 {
     /// <summary>Nothing was graded: the model was unreachable or unusable.</summary>
-    public static readonly AnswerGrade None = new([], null, null, null, null);
+    public static readonly AnswerGrade None = new([], null, null, null, null, null);
 }
 
 /// <summary>Everything the grader may read about one answer.</summary>

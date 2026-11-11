@@ -110,6 +110,17 @@ public class ExamResultRepository(AivesDbContext context, IExamStatePolicy polic
                 Status = candidate.Status,
                 StartedAt = candidate.StartedAt,
                 FinishedAt = candidate.FinishedAt,
+                FinalScore = context.FinalResults
+                    .Where(result => result.CandidateId == candidate.CandidateId)
+                    .Select(result => result.FinalScore)
+                    .FirstOrDefault(),
+                HasFinalResult = context.FinalResults.Any(result => result.CandidateId == candidate.CandidateId),
+                CheatViolationCount = context.Set<AssignmentPRN.DataAccess.Entities.ExamLog>()
+                    .Count(log => log.CandidateId == candidate.CandidateId
+                        && (log.Action == "CHEAT_WARNING" || log.Action == "CHEAT_DISQUALIFIED")),
+                IsCheatingTerminated = candidate.Status == CandidateStatus.Completed
+                    && context.Set<AssignmentPRN.DataAccess.Entities.ExamLog>()
+                        .Any(log => log.CandidateId == candidate.CandidateId && log.Action == "CHEAT_DISQUALIFIED"),
                 Slots = context.ExamQuestions
                     .Where(slot => slot.CandidateId == candidate.CandidateId)
                     .OrderBy(slot => slot.OrderNo)

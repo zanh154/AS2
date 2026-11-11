@@ -93,6 +93,16 @@ public abstract class ExamSessionsPage(
         return Go(nameof(Details), new { id });
     }
 
+    protected async Task<IActionResult> ContinueSession(int id, int? studentId, CancellationToken cancellationToken)
+    {
+        var result = await examSessionService.ContinueCompletedSessionAsync(id, studentId, CurrentLecturerId, null, cancellationToken);
+        TempData[result.Success ? "Success" : "Error"] = result.Success
+            ? (studentId.HasValue ? "Đã mở lượt thi tiếp cho sinh viên." : "Đã mở phiên cho tất cả sinh viên thi tiếp.")
+            : result.Error;
+        if (result.Success) await BroadcastAsync("updated", id, "Phiên thi đã được mở để sinh viên thi tiếp.", cancellationToken);
+        return Go(nameof(Details), new { id });
+    }
+
     private async Task EditOptions(ExamSessionEditViewModel model, CancellationToken cancellationToken)
     {
         var options = await examSessionService.GetCreationOptionsAsync(cancellationToken);
@@ -207,7 +217,9 @@ public abstract class ExamSessionsPage(
                 StartTime = model.StartTime!.Value,
                 TimePerStudent = model.TimePerStudent,
                 MainQuestionCount = model.MainQuestionCount,
-                MaxFollowUpCount = model.MaxFollowUpCount
+                MaxFollowUpCount = model.MaxFollowUpCount,
+                SelectedStudentIds = model.FilterStudentsBySelection ? model.SelectedStudentIds : null,
+                FilterStudentsBySelection = model.FilterStudentsBySelection
             },
             cancellationToken);
 

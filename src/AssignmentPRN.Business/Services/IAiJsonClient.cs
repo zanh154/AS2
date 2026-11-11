@@ -1,0 +1,311 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace AssignmentPRN.Business.Services;
+
+/// <summary>
+/// Hợp đồng chung cho mọi bộ AI suy luận JSON &amp; nhúng vector (Google Gemini hoặc Ollama local).
+/// Mọi cài đặt không được ném ngoại lệ ra ngoài để phòng thi luôn vận hành an toàn.
+/// </summary>
+public interface IAiJsonClient
+{
+    string Model { get; }
+
+    Task<JsonDocument?> GenerateAsync(
+        string prompt,
+        object format,
+        TimeSpan timeout,
+        int maxTokens,
+        CancellationToken cancellationToken = default);
+
+    Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default) =>
+        Task.FromResult<float[]?>(null);
+}
+
+/// <summary>
+/// Gọi Google Gemini API (<c>generateContent</c> &amp; <c>embedContent</c>).
+/// </summary>
+public sealed class GeminiJsonClient(
+    IHttpClientFactory httpClientFactory,
+    IOptions<GeminiOptions> options,
+    ILogger<GeminiJsonClient> logger) : IAiJsonClient
+{
+    private readonly GeminiOptions _options = options.Value;
+
+    public string Model => string.IsNullOrWhiteSpace(_options.Model) ? "gemini-3.5-flash-lite" : _options.Model.Trim();
+
+    private string EmbeddingModel => string.IsNullOrWhiteSpace(_options.EmbeddingModel)
+        ? "gemini-embedding-001"
+        : _options.EmbeddingModel.Trim();
+
+    public async Task<JsonDocument?> GenerateAsync(
+        string prompt,
+        object format,
+        TimeSpan timeout,
+        int maxTokens,
+        CancellationToken cancellationToken = default)
+    {
+        var apiKey = _options.ResolveApiKey();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            logger.LogWarning("Gemini API key is missing; cannot call Gemini model {Model}.", Model);
+            return null;
+        }
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(timeout);
+
+        try
+        {
+            var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl)
+                ? "https://generativelanguage.googleapis.com"
+                : _options.BaseUrl.TrimEnd('/');
+            var modelsToTry = new List<string> { Model };
+            if (!string.Equals(Model, "gemini-3.1-flash-lite", StringComparison.OrdinalIgnoreCase))
+            {
+                modelsToTry.Add("gemini-3.1-flash-lite");
+            }
+
+            var payload = BuildRequestPayload(prompt, format, maxTokens);
+            var client = httpClientFactory.CreateClient();
+            client.Timeout = Timeout.InfiniteTimeSpan;
+
+            HttpResponseMessage? response = null;
+            foreach (var candidateModel in modelsToTry)
+            {
+                var endpoint = $"{baseUrl}/v1beta/models/{Uri.EscapeDataString(candidateModel)}:generateContent";
+                using var req = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                req.Headers.Add("x-goog-api-key", apiKey);
+                req.Content = JsonContent.Create(payload);
+
+                response?.Dispose();
+                response = await client.SendAsync(req, budget.Token);
+                if (response.IsSuccessStatusCode) break;
+
+                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.ServiceUnavailable or HttpStatusCode.TooManyRequests)
+                {
+                    logger.LogWarning("Gemini model {Model} returned HTTP {Status}; trying fallback if available.", candidateModel, (int)response.StatusCode);
+                    continue;
+                }
+
+                break;
+            }
+
+            if (response is null || !response.IsSuccessStatusCode)
+            {
+                var status = response is null ? 0 : (int)response.StatusCode;
+                var detail = response is null ? "" : await response.Content.ReadAsStringAsync(budget.Token);
+                logger.LogWarning("Gemini returned HTTP {Status}: {Detail}", status, detail.Length > 300 ? detail[..300] : detail);
+                return null;
+            }
+
+
+            using var doc = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(budget.Token),
+                cancellationToken: budget.Token);
+
+            var text = ExtractCandidateText(doc);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            return JsonDocument.Parse(StripCodeFences(text));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarning("Gemini did not answer within {Timeout}; continuing without it.", timeout);
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or UriFormatException or InvalidOperationException)
+        {
+            logger.LogWarning(ex, "Gemini call failed; continuing without it.");
+            return null;
+        }
+    }
+
+    public async Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default)
+    {
+        var apiKey = _options.ResolveApiKey();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            logger.LogWarning("Gemini API key is missing; cannot call Gemini embedding model {Model}.", EmbeddingModel);
+            return null;
+        }
+
+        try
+        {
+            var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl)
+                ? "https://generativelanguage.googleapis.com"
+                : _options.BaseUrl.TrimEnd('/');
+            var endpoint = $"{baseUrl}/v1beta/models/{Uri.EscapeDataString(EmbeddingModel)}:embedContent";
+
+            var payload = new
+            {
+                model = $"models/{EmbeddingModel}",
+                content = new { parts = new[] { new { text } } },
+                outputDimensionality = 768
+            };
+
+            var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromMinutes(2);
+            using var req = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            req.Headers.Add("x-goog-api-key", apiKey);
+            req.Content = JsonContent.Create(payload);
+
+            using var response = await client.SendAsync(req, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Gemini embedding returned HTTP {Status}.", (int)response.StatusCode);
+                return null;
+            }
+
+            using var doc = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken);
+
+            if (!doc.RootElement.TryGetProperty("embedding", out var embeddingEl)
+                || !embeddingEl.TryGetProperty("values", out var valuesEl)
+                || valuesEl.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var vector = new float[valuesEl.GetArrayLength()];
+            var idx = 0;
+            foreach (var item in valuesEl.EnumerateArray())
+            {
+                vector[idx++] = item.GetSingle();
+            }
+
+            return vector.Length > 0 ? vector : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or UriFormatException or InvalidOperationException)
+        {
+            logger.LogWarning(ex, "Gemini embedding call failed.");
+            return null;
+        }
+    }
+
+    internal static JsonObject BuildRequestPayload(string prompt, object format, int maxTokens)
+    {
+        var schemaNode = SanitizeSchemaForGemini(JsonSerializer.SerializeToNode(format));
+        var genConfig = new JsonObject
+        {
+            ["temperature"] = 0.2,
+            ["topP"] = 0.9,
+            ["maxOutputTokens"] = Math.Max(maxTokens, 2048),
+            ["responseMimeType"] = "application/json",
+            ["responseSchema"] = schemaNode
+        };
+
+        return new JsonObject
+        {
+            ["contents"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["role"] = "user",
+                    ["parts"] = new JsonArray
+                    {
+                        new JsonObject { ["text"] = prompt }
+                    }
+                }
+            },
+            ["generationConfig"] = genConfig
+        };
+    }
+
+    internal static JsonNode? SanitizeSchemaForGemini(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            var typeName = obj["type"]?.GetValue<string>();
+            if (obj.ContainsKey("enum") && !string.Equals(typeName, "string", StringComparison.OrdinalIgnoreCase))
+            {
+                obj.Remove("enum");
+            }
+
+            foreach (var kvp in obj.ToList())
+            {
+                SanitizeSchemaForGemini(kvp.Value);
+            }
+        }
+        else if (node is JsonArray arr)
+        {
+            foreach (var item in arr)
+            {
+                SanitizeSchemaForGemini(item);
+            }
+        }
+
+        return node;
+    }
+
+    private static string? ExtractCandidateText(JsonDocument doc)
+    {
+        if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var candidate in candidates.EnumerateArray())
+        {
+            if (!candidate.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Object)
+                continue;
+            if (!content.TryGetProperty("parts", out var parts) || parts.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var part in parts.EnumerateArray())
+            {
+                if (part.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+                {
+                    var text = textEl.GetString();
+                    if (!string.IsNullOrWhiteSpace(text)) return text;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string StripCodeFences(string raw)
+    {
+        var trimmed = raw.Trim();
+        if (!trimmed.StartsWith("```", StringComparison.Ordinal)) return trimmed;
+        var firstNewline = trimmed.IndexOf('\n');
+        var lastFence = trimmed.LastIndexOf("```", StringComparison.Ordinal);
+        if (firstNewline >= 0 && lastFence > firstNewline)
+        {
+            return trimmed[(firstNewline + 1)..lastFence].Trim();
+        }
+        return trimmed;
+    }
+}
+
+/// <summary>
+/// Tự động điều hướng lời gọi AI sang <see cref="GeminiJsonClient"/> khi cấu hình dùng Gemini
+/// (hoặc có API key ở chế độ Auto), và dùng <see cref="OllamaJsonClient"/> khi chọn Ollama.
+/// </summary>
+public sealed class RoutingAiJsonClient(
+    IOptions<GeminiOptions> geminiOptions,
+    GeminiJsonClient geminiClient,
+    OllamaJsonClient ollamaClient) : IAiJsonClient
+{
+    private IAiJsonClient Active => geminiOptions.Value.IsGeminiActive ? geminiClient : ollamaClient;
+
+    public string Model => Active.Model;
+
+    public Task<JsonDocument?> GenerateAsync(
+        string prompt,
+        object format,
+        TimeSpan timeout,
+        int maxTokens,
+        CancellationToken cancellationToken = default) =>
+        Active.GenerateAsync(prompt, format, timeout, maxTokens, cancellationToken);
+
+    public Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default) =>
+        Active.EmbedAsync(text, cancellationToken);
+}

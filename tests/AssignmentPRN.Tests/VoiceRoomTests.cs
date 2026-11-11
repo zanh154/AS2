@@ -167,4 +167,38 @@ public sealed class VoiceRoomTests
         clock.At = clock.At.AddSeconds(6);
         Assert.True((await Service(db, clock).SyncAsync(1, 2)).Data!.Completed);
     }
+
+    [Fact]
+    public async Task Proctor_fourth_violation_terminates_exam_with_zero_score()
+    {
+        var clock = new Clock();
+        await using var db = await SeedAsync(clock);
+        var policy = new ExamStatePolicy();
+        var gradingRepo = new GradingRepository(db, policy);
+        var voiceService = new VoiceRoomService(
+            new VoiceRoomRepository(db, policy),
+            new QuestionService(new QuestionRepository(db, policy), new CatalogRepository(db), null!),
+            clock, gradingRepo: gradingRepo);
+
+        var disq = await voiceService.RecordProctorViolationAsync(1, 2, 4, "Chuyển tab lần 4");
+        Assert.True(disq.Success);
+        Assert.True(disq.Data!.Disqualified);
+
+        var lockedState = (await voiceService.SyncAsync(1, 2)).Data!;
+        Assert.True(lockedState.Completed);
+        Assert.True(lockedState.Disqualified);
+        Assert.Equal(0m, (await db.FinalResults.SingleAsync()).FinalScore);
+
+        var resultService = new ExamResultService(new ExamResultRepository(db, policy), new QuestionRepository(db, policy));
+        var reviewService = new ResultReviewService(gradingRepo, resultService, clock);
+
+        var beforeReview = (await reviewService.GetAsync(1, 1)).Data!;
+        Assert.True(beforeReview.IsDisqualified);
+        Assert.Equal(1, beforeReview.CheatViolationCount);
+
+        var sheet = (await resultService.GetSessionResultsAsync(1, 1)).Data!;
+        var row = Assert.Single(sheet.Candidates);
+        Assert.True(row.IsCheatingTerminated);
+        Assert.Equal(0m, row.Score);
+    }
 }

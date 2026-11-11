@@ -126,4 +126,6 @@ public sealed class StudentScheduleItem
     public ExamSessionStatus SessionStatus { get; init; }
 
     public CandidateStatus CandidateStatus { get; init; }
+
+    public bool IsCheatingTerminated { get; init; }
 }

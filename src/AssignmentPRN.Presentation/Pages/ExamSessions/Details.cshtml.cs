@@ -6,6 +6,7 @@ public sealed class DetailsModel(IExamSessionService sessions, IQuestionService 
 {
     public Task<IActionResult> OnGetAsync(int id, CancellationToken ct) => Details(id, ct);
     public Task<IActionResult> OnPostChangeStatusAsync(int id, ExamSessionStatus status, CancellationToken ct) => ChangeStatus(id, status, ct);
+    public Task<IActionResult> OnPostContinueSessionAsync(int id, int? studentId, CancellationToken ct) => ContinueSession(id, studentId, ct);
     public Task<IActionResult> OnPostDeleteAsync(int id, CancellationToken ct) => Delete(id, ct);
     public Task<IActionResult> OnPostAddStudentAsync(ExamSessionAddStudentViewModel model, CancellationToken ct) => AddStudent(model, ct);
     public Task<IActionResult> OnPostRemoveStudentAsync(int examId, int candidateId, CancellationToken ct) => RemoveStudent(examId, candidateId, ct);

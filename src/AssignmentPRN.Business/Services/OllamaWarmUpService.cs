@@ -19,7 +19,8 @@ namespace AssignmentPRN.Business.Services;
 /// </summary>
 public sealed class OllamaWarmUpService(
     OllamaJsonClient client,
-    ILogger<OllamaWarmUpService> logger) : BackgroundService
+    ILogger<OllamaWarmUpService> logger,
+    Microsoft.Extensions.Options.IOptions<GeminiOptions>? geminiOptions = null) : BackgroundService
 {
     /// <summary>
     /// Dài hơn hẳn thời gian nạp đã đo, vì ở đây không có ai phải chờ. Hết hạn thì bỏ.
@@ -38,6 +39,12 @@ public sealed class OllamaWarmUpService(
     {
         // Không giữ việc khởi động host lại chờ model nạp.
         await Task.Yield();
+
+        if (geminiOptions?.Value.IsGeminiActive == true)
+        {
+            logger.LogInformation("Đang dùng Gemini ({Model}); bỏ qua bước nạp sẵn Ollama local.", geminiOptions.Value.Model);
+            return;
+        }
 
         var started = DateTimeOffset.UtcNow;
         using var answer = await client.GenerateAsync(

@@ -3,6 +3,8 @@
     var candidate = Model.Candidate;
     var paper = candidate.Paper;
     var isCompleted = candidate.Status == CandidateStatus.Completed;
+    decimal? headerScore = !isCompleted ? null : (Model.Review is { } rev ? rev.FinalScore : paper.Score);
+    var hasMcqSelections = paper.Questions.Any(q => q.SelectedOptionId.HasValue);
 }
 
 <div class="exam-result-page">
@@ -18,9 +20,9 @@
                 <span class="status-chip @ExamSessionText.ChipModifier(candidate.Status)">@ExamSessionText.Status(candidate.Status)</span>
             </p>
         </div>
-        <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(isCompleted ? paper.Score : null) trên 10">
+        <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(headerScore) trên 10">
             <span>Điểm</span>
-            <strong>@ExamResultText.Score(isCompleted ? paper.Score : null)</strong>
+            <strong>@ExamResultText.Score(headerScore)</strong>
             <small>/ 10</small>
         </div>
     </div>
@@ -29,8 +31,11 @@
         <div class="metric-card"><span>Giờ thi</span><strong>@(candidate.ScheduledTime?.ToString("HH:mm") ?? "—")</strong></div>
         <div class="metric-card"><span>Bắt đầu</span><strong>@(candidate.StartedAt?.ToString("HH:mm") ?? "—")</strong></div>
         <div class="metric-card"><span>Nộp bài</span><strong>@(candidate.FinishedAt?.ToString("HH:mm") ?? "—")</strong></div>
-        <div class="metric-card"><span>Câu chính đúng</span><strong>@ExamResultText.Ratio(paper.MainQuestions.Count(q => q.IsCorrect), paper.MainQuestions.Count)</strong></div>
-        <div class="metric-card"><span>Đào sâu đúng</span><strong>@ExamResultText.Ratio(paper.FollowUpCorrectCount, paper.FollowUpQuestions.Count)</strong></div>
+        @if (hasMcqSelections || Model.Review?.Answers.Count is null or 0)
+        {
+            <div class="metric-card"><span>Câu chính đúng</span><strong>@ExamResultText.Ratio(paper.MainQuestions.Count(q => q.IsCorrect), paper.MainQuestions.Count)</strong></div>
+            <div class="metric-card"><span>Đào sâu đúng</span><strong>@ExamResultText.Ratio(paper.FollowUpCorrectCount, paper.FollowUpQuestions.Count)</strong></div>
+        }
     </section>
 
     @if (!isCompleted)
@@ -48,75 +53,188 @@
     {
         <div class="content-card exam-result-ai">
             <div class="section-heading">
-                <div>
-                    <h2>AI đề xuất &amp; điểm chốt</h2>
-                    <p class="text-muted">
-                        AI chỉ gợi ý. Điểm chốt là của giảng viên, và mọi lần thay đổi đều được ghi lại.
-                    </p>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <h2 class="mb-0">AI đề xuất &amp; điểm chốt</h2>
+                    @if (review.FinalizedAt is { } finalizedAt)
+                    {
+                        <span class="status-chip status-chip--success">Đã công bố · @finalizedAt.ToString("HH:mm dd/MM")</span>
+                    }
+                    else
+                    {
+                        <span class="status-chip status-chip--warning">Chưa công bố</span>
+                    }
                 </div>
+                @if (isCompleted && !review.IsDisqualified && review.Answers.Count > 0)
+                {
+                    var hasAnyAiScore = review.Answers.Any(a => !a.NotGraded);
+                    <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="GradeWithGemini" asp-route-id="@candidate.Paper.CandidateId">
+                        <button type="submit" class="btn btn-outline-primary text-nowrap">
+                            @(hasAnyAiScore ? "Chấm lại bằng Gemini AI" : "Chấm ngay bằng Gemini AI")
+                        </button>
+                    </form>
+                }
             </div>
             <p class="info-note" id="grading-live-status" role="status" aria-live="polite" hidden></p>
 
-            <div class="metric-row">
-                <div class="metric-card"><span>AI đề xuất</span><strong>@ExamResultText.Score(review.AiScore)</strong></div>
-                <div class="metric-card"><span>Giảng viên chốt</span><strong>@ExamResultText.Score(review.LecturerScore)</strong></div>
-                <div class="metric-card"><span>Điểm cuối</span><strong>@ExamResultText.Score(review.FinalScore)</strong></div>
-            </div>
-
-            @if (review.FinalizedAt is { } finalizedAt)
+            @if (review.IsDisqualified)
             {
-                <p class="text-muted">Chốt bởi @(review.FinalizedByName ?? "—") lúc @finalizedAt.ToString("HH:mm dd/MM/yyyy").</p>
+                <div class="proctor-alert proctor-alert--danger" role="alert">
+                    <span class="proctor-alert__badge">GIAN LẬN · ĐÌNH CHỈ · 0 ĐIỂM</span>
+                    <strong>Rời màn hình / chuyển tab @review.CheatViolationCount lần (vượt mức 3/3).</strong>
+                </div>
+            }
+            else if (review.CheatViolationCount > 0)
+            {
+                <div class="proctor-alert proctor-alert--warning" role="status">
+                    <span class="proctor-alert__badge">CẢNH BÁO · @review.CheatViolationCount / 3</span>
+                    <strong>Phát hiện @review.CheatViolationCount lần rời màn hình trong lúc thi.</strong>
+                </div>
             }
 
+            <div class="metric-row">
+                <div class="metric-card"><span>AI đề xuất</span><strong>@ExamResultText.Score(review.AiScore)</strong></div>
+                <div class="metric-card"><span>TB mỗi câu</span><strong id="flex-avg-display">@(review.QuestionAverageScore is { } qa ? $"{qa:0.##} / 10" : "—")</strong></div>
+                <div class="metric-card"><span>Giảng viên chốt</span><strong>@ExamResultText.Score(review.LecturerScore)</strong></div>
+            </div>
+
             <form method="post" asp-page="/ExamResults/Candidate" asp-page-handler="Adjust" asp-route-id="@candidate.Paper.CandidateId"
-                  class="exam-result-adjust">
+                  class="exam-result-adjust" id="flexible-grading-form">
+                @if (review.Answers.Count > 0)
+                {
+                    <div class="form-row">
+                        <label>Điểm từng câu</label>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Câu hỏi</th>
+                                    <th>AI chấm</th>
+                                    <th>Điểm giảng viên (0–10)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var answer in review.Answers)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>Câu @answer.OrderNo</strong>
+                                        @if (answer.Probes.Count > 0)
+                                        {
+                                            <span class="exam-result-probe-chip">+@answer.Probes.Count câu bổ sung</span>
+                                        }
+                                        <div class="text-muted small text-truncate" style="max-width: 360px;" title="@answer.QuestionText">@answer.QuestionText</div>
+                                    </td>
+                                    <td class="cell-nowrap">@ExamResultText.Score(answer.AiScore)</td>
+                                    <td style="width: 150px;">
+                                        <input type="hidden" name="questionOrder" value="@answer.OrderNo" />
+                                        <input type="number" class="form-control" name="questionScore"
+                                               min="0" max="10" step="0.01" inputmode="decimal"
+                                               data-flex-q-input
+                                               value="@(answer.EffectiveScore?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))"
+                                               placeholder="0 – 10" />
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
                 <div class="form-row">
-                    <label for="lecturer-score">Điểm giảng viên (0–10)</label>
+                    <label for="lecturer-score">Điểm chốt tổng (0–10)</label>
                     <input class="form-control" id="lecturer-score" name="score" type="number" inputmode="decimal"
-                           min="0" max="10" step="0.01" value="@review.LecturerScore?.ToString("0.##")" />
-                    <small class="text-muted">Để trống rồi lưu nếu muốn bỏ điểm chốt và quay lại điểm AI.</small>
+                           min="0" max="10" step="0.01"
+                           value="@((review.LecturerScore ?? review.AiScore)?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))" />
                 </div>
                 <div class="form-row">
                     <label for="lecturer-comment">Nhận xét</label>
                     <textarea class="form-control" id="lecturer-comment" name="comment" rows="3"
                               maxlength="2000">@review.LecturerComment</textarea>
                 </div>
-                <button class="btn btn-primary" type="submit">Lưu điểm chốt</button>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-primary" type="submit">Lưu &amp; công bố điểm</button>
+                    @if (review.LecturerScore is not null)
+                    {
+                        <button class="btn btn-outline-secondary" type="submit" name="clearOverride" value="true">Dùng lại điểm AI</button>
+                    }
+                </div>
             </form>
+            <script>
+            (() => {
+              const form = document.getElementById("flexible-grading-form");
+              if (!form) return;
+              const qInputs = [...form.querySelectorAll("[data-flex-q-input]")];
+              const scoreInput = document.getElementById("lecturer-score");
+              const avgEl = document.getElementById("flex-avg-display");
+              const syncFromQuestions = () => {
+                const vals = qInputs.map(i => parseFloat(i.value)).filter(v => !Number.isNaN(v) && v >= 0 && v <= 10);
+                if (vals.length === 0) {
+                  if (avgEl) avgEl.textContent = "—";
+                  return;
+                }
+                const sum = vals.reduce((a, b) => a + b, 0);
+                const avg = Math.round((sum / vals.length) * 100) / 100;
+                if (avgEl) avgEl.textContent = `${avg} / 10`;
+                if (scoreInput) scoreInput.value = String(avg);
+              };
+              qInputs.forEach(inp => inp.addEventListener("input", syncFromQuestions));
+            })();
+            </script>
 
             @if (review.Answers.Count > 0)
             {
+                <h3 class="mt-4 mb-3">Chi tiết từng câu</h3>
                 <ol class="exam-result-ai-answers">
                     @foreach (var answer in review.Answers)
                     {
                         <li>
-                            <h3>Câu @answer.OrderNo · @ExamResultText.Score(answer.AiScore)</h3>
-                            <p class="text-muted">@answer.QuestionText</p>
+                            <h3>
+                                Câu @answer.OrderNo · AI: @ExamResultText.Score(answer.AiScore)
+                                @if (answer.LecturerScore.HasValue)
+                                {
+                                    <span>· Giảng viên: @ExamResultText.Score(answer.LecturerScore)</span>
+                                }
+                            </h3>
+                            <p class="fw-medium mb-2">@answer.QuestionText</p>
+
+                            <div class="exam-result-compare">
+                                <div class="exam-result-expected">
+                                    <span>Sinh viên trả lời</span>
+                                    <p>@(string.IsNullOrWhiteSpace(answer.Transcript) ? "(Chưa ghi nhận câu trả lời)" : answer.Transcript)</p>
+                                </div>
+                                <div class="exam-result-expected exam-result-expected--answer">
+                                    <span>Đáp án chuẩn</span>
+                                    <p>@(string.IsNullOrWhiteSpace(answer.ExpectedAnswer) ? "(Chưa cài đặt)" : answer.ExpectedAnswer)</p>
+                                </div>
+                            </div>
+
                             @if (answer.NotGraded)
                             {
-                                <p class="info-note">AI chưa chấm câu này. Giảng viên cần tự đánh giá.</p>
+                                <p class="text-muted small">Chưa có điểm AI — nhập điểm trực tiếp ở trên.</p>
                             }
                             else
                             {
-                                @if (!string.IsNullOrWhiteSpace(answer.Feedback))
+                                @if (!string.IsNullOrWhiteSpace(answer.Feedback)
+                                    && !answer.Feedback.StartsWith("AI chấm tổng quan", StringComparison.OrdinalIgnoreCase))
                                 {
                                     <p class="info-note">@answer.Feedback</p>
                                 }
-                                <table class="data-table">
-                                    <thead>
-                                        <tr><th>Tiêu chí</th><th>Điểm</th><th>Nhận xét</th></tr>
-                                    </thead>
-                                    <tbody>
-                                    @foreach (var criterion in answer.Criteria)
-                                    {
-                                        <tr>
-                                            <td>@criterion.Name</td>
-                                            <td class="cell-nowrap">@criterion.Awarded.ToString("0.##") / @criterion.MaxScore.ToString("0.##")</td>
-                                            <td>@(criterion.Comment ?? "—")</td>
-                                        </tr>
-                                    }
-                                    </tbody>
-                                </table>
+                                @if (answer.Criteria.Count > 0)
+                                {
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr><th>Tiêu chí</th><th>Điểm</th><th>Nhận xét</th></tr>
+                                        </thead>
+                                        <tbody>
+                                        @foreach (var criterion in answer.Criteria)
+                                        {
+                                            <tr>
+                                                <td>@criterion.Name</td>
+                                                <td class="cell-nowrap">@criterion.Awarded.ToString("0.##") / @criterion.MaxScore.ToString("0.##")</td>
+                                                <td>@(criterion.Comment ?? "—")</td>
+                                            </tr>
+                                        }
+                                        </tbody>
+                                    </table>
+                                }
                                 @if (!string.IsNullOrWhiteSpace(answer.Strengths))
                                 {
                                     <p><strong>Điểm mạnh:</strong> @answer.Strengths</p>
@@ -132,13 +250,25 @@
                             }
                             @if (answer.Probes.Count > 0)
                             {
-                                <h4>Câu hỏi thêm</h4>
-                                <ul>
-                                    @foreach (var probe in answer.Probes)
-                                    {
-                                        <li>@probe.Question<br /><span class="text-muted">@(probe.Transcript ?? "Sinh viên không trả lời.")</span></li>
-                                    }
-                                </ul>
+                                <div class="exam-result-probes">
+                                    <div class="exam-result-probes__header">
+                                        <span class="exam-result-probes__badge">Câu bổ sung (@answer.Probes.Count)</span>
+                                    </div>
+                                    <ol class="exam-result-probes__list">
+                                        @for (var pIdx = 0; pIdx < answer.Probes.Count; pIdx++)
+                                        {
+                                            var probe = answer.Probes[pIdx];
+                                            var noProbeReply = string.IsNullOrWhiteSpace(probe.Transcript);
+                                            <li class="exam-result-probes__item">
+                                                <p class="exam-result-probes__question">@(pIdx + 1). @probe.Question</p>
+                                                <p class="exam-result-probes__answer @(noProbeReply ? "exam-result-probes__answer--empty" : null)">
+                                                    <strong>Trả lời:</strong>
+                                                    @(noProbeReply ? "Không trả lời." : probe.Transcript)
+                                                </p>
+                                            </li>
+                                        }
+                                    </ol>
+                                </div>
                             }
                         </li>
                     }
@@ -147,7 +277,7 @@
 
             @if (review.Trail.Count > 0)
             {
-                <h3>Lịch sử thay đổi điểm</h3>
+                <h3>Lịch sử thay đổi điểm &amp; giám sát</h3>
                 <ul class="exam-result-trail">
                     @foreach (var entry in review.Trail)
                     {
@@ -171,7 +301,7 @@
             </div>
         </div>
     }
-    else
+    else if (hasMcqSelections || Model.Review?.Answers.Count is null or 0)
     {
         <div class="content-card exam-result-review">
             <div class="section-heading">

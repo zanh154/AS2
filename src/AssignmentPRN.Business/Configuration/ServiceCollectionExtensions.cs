@@ -39,6 +39,9 @@ public static class ServiceCollectionExtensions
         // The AI examiner. Both adapters swallow model failures, so a viva still runs
         // end to end with nothing listening on the Ollama port.
         services.AddSingleton<OllamaJsonClient>();
+        services.AddSingleton<GeminiJsonClient>();
+        services.AddSingleton<RoutingAiJsonClient>();
+        services.AddSingleton<IAiJsonClient>(sp => sp.GetRequiredService<RoutingAiJsonClient>());
         services.AddScoped<IFollowUpAnalyzer, OllamaFollowUpAnalyzer>();
         services.AddScoped<IAnswerGrader, OllamaAnswerGrader>();
         services.AddScoped<AssignmentPRN.DataAccess.Repositories.IGradingRepository,
@@ -67,6 +70,9 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
         services.AddOptions<OllamaOptions>()
             .BindConfiguration(OllamaOptions.SectionName)
+            .ValidateOnStart();
+        services.AddOptions<GeminiOptions>()
+            .BindConfiguration(GeminiOptions.SectionName)
             .ValidateOnStart();
         services.AddOptions<RagOptions>()
             .BindConfiguration(RagOptions.SectionName)

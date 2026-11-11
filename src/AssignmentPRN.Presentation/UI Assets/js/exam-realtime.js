@@ -9,6 +9,19 @@ document.addEventListener("DOMContentLoaded", () => {
     .build();
   let busy = false;
   let dirty = false;
+  let navigating = false;
+
+  // Giữ nguyên điều hướng khi người dùng vừa bấm submit form (ví dụ "Thi giọng nói" hoặc
+  // "Vào thi"): server phát ExamChanged("entered") trong lúc POST chưa trả về 302,
+  // nếu gọi location.reload() ngay lúc này trình duyệt sẽ hủy request POST đó.
+  document.addEventListener("submit", event => {
+    if (!event.target.closest?.("form")) return;
+    queueMicrotask(() => {
+      if (!event.defaultPrevented) navigating = true;
+    });
+  });
+  window.addEventListener("beforeunload", () => { navigating = true; });
+  window.addEventListener("pageshow", () => { navigating = false; });
 
   // Theo dõi toàn trang, kể cả các màn hình chưa có data-live-page. Nhờ vậy
   // realtime không tải lại và làm mất nội dung một form đang được nhập dở.
@@ -57,6 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const updatePage = async message => {
+    if (navigating) return;
     if (dirty) {
       showNotice(`${message} Hãy lưu phần đang nhập để xem dữ liệu mới.`);
       return;

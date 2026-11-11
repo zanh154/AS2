@@ -2,41 +2,39 @@
 @model AssignmentPRN.Presentation.Pages.MyResults.IndexModel
 @using AssignmentPRN.Presentation.ViewModels
 @{
-    ViewData["Title"] = "Kết quả bài thi của tôi";
+    ViewData["Title"] = "Bài làm & kết quả thi";
     var review = Model.Review;
+    var isPublished = review.IsPublished;
 }
-<div class="exam-result-page" data-live-page="ExamResults"
-     data-exam-id="@review.ExamId" data-candidate-id="@review.CandidateId">
+<div class="exam-result-page"
+     data-live-page="@(isPublished ? "ExamResults" : null)"
+     data-exam-id="@review.ExamId"
+     data-candidate-id="@review.CandidateId">
     <div class="page-header exam-result-header">
         <div>
             <a class="back-link" asp-page="/StudentSchedule/Mine">
                 <partial name="/Pages/Shared/_Icon.cshtml" model="@("arrow-left")" /> Quay lại lịch thi
             </a>
-            <h1>Kết quả bài thi</h1>
-            @* Chỉ nói "giảng viên đã chốt" khi đúng là vậy. Trước khi giảng viên xem bài,
-               điểm ở đây là điểm AI đề xuất và còn có thể đổi; nói khác đi là hứa với sinh
-               viên một điều chưa xảy ra. *@
-            @if (review.LecturerScore is not null)
-            {
-                <p>Điểm dưới đây là điểm giảng viên đã chốt. Nhận xét do AI gợi ý để bạn tự rút kinh nghiệm.</p>
-            }
-            else
-            {
-                <p>Điểm dưới đây do AI đề xuất, <strong>giảng viên chưa xác nhận</strong> nên có thể còn thay đổi. Nhận xét do AI gợi ý để bạn tự rút kinh nghiệm.</p>
-            }
+            <h1>@(isPublished ? "Kết quả bài thi" : "Bài làm của bạn")</h1>
+            <p>
+                @if (isPublished)
+                {
+                    <span>Điểm đã được giảng viên công bố.</span>
+                }
+                else
+                {
+                    <span class="status-chip status-chip--warning">Chờ giảng viên công bố điểm</span>
+                }
+            </p>
         </div>
-        <div class="exam-result-score" aria-label="Điểm @ExamResultText.Score(review.FinalScore) trên 10">
-            <span>@(review.LecturerScore is not null ? "Điểm" : "Điểm tạm")</span>
-            <strong>@ExamResultText.Score(review.FinalScore)</strong>
+        <div class="exam-result-score" aria-label="Điểm @(isPublished ? ExamResultText.Score(review.FinalScore) : "--") trên 10">
+            <span>Điểm</span>
+            <strong>@(isPublished ? ExamResultText.Score(review.FinalScore) : "--")</strong>
             <small>/ 10</small>
         </div>
     </div>
 
-    @if (review.FinalScore is null)
-    {
-        <div class="info-note">Bài của bạn chưa được chấm xong. Hãy quay lại sau.</div>
-    }
-    @if (!string.IsNullOrWhiteSpace(review.LecturerComment))
+    @if (isPublished && !string.IsNullOrWhiteSpace(review.LecturerComment))
     {
         <div class="content-card">
             <h2>Nhận xét của giảng viên</h2>
@@ -46,17 +44,13 @@
 
     <div class="content-card exam-result-ai">
         <div class="section-heading">
-            <div>
-                <h2>Từng câu hỏi</h2>
-                <p class="text-muted">Điểm từng câu do AI đề xuất; điểm cuối cùng vẫn do giảng viên quyết định.</p>
-            </div>
+            <h2>@(isPublished ? "Chi tiết từng câu" : "Câu trả lời đã nộp")</h2>
         </div>
         @if (review.Answers.Count == 0)
         {
             <div class="empty-state">
                 <div class="empty-icon"><partial name="/Pages/Shared/_Icon.cshtml" model="@("question")" /></div>
-                <h2>Chưa có nội dung</h2>
-                <p>Bài thi này chưa ghi nhận câu trả lời nào.</p>
+                <h2>Chưa có câu trả lời</h2>
             </div>
         }
         else
@@ -64,15 +58,23 @@
             <ol class="exam-result-ai-answers">
                 @foreach (var answer in review.Answers)
                 {
+                    var shownScore = isPublished ? answer.EffectiveScore : null;
                     <li>
-                        <h3>Câu @answer.OrderNo · @ExamResultText.Score(answer.AiScore)</h3>
-                        <p class="text-muted">@answer.QuestionText</p>
-                        <p><strong>Bạn đã trả lời:</strong> @(answer.Transcript ?? "Không có nội dung nhận dạng.")</p>
-                        @if (answer.NotGraded)
+                        @if (shownScore.HasValue)
                         {
-                            <p class="info-note">Câu này do giảng viên chấm trực tiếp, không có gợi ý của AI.</p>
+                            <h3>Câu @answer.OrderNo · @ExamResultText.Score(shownScore)</h3>
                         }
                         else
+                        {
+                            <h3>Câu @answer.OrderNo</h3>
+                        }
+                        <p class="fw-medium mb-2">@answer.QuestionText</p>
+                        <div class="exam-result-expected mb-2">
+                            <span>Trả lời</span>
+                            <p>@(string.IsNullOrWhiteSpace(answer.Transcript) ? "(Chưa ghi nhận nội dung)" : answer.Transcript)</p>
+                        </div>
+
+                        @if (isPublished && !answer.NotGraded)
                         {
                             @if (answer.Criteria.Count > 0)
                             {
@@ -103,15 +105,28 @@
                                 <p><strong>Ý còn thiếu:</strong> @answer.MissingPoints</p>
                             }
                         }
+
                         @if (answer.Probes.Count > 0)
                         {
-                            <h4>Câu hỏi thêm</h4>
-                            <ul>
-                                @foreach (var probe in answer.Probes)
-                                {
-                                    <li>@probe.Question<br /><span class="text-muted">@(probe.Transcript ?? "Bạn không trả lời câu này.")</span></li>
-                                }
-                            </ul>
+                            <div class="exam-result-probes">
+                                <div class="exam-result-probes__header">
+                                    <span class="exam-result-probes__badge">Câu bổ sung (@answer.Probes.Count)</span>
+                                </div>
+                                <ol class="exam-result-probes__list">
+                                    @for (var pIdx = 0; pIdx < answer.Probes.Count; pIdx++)
+                                    {
+                                        var probe = answer.Probes[pIdx];
+                                        var noProbeReply = string.IsNullOrWhiteSpace(probe.Transcript);
+                                        <li class="exam-result-probes__item">
+                                            <p class="exam-result-probes__question">@(pIdx + 1). @probe.Question</p>
+                                            <p class="exam-result-probes__answer @(noProbeReply ? "exam-result-probes__answer--empty" : null)">
+                                                <strong>Trả lời:</strong>
+                                                @(noProbeReply ? "Không trả lời." : probe.Transcript)
+                                            </p>
+                                        </li>
+                                    }
+                                </ol>
+                            </div>
                         }
                     </li>
                 }
@@ -120,6 +135,9 @@
     </div>
 </div>
 
-@section Scripts {
-    <script src="~/js/grading-live.js" asp-append-version="true"></script>
+@if (isPublished)
+{
+    @section Scripts {
+        <script src="~/js/grading-live.js" asp-append-version="true"></script>
+    }
 }

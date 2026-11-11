@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AssignmentPRN.Business.Interfaces;
 using AssignmentPRN.Business.Policies;
 using AssignmentPRN.DataAccess.Repositories;
@@ -22,10 +24,15 @@ public sealed record ReviewAnswer(
     string? Weaknesses,
     string? MissingPoints,
     IReadOnlyList<ReviewCriterion> Criteria,
-    IReadOnlyList<ReviewProbe> Probes)
+    IReadOnlyList<ReviewProbe> Probes,
+    string? ExpectedAnswer = null,
+    decimal? LecturerScore = null)
 {
     /// <summary>True when the model never marked this one, so the examiner must.</summary>
     public bool NotGraded => AiScore is null;
+
+    /// <summary>The effective question mark: lecturer's override when saved, otherwise AI's suggestion.</summary>
+    public decimal? EffectiveScore => LecturerScore ?? AiScore;
 }
 
 /// <summary>One recorded change of the mark.</summary>
@@ -42,7 +49,24 @@ public sealed record CandidateReview(
     string? FinalizedByName,
     DateTime? FinalizedAt,
     IReadOnlyList<ReviewAnswer> Answers,
-    IReadOnlyList<ReviewAuditEntry> Trail);
+    IReadOnlyList<ReviewAuditEntry> Trail,
+    bool IsDisqualified = false,
+    int CheatViolationCount = 0)
+{
+    public bool IsPublished => FinalizedAt.HasValue;
+
+    public int GradedQuestionCount => Answers.Count(a => a.EffectiveScore.HasValue);
+
+    public decimal? QuestionTotalScore => GradedQuestionCount == 0
+        ? null
+        : Answers.Where(a => a.EffectiveScore.HasValue).Sum(a => a.EffectiveScore!.Value);
+
+    public decimal? QuestionAverageScore => GradedQuestionCount == 0
+        ? null
+        : Math.Round(QuestionTotalScore!.Value / GradedQuestionCount, 2, MidpointRounding.AwayFromZero);
+}
+
+public sealed record QuestionScoreAdjustment(int OrderNo, decimal Score);
 
 public interface IResultReviewService
 {
@@ -55,10 +79,14 @@ public interface IResultReviewService
     Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
         int? ownerLecturerId, CancellationToken ct = default);
 
+    Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
+        IReadOnlyList<QuestionScoreAdjustment>? questionScores, int? ownerLecturerId, CancellationToken ct = default) =>
+        AdjustAsync(candidateId, lecturerId, score, comment, ownerLecturerId, ct);
+
     /// <summary>
     /// A student's own report, after their slot is finished: the mark that counts and
     /// what the AI said about each answer. Someone else's slot, or one still being sat,
-    /// is refused.
+    /// is refused. Scores and grading details stay withheld until the lecturer finalizes/publishes.
     /// </summary>
     Task<ServiceResponse<CandidateReview>> GetForStudentAsync(int candidateId, int studentId, CancellationToken ct = default);
 }
@@ -69,11 +97,17 @@ public interface IResultReviewService
 /// <see cref="IExamResultService"/>, the same way the results screens already do, so a
 /// lecturer only ever reaches a session they run.
 /// </summary>
-public sealed class ResultReviewService(
+public sealed partial class ResultReviewService(
     IGradingRepository repository,
     IExamResultService results,
     TimeProvider clock) : IResultReviewService
 {
+    [GeneratedRegex(@"\[Chi tiết câu:\s*(?<detail>[^\]]+)\]", RegexOptions.CultureInvariant)]
+    private static partial Regex QuestionDetailBlockPattern();
+
+    [GeneratedRegex(@"Câu\s*(?<order>\d+)\s*:\s*(?<score>\d+(?:[.,]\d+)?)", RegexOptions.CultureInvariant)]
+    private static partial Regex QuestionDetailItemPattern();
+
     public Task<ServiceResponse<CandidateReview>> GetAsync(int candidateId, int? lecturerId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>
         {
@@ -83,6 +117,8 @@ public sealed class ResultReviewService(
             var review = await repository.LoadReviewAsync(id, ct)
                 ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
             var trail = await repository.AuditTrailAsync(id, ct);
+            var (isDisqualified, cheatCount) = await repository.ProctorStatusAsync(id, ct);
+            var perQuestionLecturer = ParseLatestQuestionScores(trail, review.LecturerScore.HasValue);
 
             return new CandidateReview(
                 review.CandidateId,
@@ -106,13 +142,21 @@ public sealed class ResultReviewService(
                     answer.Criteria
                         .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
                         .ToArray(),
-                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray()))
+                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
+                    answer.ExpectedAnswer,
+                    perQuestionLecturer.TryGetValue(answer.OrderNo, out var qLectScore) ? qLectScore : null))
                     .ToArray(),
-                trail.Select(x => new ReviewAuditEntry(x.ByName, x.At, x.Description)).ToArray());
+                trail.Select(x => new ReviewAuditEntry(x.ByName, x.At, x.Description)).ToArray(),
+                isDisqualified,
+                cheatCount);
         }, "Không thể tải đánh giá của AI.");
 
     public Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
         int? ownerLecturerId, CancellationToken ct = default) =>
+        AdjustAsync(candidateId, lecturerId, score, comment, null, ownerLecturerId, ct);
+
+    public Task<ServiceResponse> AdjustAsync(int candidateId, int lecturerId, decimal? score, string? comment,
+        IReadOnlyList<QuestionScoreAdjustment>? questionScores, int? ownerLecturerId, CancellationToken ct = default) =>
         ServiceExecutor.RunAsync(async () =>
         {
             var id = BusinessValidation.PositiveId(candidateId, "lượt thi");
@@ -129,7 +173,7 @@ public sealed class ResultReviewService(
             var trimmed = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
             var final = ResultAdjustmentRules.FinalScore(score, review.AiScore);
             await repository.AdjustAsync(id, candidate, lecturerId, score, final, trimmed,
-                ResultAdjustmentRules.AuditLine(review.FinalScore, final, trimmed),
+                FormatAuditLine(review.FinalScore, final, trimmed, questionScores),
                 clock.GetLocalNow().DateTime, ct);
         }, "Không thể lưu điểm.");
 
@@ -152,36 +196,79 @@ public sealed class ResultReviewService(
             var review = await repository.LoadReviewAsync(id, ct)
                 ?? throw new BusinessValidationException("Không tìm thấy lượt thi.");
 
-            // No trail: who changed the mark and when is the examiner's record, not the
-            // student's. The mark itself, and the reason for it, they do get.
+            var isPublished = review.FinalizedAt.HasValue;
+            var perQuestionLecturer = isPublished && review.LecturerScore.HasValue
+                ? ParseLatestQuestionScores(await repository.AuditTrailAsync(id, ct), hasLecturerOverride: true)
+                : new Dictionary<int, decimal>();
+
+            // Scores, AI evaluations, and lecturer comments remain confidential until the
+            // lecturer publishes/finalizes the score. Before then, the student can only
+            // review their own recorded answers and follow-up exchanges.
             return new CandidateReview(
                 review.CandidateId,
                 review.ExamId,
-                review.AiScore,
-                review.LecturerScore,
-                review.FinalScore,
-                review.LecturerComment,
+                isPublished ? review.AiScore : null,
+                isPublished ? review.LecturerScore : null,
+                isPublished ? review.FinalScore : null,
+                isPublished ? review.LecturerComment : null,
                 null,
                 review.FinalizedAt,
                 review.Answers.Select(answer => new ReviewAnswer(
                     answer.OrderNo,
                     answer.QuestionText,
                     answer.Transcript,
-                    answer.AiScore,
-                    answer.Confidence,
-                    answer.Feedback,
-                    answer.Strengths,
-                    answer.Weaknesses,
-                    answer.MissingPoints,
-                    answer.Criteria
-                        .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
-                        .ToArray(),
-                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray()))
+                    isPublished ? answer.AiScore : null,
+                    isPublished ? answer.Confidence : null,
+                    isPublished ? answer.Feedback : null,
+                    isPublished ? answer.Strengths : null,
+                    isPublished ? answer.Weaknesses : null,
+                    isPublished ? answer.MissingPoints : null,
+                    isPublished
+                        ? answer.Criteria
+                            .Select(x => new ReviewCriterion(x.Name, x.Awarded, x.MaxScore, x.Comment))
+                            .ToArray()
+                        : [],
+                    answer.Probes.Select(x => new ReviewProbe(x.QuestionText, x.AnswerTranscript)).ToArray(),
+                    null,
+                    isPublished && perQuestionLecturer.TryGetValue(answer.OrderNo, out var qLectScore) ? qLectScore : null))
                     .ToArray(),
                 []);
         }, "Không thể tải kết quả bài thi.");
 
+    private static Dictionary<int, decimal> ParseLatestQuestionScores(IReadOnlyList<ResultAuditRow> trail, bool hasLecturerOverride)
+    {
+        var map = new Dictionary<int, decimal>();
+        if (!hasLecturerOverride || trail.Count == 0) return map;
+
+        var latestAdjustment = trail.FirstOrDefault(row =>
+            row.Description.StartsWith("Điểm chốt:", StringComparison.Ordinal));
+        if (latestAdjustment is null) return map;
+
+        var block = QuestionDetailBlockPattern().Match(latestAdjustment.Description);
+        if (!block.Success) return map;
+
+        foreach (Match item in QuestionDetailItemPattern().Matches(block.Groups["detail"].Value))
+        {
+            if (int.TryParse(item.Groups["order"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var orderNo)
+                && decimal.TryParse(item.Groups["score"].Value.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var qScore))
+            {
+                map[orderNo] = Math.Round(Math.Clamp(qScore, 0m, 10m), 2, MidpointRounding.AwayFromZero);
+            }
+        }
+
+        return map;
+    }
+
     /// <summary>Returns the exam the candidate sits, once the caller is allowed to see it.</summary>
+    private static string FormatAuditLine(decimal? previous, decimal? final, string? comment, IReadOnlyList<QuestionScoreAdjustment>? questionScores)
+    {
+        var baseLine = ResultAdjustmentRules.AuditLine(previous, final, comment);
+        if (questionScores is null || questionScores.Count == 0) return baseLine;
+        var detail = string.Join(", ", questionScores.OrderBy(q => q.OrderNo)
+            .Select(q => $"Câu {q.OrderNo}: {q.Score.ToString("0.##", CultureInfo.InvariantCulture)}"));
+        return $"{baseLine} [Chi tiết câu: {detail}]";
+    }
+
     private async Task<int> EnsureOwnedAsync(int candidateId, int? lecturerId, CancellationToken ct)
     {
         var paper = await results.GetCandidateResultAsync(candidateId, lecturerId, ct);

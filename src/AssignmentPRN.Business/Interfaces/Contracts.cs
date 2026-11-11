@@ -74,6 +74,10 @@ public sealed class ExamSessionCreateRequest
 
     public int MaxFollowUpCount { get; init; }
 
+    public IReadOnlyList<int>? SelectedStudentIds { get; init; }
+
+    public bool FilterStudentsBySelection { get; init; }
+
 }
 
 public sealed class ExamSessionRescheduleRequest
@@ -306,6 +310,8 @@ public sealed class StudentScheduleItemResponse
     public ExamSessionStatus SessionStatus { get; init; }
 
     public CandidateStatus CandidateStatus { get; init; }
+
+    public bool IsCheatingTerminated { get; init; }
 }
 
 /// <summary>Carries one or more messages that are safe to show directly to the user.</summary>
@@ -637,6 +643,7 @@ public sealed class SessionResultResponse
 
     /// <summary>Mean score of the completed papers; null while none is completed.</summary>
     public decimal? AverageScore => CompletedCount == 0
+        || !Candidates.Any(item => item.Score.HasValue)
         ? null
         : Math.Round(
             Candidates.Where(item => item.Score.HasValue).Average(item => item.Score!.Value),
@@ -666,7 +673,12 @@ public sealed class CandidateResultItemResponse
     public int FollowUpTotal { get; init; }
 
     /// <summary>Out of 10, only once the paper is completed.</summary>
+    /// <summary>Out of 10, only once the paper is completed.</summary>
     public decimal? Score { get; init; }
+
+    public int CheatViolationCount { get; init; }
+
+    public bool IsCheatingTerminated { get; init; }
 }
 
 /// <summary>One candidate's marked paper, for the examiner.</summary>

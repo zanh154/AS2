@@ -17,7 +17,7 @@ namespace AssignmentPRN.Business.Services;
 public sealed class OllamaJsonClient(
     IHttpClientFactory httpClientFactory,
     IOptions<OllamaOptions> options,
-    ILogger<OllamaJsonClient> logger)
+    ILogger<OllamaJsonClient> logger) : IAiJsonClient
 {
     private readonly OllamaOptions _options = options.Value;
 
@@ -91,5 +91,30 @@ public sealed class OllamaJsonClient(
         }
     }
 
+    public async Task<float[]?> EmbedAsync(string text, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(_options.BaseUrl);
+            client.Timeout = TimeSpan.FromMinutes(2);
+
+            var response = await client.PostAsJsonAsync(
+                "/api/embeddings",
+                new { model = _options.EmbeddingModel, prompt = text },
+                cancellationToken);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var body = await response.Content.ReadFromJsonAsync<OllamaEmbeddingResponse>(cancellationToken: cancellationToken);
+            return body?.Embedding is { Length: > 0 } vec ? vec : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or UriFormatException or InvalidOperationException)
+        {
+            logger.LogWarning(ex, "Ollama embedding failed.");
+            return null;
+        }
+    }
+
     private sealed record OllamaGenerateResponse(string Response);
+    private sealed record OllamaEmbeddingResponse(float[] Embedding);
 }

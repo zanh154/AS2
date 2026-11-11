@@ -75,6 +75,7 @@ public interface IQuestionRepository
 
     /// <summary>Every question id already written to the exam, across all its candidates.</summary>
     Task<IReadOnlyList<int>> ListAssignedQuestionIdsAsync(int examId, CancellationToken cancellationToken = default);
+    Task<bool> IsRetakeCandidateAsync(int examId, int candidateId, CancellationToken cancellationToken = default) => Task.FromResult(false);
 
     /// <summary>
     /// Deals papers for one exam while the exam row is locked, so two deals of the same exam
@@ -663,6 +664,19 @@ public class QuestionRepository(AivesDbContext context, IExamStatePolicy policy)
             .Select(item => item.QuestionId)
             .Distinct()
             .ToListAsync(cancellationToken);
+
+    public async Task<bool> IsRetakeCandidateAsync(int examId, int candidateId, CancellationToken cancellationToken = default)
+    {
+        var studentId = await context.ExamCandidates
+            .AsNoTracking()
+            .Where(item => item.ExamId == examId && item.CandidateId == candidateId)
+            .Select(item => (int?)item.StudentId)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (!studentId.HasValue) return false;
+        return await context.ExamCandidates
+            .AsNoTracking()
+            .CountAsync(item => item.ExamId == examId && item.StudentId == studentId.Value, cancellationToken) > 1;
+    }
 
     public async Task DealAsync(
         int examId,
