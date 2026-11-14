@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1247" height="1261" viewBox="0 0 1247 1261" role="img" aria-labelledby="t">
+<title id="t">AIVES - kiến trúc 3 tầng</title>
+<defs>
+<marker id="ah" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10z" fill="#111"/></marker>
+</defs>
+<style>
+text{font-family:"Segoe UI",Arial,sans-serif;fill:#111;text-anchor:middle}
+.lt{font-size:19px;font-weight:700}
+.c{font-size:14px}
+.card{fill:#fff;stroke:#333;stroke-width:1.6}
+.req{stroke:#111;stroke-width:2;fill:none;marker-end:url(#ah)}
+.res{stroke:#111;stroke-width:1.6;fill:none;stroke-dasharray:3 3;marker-end:url(#ah)}
+</style>
+<rect width="1247" height="1261" fill="#fff"/>
+
+<!-- 1. Presentation -->
+<rect x="384" y="2" width="752" height="314" rx="40" fill="#b3d6fb" stroke="#7fb0e8" stroke-width="1.5"/>
+<text x="760" y="25" class="lt">1. PRESENTATION LAYER – AssignmentPRN.Presentation</text>
+<rect x="430" y="70" width="146" height="65" rx="8" class="card"/>
+<rect x="600" y="70" width="148" height="65" rx="8" class="card"/>
+<rect x="771" y="70" width="148" height="65" rx="8" class="card"/>
+<rect x="943" y="70" width="147" height="65" rx="8" class="card"/>
+<text x="503" y="98" class="c">Pages/</text><text x="503" y="118" class="c">Razor Pages</text>
+<text x="674" y="91" class="c">Security/</text><text x="674" y="107" class="c">Role rules ·</text><text x="674" y="123" class="c">Session actor</text>
+<text x="845" y="91" class="c">Constants/</text><text x="845" y="107" class="c">SessionKeys ·</text><text x="845" y="123" class="c">RoleNames</text>
+<text x="1016" y="98" class="c">Filters/</text><text x="1016" y="116" class="c">Authorize Filters</text>
+<rect x="432" y="196" width="147" height="65" rx="8" class="card"/>
+<rect x="600" y="196" width="148" height="65" rx="8" class="card"/>
+<rect x="776" y="196" width="146" height="65" rx="8" class="card"/>
+<rect x="940" y="196" width="148" height="65" rx="8" class="card"/>
+<text x="505" y="217" class="c">ViewModels/</text><text x="505" y="233" class="c">Form / View</text><text x="505" y="249" class="c">models</text>
+<text x="674" y="217" class="c">Hub/</text><text x="674" y="233" class="c">SignalR</text><text x="674" y="249" class="c">endpoint</text>
+<text x="849" y="224" class="c">Realtime/</text><text x="849" y="242" class="c">SignalR adapter</text>
+<text x="1014" y="233" class="c">UI Assets</text>
+
+<!-- 2. Business -->
+<rect x="389" y="438" width="748" height="136" rx="20" fill="#c3f5c3" stroke="#8fd88f" stroke-width="1.5"/>
+<text x="763" y="463" class="lt">2. BUSINESS LOGIC LAYER – AssignmentPRN.Business</text>
+<rect x="582" y="486" width="156" height="64" rx="8" class="card"/>
+<rect x="824" y="486" width="156" height="64" rx="8" class="card"/>
+<text x="660" y="523" class="c">Services</text>
+<text x="902" y="523" class="c">Interfaces</text>
+
+<!-- Third-party -->
+<rect x="72" y="420" width="194" height="172" rx="18" fill="#fff2b0" stroke="#e5c96a" stroke-width="1.5"/>
+<text x="169" y="446" class="lt">THIRD-PARTY</text>
+<rect x="95" y="464" width="148" height="46" rx="8" class="card"/>
+<rect x="95" y="524" width="148" height="46" rx="8" class="card"/>
+<text x="169" y="492" class="c">Ollama Local</text>
+<text x="169" y="552" class="c">Gemini API</text>
+
+<!-- 3. Data access -->
+<rect x="389" y="662" width="755" height="114" rx="18" fill="#c9c9fa" stroke="#a8a8ee" stroke-width="1.5"/>
+<text x="766" y="687" class="lt">3. DATA ACCESS LAYER – AssignmentPRN.DataAccess</text>
+<rect x="475" y="709" width="158" height="44" rx="6" class="card"/>
+<rect x="697" y="709" width="159" height="44" rx="6" class="card"/>
+<rect x="932" y="709" width="158" height="44" rx="6" class="card"/>
+<text x="554" y="736" class="c">Repositories</text>
+<text x="776" y="736" class="c">AivesDbContext</text>
+<text x="1011" y="736" class="c">File Store</text>
+
+<!-- Database -->
+<path d="M500 890V968A70 12 0 0 0 640 968V890" fill="#a0eef4" stroke="#333" stroke-width="1.6"/>
+<ellipse cx="570" cy="890" rx="70" ry="12" fill="#a0eef4" stroke="#333" stroke-width="1.6"/>
+<text x="570" y="934" class="lt">DATABASE ·</text>
+<text x="570" y="958" class="lt">MySQL 8.4</text>
+
+<!-- Arrows -->
+<path d="M716 316V436" class="req"/>
+<path d="M760 438V318" class="res"/>
+<path d="M389 506H268" class="req"/>
+<path d="M268 541H387" class="res"/>
+<path d="M714 574V660" class="req"/>
+<path d="M752 662V576" class="res"/>
+<path d="M550 776V876" class="req"/>
+<path d="M587 876V778" class="res"/>
+
+<!-- Note -->
+<rect x="384" y="1062" width="310" height="134" rx="20" fill="#fdcb9c" stroke="#e3a46e" stroke-width="1.5"/>
+<text x="422" y="1103" style="font-size:19px;font-weight:600">Note</text>
+<path d="M530 1138H410" class="req"/>
+<path d="M530 1173H410" class="res" style="stroke-dasharray:7 5;stroke-width:2"/>
+<text x="586" y="1146" style="font-size:19px">Request</text>
+<text x="596" y="1181" style="font-size:19px">Response</text>
+</svg>
